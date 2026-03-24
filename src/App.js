@@ -111,7 +111,6 @@ function RepeatSpeakBtn({text,onSpeak,muted=false,size="lg"}) {
     setPlaying(false); setCount(0);
   };
   const handleStop=(e)=>{ e.stopPropagation(); stopRef.current=true; window.speechSynthesis?.cancel(); setPlaying(false); setCount(0); };
-  const cycleMode=(e)=>{ e.stopPropagation(); if(playing) return; setRepeatMode(m=>m===1?5:m===5?10:1); };
 
   const modes=[1,5,10];
   return(
@@ -152,7 +151,6 @@ export default function HebrewQuiz() {
   const envKey=process.env.REACT_APP_GOOGLE_TTS_KEY||"";
   const [apiKey]=useState(envKey); const ttsReady=!!envKey;
   const speak=useCallback(async(text,forceMuted=false)=>{ if(forceMuted) return; if(apiKey){try{await googleTTS(text,apiKey);return;}catch{}} browserTTS(text); },[apiKey]);
-  const speakIfOn=useCallback(async(text)=>{ if(muted) return; if(apiKey){try{await googleTTS(text,apiKey);return;}catch{}} browserTTS(text); },[apiKey,muted]);
 
   const [words,setWordsRaw]             =useState(loadWords);
   const [mode,setMode]                  =useState(MODES.LIST);
