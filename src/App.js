@@ -122,7 +122,8 @@ export default function HebrewQuiz() {
   const [essayResults,setEssayResults]  =useState([]);
   const [essayFilter,setEssayFilter]    =useState(QUIZ_FILTERS.ALL);
   const [essayCount,setEssayCount]      =useState(10);
-  const essayInputRef=useRef(null); const fileInputRef=useRef(null); const csvInputRef=useRef(null);
+  const [essayType,setEssayType]         =useState("heb_to_mean"); // heb_to_mean | mean_to_heb | mixed
+  const essayInputRef=useRef(null); const essayHebrewRef=useRef(null); const fileInputRef=useRef(null); const csvInputRef=useRef(null);
 
   const setWords=(updater)=>{ setWordsRaw(prev=>{ const next=typeof updater==="function"?updater(prev):updater; saveWords(next); return next; }); };
   const masteredCount=words.filter(w=>w.status==="mastered").length;
@@ -146,9 +147,37 @@ export default function HebrewQuiz() {
 
   const getPool=(filter)=>{ const f=filter||quizFilter; if(f===QUIZ_FILTERS.EXCLUDE_MASTERED) return words.filter(w=>w.status!=="mastered"); if(f===QUIZ_FILTERS.HARD_ONLY) return words.filter(w=>w.status==="hard"); return words; };
   const startQuiz=()=>{ const pool=getPool(); if(pool.length<4) return; const count=Math.min(quizCount===9999?pool.length:quizCount,pool.length); const qs=shuffle(pool).slice(0,count).map(w=>generateQuestion(w,words,quizType)); setQuestions(qs); setCurrent(0); setSelected(null); setConfirmed(false); setScore(0); setWrongWords([]); setMode(MODES.QUIZ); setAnimKey(k=>k+1); };
-  const startEssay=()=>{ const pool=getPool(essayFilter); if(!pool.length) return; const count=Math.min(essayCount===9999?pool.length:essayCount,pool.length); const qs=shuffle(pool).slice(0,count).map(w=>({wordId:w.id,question:w.hebrew,answer:w.meaning})); setEssayQuestions(qs); setEssayCurrent(0); setEssayInput(""); setEssayConfirmed(false); setEssayResults([]); setMode(MODES.ESSAY); setAnimKey(k=>k+1); };
-  const handleEssayConfirm=()=>{ if(!essayInput.trim()) return; const q=essayQuestions[essayCurrent]; const result=checkEssayAnswer(essayInput,q.answer); updateWordStats(q.wordId,result!=="wrong"); setEssayResults(r=>[...r,{...q,userInput:essayInput,result}]); setEssayConfirmed(true); speak(q.question); };
-  const handleEssayNext=()=>{ if(essayCurrent+1>=essayQuestions.length){setMode(MODES.ESSAY_RESULT);return;} setEssayCurrent(c=>c+1); setEssayInput(""); setEssayConfirmed(false); setAnimKey(k=>k+1); };
+  const startEssay=()=>{
+    const pool=getPool(essayFilter); if(!pool.length) return;
+    const count=Math.min(essayCount===9999?pool.length:essayCount,pool.length);
+    const qs=shuffle(pool).slice(0,count).map(w=>{
+      let type=essayType;
+      if(type==="mixed") type=Math.random()>0.5?"heb_to_mean":"mean_to_heb";
+      return type==="heb_to_mean"
+        ?{wordId:w.id,question:w.hebrew,answer:w.meaning,questionType:"heb_to_mean",hebrewWord:w.hebrew}
+        :{wordId:w.id,question:w.meaning,answer:w.hebrew,questionType:"mean_to_heb",hebrewWord:w.hebrew};
+    });
+    setEssayQuestions(qs); setEssayCurrent(0); setEssayInput(""); setEssayConfirmed(false); setEssayResults([]); setMode(MODES.ESSAY); setAnimKey(k=>k+1);
+  };
+  const getEssayInputValue=()=>{
+    const q=essayQuestions[essayCurrent];
+    if(q?.questionType==="mean_to_heb") return essayHebrewRef.current?essayHebrewRef.current.value:"";
+    return essayInput;
+  };
+  const handleEssayConfirm=()=>{
+    const q=essayQuestions[essayCurrent];
+    const inputVal=getEssayInputValue();
+    if(!inputVal.trim()) return;
+    // For mean_to_heb: compare after stripping nikkud
+    const checkVal = q.questionType==="mean_to_heb" ? stripNikkud(inputVal) : inputVal;
+    const checkAns = q.questionType==="mean_to_heb" ? stripNikkud(q.answer) : q.answer;
+    const result=checkEssayAnswer(checkVal,checkAns);
+    updateWordStats(q.wordId,result!=="wrong");
+    setEssayResults(r=>[...r,{...q,userInput:inputVal,result}]);
+    setEssayConfirmed(true);
+    speak(q.hebrewWord||q.question);
+  };
+  const handleEssayNext=()=>{ if(essayCurrent+1>=essayQuestions.length){setMode(MODES.ESSAY_RESULT);return;} setEssayCurrent(c=>c+1); setEssayInput(""); setEssayConfirmed(false); setAnimKey(k=>k+1); if(essayHebrewRef.current) essayHebrewRef.current.value=""; };
   const handleSelect=choice=>{ if(!confirmed) setSelected(choice); };
   const handleConfirm=()=>{ if(!selected) return; const correct=selected===questions[current].answer; if(correct) setScore(s=>s+1); else setWrongWords(w=>[...w,questions[current]]); updateWordStats(questions[current].wordId,correct); setConfirmed(true); const q=questions[current]; setTimeout(()=>speak(q.questionType===QUIZ_TYPES.HEB_TO_MEAN?q.question:q.answer),300); };
   const handleNext=()=>{ if(current+1>=questions.length){setMode(MODES.RESULT);return;} setCurrent(c=>c+1); setSelected(null); setConfirmed(false); setAnimKey(k=>k+1); };
@@ -307,9 +336,15 @@ export default function HebrewQuiz() {
             {/* 서술형 */}
             <div style={{...S.card,border:"1px solid rgba(100,80,200,0.3)"}}>
               <h2 style={{...S.cardTitle,color:"#9060f0"}}>✍️ 서술형 시험</h2>
-              <p style={{fontSize:"0.82rem",color:"#7a7890",marginBottom:"12px"}}>히브리어를 보고 뜻을 직접 타이핑! 유연한 채점으로 부분 정답도 인정돼요 🟡</p>
+              <p style={{fontSize:"0.82rem",color:"#7a7890",marginBottom:"12px"}}>직접 타이핑해서 답하는 서술형! 부분 정답도 인정됩니다.</p>
+              <p style={S.settingLabel}>문제 방향</p>
+              <div style={S.optionRow}>
+                {[["heb_to_mean","히브리어 → 뜻 입력"],["mean_to_heb","뜻 → 히브리어 입력"],["mixed","랜덤 혼합"]].map(([val,label])=>(
+                  <button key={val} style={{...S.optBtn,...(essayType===val?S.essayOptActive:{})}} onClick={()=>setEssayType(val)}>{label}</button>
+                ))}
+              </div>
               <p style={S.settingLabel}>단어 범위</p>
-              <div style={S.optionRow}>{[[QUIZ_FILTERS.ALL,`전체 (${words.length})`],[QUIZ_FILTERS.EXCLUDE_MASTERED,`암기 제외 (${words.filter(w=>w.status!=="mastered").length})`],[QUIZ_FILTERS.HARD_ONLY,`🔥 어려운 것만 (${hardCount})`]].map(([val,label])=><button key={val} style={{...S.optBtn,...(essayFilter===val?S.essayOptActive:{})}} onClick={()=>setEssayFilter(val)}>{label}</button>)}</div>
+              <div style={S.optionRow}>{[[QUIZ_FILTERS.ALL,`전체 (${words.length})`],[QUIZ_FILTERS.EXCLUDE_MASTERED,`암기 제외 (${words.filter(w=>w.status!=="mastered").length})`],[QUIZ_FILTERS.HARD_ONLY,`어려운 것만 (${hardCount})`]].map(([val,label])=><button key={val} style={{...S.optBtn,...(essayFilter===val?S.essayOptActive:{})}} onClick={()=>setEssayFilter(val)}>{label}</button>)}</div>
               <p style={S.settingLabel}>문제 수</p>
               <div style={S.optionRow}>{countOptions.map(({label,value})=>{ const d=value!==9999&&value>essayPoolSize; return<button key={value} style={{...S.optBtn,...(essayCount===value?S.essayOptActive:{}),...(d?{opacity:0.3,cursor:"not-allowed"}:{})}} onClick={()=>!d&&setEssayCount(value)} disabled={d}>{label}</button>; })}</div>
               <button style={{...S.btnEssayStart,...(!essayPoolSize?S.btnDisabled:{})}} onClick={startEssay} disabled={!essayPoolSize}>✍️ 서술형 시작! ({essayCount===9999?essayPoolSize:Math.min(essayCount,essayPoolSize)}문제)</button>
@@ -358,22 +393,50 @@ export default function HebrewQuiz() {
             <div style={{...S.progressBar,background:"rgba(100,80,200,0.15)"}}><div style={{...S.progressFill,width:`${essayProgress}%`,background:"linear-gradient(90deg,#6040c8,#9060f0)"}}/></div>
             <div style={S.progressLabel}><span>✍️ {essayCurrent+1} / {essayQuestions.length}</span><span style={{color:"#9060f0",fontWeight:600}}>정답 {essayResults.filter(r=>r.result!=="wrong").length} / {essayCurrent+(essayConfirmed?1:0)}</span></div>
             <div style={{...S.questionCard,border:"1px solid rgba(100,80,200,0.3)"}}>
-              <div style={{...S.questionTag,color:"#9060f0"}}>히브리어의 뜻을 직접 입력하세요</div>
-              <div style={{fontFamily:"'Frank Ruhl Libre',serif",fontSize:"clamp(2rem,8vw,3rem)",direction:"rtl",color:"#f0ece0",marginBottom:"14px"}}>{eq.question}</div>
-              <SpeakBtn text={eq.question} onSpeak={speak} size="lg"/>
+              <div style={{...S.questionTag,color:"#9060f0"}}>
+                {eq.questionType==="heb_to_mean"?"히브리어의 뜻을 입력하세요":"뜻에 해당하는 히브리어를 입력하세요"}
+              </div>
+              {eq.questionType==="heb_to_mean"
+                ?<div style={{fontFamily:"'Frank Ruhl Libre',serif",fontSize:"clamp(2rem,8vw,3rem)",direction:"rtl",color:"#f0ece0",marginBottom:"14px"}}>{eq.question}</div>
+                :<div style={{fontSize:"clamp(1.1rem,4vw,1.5rem)",color:"#f0ece0",marginBottom:"14px",lineHeight:1.4}}>{eq.question}</div>
+              }
+              <div style={{display:"flex",alignItems:"center",gap:"8px",justifyContent:"center"}}>
+                <SpeakBtn text={eq.hebrewWord} onSpeak={speak} size="lg"/>
+                <span style={{fontSize:"0.75rem",color:"#5a5870"}}>
+                  {eq.questionType==="heb_to_mean"?"탭하면 다시 들을 수 있어요":"히브리어 발음 듣기"}
+                </span>
+              </div>
             </div>
-            <input ref={essayInputRef} style={{...S.input,fontSize:"1.1rem",marginBottom:"12px",...(essayConfirmed?{borderColor:essayResults[essayResults.length-1]?.result==="exact"?"rgba(60,180,100,0.6)":essayResults[essayResults.length-1]?.result==="partial"?"rgba(196,160,80,0.6)":"rgba(200,60,60,0.6)"}:{})}}
-              placeholder="뜻을 입력하세요..." value={essayInput}
-              onChange={e=>!essayConfirmed&&setEssayInput(e.target.value)}
-              onKeyDown={e=>{if(e.key==="Enter"){if(!essayConfirmed)handleEssayConfirm();else handleEssayNext();}}}
-              readOnly={essayConfirmed}/>
+
+            {/* 뜻 입력 (heb_to_mean) — controlled */}
+            {eq.questionType==="heb_to_mean"&&(
+              <input ref={essayInputRef}
+                style={{...S.input,fontSize:"1.1rem",marginBottom:"12px",...(essayConfirmed?{borderColor:essayResults[essayResults.length-1]?.result==="exact"?"rgba(60,180,100,0.6)":essayResults[essayResults.length-1]?.result==="partial"?"rgba(196,160,80,0.6)":"rgba(200,60,60,0.6)"}:{})}}
+                placeholder="뜻을 한국어/영어로 입력하세요..." value={essayInput}
+                onChange={e=>!essayConfirmed&&setEssayInput(e.target.value)}
+                onKeyDown={e=>{if(e.key==="Enter"){if(!essayConfirmed)handleEssayConfirm();else handleEssayNext();}}}
+                readOnly={essayConfirmed}/>
+            )}
+
+            {/* 히브리어 입력 (mean_to_heb) — uncontrolled ref (히브리어 IME 문제 방지) */}
+            {eq.questionType==="mean_to_heb"&&(
+              <input ref={essayHebrewRef}
+                style={{...S.input,fontSize:"1.3rem",fontFamily:"'Frank Ruhl Libre',serif",direction:"rtl",marginBottom:"12px",unicodeBidi:"plaintext",...(essayConfirmed?{borderColor:essayResults[essayResults.length-1]?.result==="exact"?"rgba(60,180,100,0.6)":essayResults[essayResults.length-1]?.result==="partial"?"rgba(196,160,80,0.6)":"rgba(200,60,60,0.6)"}:{})}}
+                placeholder="히브리어로 입력하세요..." lang="he" spellCheck={false} autoCorrect="off"
+                defaultValue="" readOnly={essayConfirmed}
+                onKeyDown={e=>{if(e.key==="Enter"){if(!essayConfirmed)handleEssayConfirm();else handleEssayNext();}}}/>
+            )}
+
             {essayConfirmed&&(()=>{ const last=essayResults[essayResults.length-1];
-              if(last?.result==="exact") return<div style={{...S.feedbackCorrect,flexWrap:"wrap"}}>✅ 정답! <SpeakBtn text={eq.question} onSpeak={speak}/></div>;
-              if(last?.result==="partial") return<div style={{...S.feedbackCorrect,background:"rgba(196,160,80,0.15)",borderColor:"rgba(196,160,80,0.3)",color:"#e8c875",flexWrap:"wrap"}}>🟡 부분 정답! 정확한 답: <b>{eq.answer}</b> <SpeakBtn text={eq.question} onSpeak={speak}/></div>;
-              return<div style={{...S.feedbackWrong,flexWrap:"wrap"}}>❌ 오답 — 정답: <b>{eq.answer}</b> <SpeakBtn text={eq.question} onSpeak={speak}/></div>;
+              if(last?.result==="exact") return<div style={{...S.feedbackCorrect,flexWrap:"wrap"}}>✅ 정답! <SpeakBtn text={eq.hebrewWord} onSpeak={speak}/></div>;
+              if(last?.result==="partial") return<div style={{...S.feedbackCorrect,background:"rgba(196,160,80,0.15)",borderColor:"rgba(196,160,80,0.3)",color:"#e8c875",flexWrap:"wrap"}}>부분 정답! 정확한 답: <b style={{fontFamily:eq.questionType==="mean_to_heb"?"'Frank Ruhl Libre',serif":"inherit",direction:eq.questionType==="mean_to_heb"?"rtl":"ltr"}}>{eq.answer}</b> <SpeakBtn text={eq.hebrewWord} onSpeak={speak}/></div>;
+              return<div style={{...S.feedbackWrong,flexWrap:"wrap"}}>❌ 오답 — 정답: <b style={{fontFamily:eq.questionType==="mean_to_heb"?"'Frank Ruhl Libre',serif":"inherit",direction:eq.questionType==="mean_to_heb"?"rtl":"ltr"}}>{eq.answer}</b> <SpeakBtn text={eq.hebrewWord} onSpeak={speak}/></div>;
             })()}
+
             <div className="quiz-btn-row" style={S.quizBtnRow}>
-              {!essayConfirmed?<button style={{...S.btnEssayConfirm,...(!essayInput.trim()?S.btnDisabled:{})}} onClick={handleEssayConfirm} disabled={!essayInput.trim()}>확인</button>:<button style={S.btnNext} onClick={handleEssayNext}>{essayCurrent+1>=essayQuestions.length?"결과 보기 🏁":"다음 문제 →"}</button>}
+              {!essayConfirmed
+                ?<button style={S.btnEssayConfirm} onClick={handleEssayConfirm}>확인</button>
+                :<button style={S.btnNext} onClick={handleEssayNext}>{essayCurrent+1>=essayQuestions.length?"결과 보기 🏁":"다음 문제 →"}</button>}
               <button style={S.btnQuit} onClick={()=>{window.speechSynthesis?.cancel();setMode(MODES.LIST);}}>그만하기</button>
             </div>
           </div>
@@ -411,7 +474,7 @@ export default function HebrewQuiz() {
                 const icon=r.result==="exact"?"✅":r.result==="partial"?"🟡":"❌";
                 return<div key={i} style={{...S.wrongItem,flexDirection:"column",alignItems:"flex-start",gap:"4px"}}>
                   <div style={{display:"flex",alignItems:"center",gap:"8px",width:"100%"}}>
-                    <span style={{fontFamily:"'Frank Ruhl Libre',serif",fontSize:"1.1rem",direction:"rtl",color:"#c4a050"}}>{r.question}</span>
+                    <span style={{fontFamily:r.questionType==="mean_to_heb"?"inherit":"'Frank Ruhl Libre',serif",fontSize:r.questionType==="mean_to_heb"?"0.95rem":"1.1rem",direction:r.questionType==="mean_to_heb"?"ltr":"rtl",color:"#c4a050"}}>{r.question}</span>
                     <SpeakBtn text={r.question} onSpeak={speak}/>
                     <span style={{marginLeft:"auto"}}>{icon}</span>
                   </div>
