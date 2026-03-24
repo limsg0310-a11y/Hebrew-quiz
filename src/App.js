@@ -114,7 +114,7 @@ export default function HebrewQuiz() {
   const [showPasteModal,setShowPasteModal]=useState(false);
   const [showBatchModal,setShowBatchModal]=useState(false);
   const [pasteText,setPasteText]        =useState("");
-  const [batchText,setBatchText]        =useState("");
+  const batchTextRef                    =useRef(null); // uncontrolled — fixes Hebrew IME input issue
   const [essayQuestions,setEssayQuestions]=useState([]);
   const [essayCurrent,setEssayCurrent]  =useState(0);
   const [essayInput,setEssayInput]      =useState("");
@@ -139,7 +139,7 @@ export default function HebrewQuiz() {
   const exportWords=()=>{ const data={version:1,exportedAt:new Date().toISOString(),words}; const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"}); const url=URL.createObjectURL(blob); const a=document.createElement("a"); a.href=url; a.download=`hebrew-vocab-${new Date().toISOString().slice(0,10)}.json`; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url); showToast(`✅ ${words.length}개 단어를 내보냈어요!`); };
   const copyToClipboard=async()=>{ const text=JSON.stringify({version:1,exportedAt:new Date().toISOString(),words},null,2); try{await navigator.clipboard.writeText(text); showToast("📋 클립보드에 복사됐어요!");}catch{const ta=document.createElement("textarea"); ta.value=text; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); document.body.removeChild(ta); showToast("📋 클립보드에 복사됐어요!");} };
   const importFromText=()=>{ try{ const parsed=JSON.parse(pasteText); const raw=Array.isArray(parsed)?parsed:(parsed.words||[]); const imported=raw.map(w=>({id:Date.now()+Math.random(),hebrew:(w.hebrew||"").trim(),meaning:(w.meaning||"").trim(),status:["learning","mastered","hard"].includes(w.status)?w.status:"learning",streak:w.streak||0,wrongCount:w.wrongCount||0})).filter(w=>w.hebrew&&w.meaning); if(!imported.length){showToast("불러올 단어가 없어요.","err");return;} setImportPreview({words:imported,fileName:"클립보드에서 붙여넣기"}); setShowPasteModal(false); setPasteText(""); }catch{showToast("올바른 형식이 아니에요.","err");} };
-  const importFromBatchText=()=>{ const parsed=parseTextFormat(batchText); if(!parsed.length){showToast("인식된 단어가 없어요. שלום=평화 형식으로 입력해주세요.","err");return;} setImportPreview({words:parsed.map(w=>({...w,id:Date.now()+Math.random(),status:"learning",streak:0,wrongCount:0})),fileName:`텍스트 형식 (${parsed.length}개)`}); setShowBatchModal(false); setBatchText(""); };
+  const importFromBatchText=()=>{ const raw=batchTextRef.current?batchTextRef.current.value:""; const parsed=parseTextFormat(raw); if(!parsed.length){showToast("인식된 단어가 없어요. שלום=평화 형식으로 입력해주세요.","err");return;} setImportPreview({words:parsed.map(w=>({...w,id:Date.now()+Math.random(),status:"learning",streak:0,wrongCount:0})),fileName:`텍스트 형식 (${parsed.length}개)`}); setShowBatchModal(false); if(batchTextRef.current) batchTextRef.current.value=""; };
   const handleFileChange=(e)=>{ const file=e.target.files[0]; if(!file) return; const reader=new FileReader(); reader.onload=(ev)=>{ try{ const parsed=JSON.parse(ev.target.result); const raw=Array.isArray(parsed)?parsed:(parsed.words||[]); const imported=raw.map(w=>({id:Date.now()+Math.random(),hebrew:(w.hebrew||"").trim(),meaning:(w.meaning||"").trim(),status:["learning","mastered","hard"].includes(w.status)?w.status:"learning",streak:w.streak||0,wrongCount:w.wrongCount||0})).filter(w=>w.hebrew&&w.meaning); if(!imported.length){showToast("불러올 단어가 없어요.","err");return;} setImportPreview({words:imported,fileName:file.name}); }catch{showToast("파일을 읽을 수 없어요.","err");} }; reader.readAsText(file); e.target.value=""; };
   const handleCSVChange=(e)=>{ const file=e.target.files[0]; if(!file) return; const reader=new FileReader(); reader.onload=(ev)=>{ const parsed=parseCSV(ev.target.result); if(!parsed.length){showToast("인식된 단어가 없어요. 첫째 열: 히브리어, 둘째 열: 뜻 형식인지 확인해주세요.","err");return;} setImportPreview({words:parsed.map(w=>({...w,id:Date.now()+Math.random(),status:"learning",streak:0,wrongCount:0})),fileName:`${file.name} (CSV)`}); }; reader.readAsText(file,"UTF-8"); e.target.value=""; };
   const confirmImport=(merge)=>{ if(!importPreview) return; if(merge){const ex=new Set(words.map(w=>w.hebrew)); const newOnes=importPreview.words.filter(w=>!ex.has(w.hebrew)); setWords(ws=>[...ws,...newOnes]); showToast(`📥 ${newOnes.length}개 추가! (중복 ${importPreview.words.length-newOnes.length}개 제외)`);}else{setWords(importPreview.words); showToast(`📥 ${importPreview.words.length}개 단어로 교체했어요!`);} setImportPreview(null); setListFilter("all"); };
@@ -188,10 +188,10 @@ export default function HebrewQuiz() {
         <div style={{background:"rgba(196,160,80,0.08)",border:"1px solid rgba(196,160,80,0.2)",borderRadius:"10px",padding:"10px 12px",marginBottom:"10px",fontSize:"0.82rem",color:"#c4a050",lineHeight:1.8,fontFamily:"monospace"}}>
           שָׁלוֹם=평화<br/>תּוֹדָה=감사합니다<br/>אֱלֹהִים=하나님
         </div>
-        <textarea style={S.modalTA} placeholder={"שָׁלוֹם=평화\nתּוֹדָה=감사합니다"} value={batchText} onChange={e=>setBatchText(e.target.value)}/>
+        <textarea ref={batchTextRef} style={{...S.modalTA, fontFamily:"Frank Ruhl Libre, serif", unicodeBidi:"plaintext"}} lang="he" placeholder={"שָׁלוֹם=평화\nתּוֹדָה=감사합니다"} defaultValue="" spellCheck={false} autoCorrect="off" autoCapitalize="off"/>
         <div className="modal-btn-row" style={S.modalBtnRow}>
           <button style={S.btnMerge} onClick={importFromBatchText}>✅ 단어 추가</button>
-          <button style={S.btnCancel2} onClick={()=>{setShowBatchModal(false);setBatchText("");}}>취소</button>
+          <button style={S.btnCancel2} onClick={()=>{setShowBatchModal(false); if(batchTextRef.current) batchTextRef.current.value="";}}>취소</button>
         </div>
       </Modal>
 
