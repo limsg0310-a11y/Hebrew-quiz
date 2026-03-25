@@ -218,7 +218,7 @@ function RepeatSpeakBtn({text,onSpeak,muted=false,size="lg"}) { // size: lg | sm
 
   const modes=[1,5,10];
   return(
-    <div style={{display:"flex",alignItems:"center",gap:"6px",flexShrink:0}}>
+    <div className="repeat-btn-row" style={{display:"flex",alignItems:"center",gap:"6px",flexShrink:0}}>
       {/* 모드 선택 버튼 */}
       <div style={{display:"flex",gap:"3px"}}>
         {modes.map(m=>(
@@ -533,7 +533,24 @@ export default function HebrewQuiz() {
 
   return (
     <div style={S.root}>
-      <style>{`*{box-sizing:border-box;}body{margin:0;}input,button,textarea{-webkit-tap-highlight-color:transparent;}input:focus,textarea:focus{outline:none;border-color:rgba(196,160,80,0.6)!important;}@media(max-width:480px){.choices-grid{grid-template-columns:1fr!important;}.form-row{flex-direction:column!important;}.quiz-btn-row{flex-direction:column!important;}.result-btn-row{flex-direction:column!important;}.modal-btn-row{flex-direction:column!important;}.io-btns{flex-wrap:wrap!important;}}`}</style>
+      <style>{`
+  *{box-sizing:border-box;}
+  body{margin:0;}
+  input,button,textarea{-webkit-tap-highlight-color:transparent;font-family:Arial,'Noto Sans KR',sans-serif;}
+  input:focus,textarea:focus{outline:none;border-color:rgba(196,160,80,0.6)!important;}
+  button{line-height:1.3;word-break:keep-all;}
+  span,div{word-break:break-word;}
+  .emoji{font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;display:inline-block;}
+  @media(max-width:480px){
+    .choices-grid{grid-template-columns:1fr!important;}
+    .form-row{flex-direction:column!important;}
+    .quiz-btn-row{flex-direction:column!important;}
+    .result-btn-row{flex-direction:column!important;}
+    .modal-btn-row{flex-direction:column!important;}
+    .io-btns{flex-wrap:wrap!important;}
+    .repeat-btn-row{flex-wrap:wrap!important;gap:4px!important;}
+  }
+`}</style>
       <div style={S.bgDeco1}/><div style={S.bgDeco2}/>
       {toast&&<div style={{...S.toast,...(toast.type==="err"?S.toastErr:{})}}>{toast.msg}</div>}
 
@@ -825,6 +842,13 @@ export default function HebrewQuiz() {
               <div style={S.optionRow}>{[[QUIZ_FILTERS.ALL,T.allRange(words.length)],[QUIZ_FILTERS.EXCLUDE_MASTERED,T.excludeMastered(words.filter(w=>w.status!=="mastered").length)],[QUIZ_FILTERS.HARD_ONLY,T.hardOnly(hardCount)]].map(([val,label])=><button key={val} style={{...S.optBtn,...(essayFilter===val?S.essayOptActive:{})}} onClick={()=>setEssayFilter(val)}>{label}</button>)}</div>
               <p style={S.settingLabel}>{T.questionCount}</p>
               <div style={S.optionRow}>{countOptions.map(({label,value})=>{ const d=value!==9999&&value>essayPoolSize; return<button key={value} style={{...S.optBtn,...(essayCount===value?S.essayOptActive:{}),...(d?{opacity:0.3,cursor:"not-allowed"}:{})}} onClick={()=>!d&&setEssayCount(value)} disabled={d}>{label}</button>; })}</div>
+              <div style={S.sliderWrap}>
+                <span style={S.sliderLabel}>{T.directInput}</span>
+                <input type="range" min={1} max={Math.max(1,essayPoolSize)} value={Math.min(essayCount===9999?essayPoolSize:essayCount,essayPoolSize)} onChange={e=>setEssayCount(Number(e.target.value))} style={S.slider}/>
+                <input type="number" min={1} max={essayPoolSize} value={essayCount===9999?essayPoolSize:Math.min(essayCount,essayPoolSize)}
+                  onChange={e=>{ const v=Math.max(1,Math.min(essayPoolSize,Number(e.target.value)||1)); setEssayCount(v); }}
+                  style={{width:"52px",padding:"4px 6px",background:"rgba(255,255,255,0.08)",border:"1px solid rgba(100,80,200,0.4)",borderRadius:"6px",color:"#c0b0ff",fontSize:"0.9rem",fontWeight:700,textAlign:"center",outline:"none"}}/>
+              </div>
               <button style={{...S.btnEssayStart,...(!essayPoolSize?S.btnDisabled:{})}} onClick={startEssay} disabled={!essayPoolSize}>✍️ 서술형 시작! ({essayCount===9999?essayPoolSize:Math.min(essayCount,essayPoolSize)} {uiLang==="en"?"questions":"문제"})</button>
             </div>
           </div>
@@ -857,20 +881,35 @@ export default function HebrewQuiz() {
                 </button>
               );})}
             </div>
-            <div style={{minHeight:"52px",marginBottom:"8px"}}>
-              {confirmed&&<div style={{...(selected===q.answer?S.feedbackCorrect:S.feedbackWrong),display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:"8px"}}>
-                <span>{selected===q.answer?T.correct:T.wrong(q.answer)}
-                {(()=>{const w=words.find(x=>x.id===q.wordId);const st=w?STATUS_CONFIG[w.status]:null;return st?<span style={{marginLeft:8,fontSize:"0.78rem",opacity:0.8}}>{st.emoji} {st.label}</span>:null;})()}</span>
-                {/* 퀴즈 중 어려움 표시 버튼 */}
-                {(()=>{ const w=words.find(x=>x.id===q.wordId); return w&&w.status!=="hard"?(
-                  <button onClick={()=>setManualStatus(q.wordId,"hard")}
-                    style={{padding:"4px 10px",borderRadius:"6px",background:"rgba(200,80,60,0.2)",border:"1px solid rgba(200,80,60,0.5)",color:"#f07050",fontSize:"0.75rem",cursor:"pointer",fontWeight:600,flexShrink:0}}>
-                    🔥 어려움으로 표시
-                  </button>
-                ):w&&w.status==="hard"?(
-                  <span style={{fontSize:"0.75rem",color:"#f07050",opacity:0.7}}>🔥 어려움으로 분류됨</span>
-                ):null; })()}
-              </div>}
+            {/* 피드백 + 분류 버튼 — 고정 높이로 버튼 밀림 방지 */}
+            <div style={{height:"80px",marginBottom:"8px",display:"flex",flexDirection:"column",justifyContent:"center"}}>
+              {confirmed&&(
+                <>
+                  <div style={{...(selected===q.answer?S.feedbackCorrect:S.feedbackWrong),marginBottom:"6px",padding:"8px 12px",fontSize:"0.88rem"}}>
+                    {selected===q.answer?T.correct:T.wrong(q.answer)}
+                    {(()=>{const w=words.find(x=>x.id===q.wordId);const st=w?STATUS_CONFIG[w.status]:null;return st?<span style={{marginLeft:6,fontSize:"0.75rem",opacity:0.8}}>{st.emoji} {st.label}</span>:null;})()}
+                  </div>
+                  {/* 퀴즈 중 상태 분류 버튼 */}
+                  <div style={{display:"flex",gap:"6px",justifyContent:"center",flexWrap:"wrap"}}>
+                    {(()=>{ const w=words.find(x=>x.id===q.wordId); if(!w) return null;
+                      return(<>
+                        {w.status!=="hard"&&<button onClick={()=>setManualStatus(q.wordId,"hard")}
+                          style={{padding:"3px 10px",borderRadius:"6px",background:"rgba(200,80,60,0.15)",border:"1px solid rgba(200,80,60,0.4)",color:"#f07050",fontSize:"0.72rem",cursor:"pointer",fontWeight:600}}>
+                          🔥 {uiLang==="en"?"Mark Hard":"어려움"}
+                        </button>}
+                        {w.status!=="mastered"&&<button onClick={()=>setManualStatus(q.wordId,"mastered")}
+                          style={{padding:"3px 10px",borderRadius:"6px",background:"rgba(60,180,100,0.15)",border:"1px solid rgba(60,180,100,0.4)",color:"#60c880",fontSize:"0.72rem",cursor:"pointer",fontWeight:600}}>
+                          ✅ {uiLang==="en"?"Mark Done":"암기완료"}
+                        </button>}
+                        {w.status!=="learning"&&<button onClick={()=>setManualStatus(q.wordId,"learning")}
+                          style={{padding:"3px 10px",borderRadius:"6px",background:"rgba(120,120,160,0.15)",border:"1px solid rgba(120,120,160,0.3)",color:"#9090b0",fontSize:"0.72rem",cursor:"pointer",fontWeight:600}}>
+                          📖 {uiLang==="en"?"Learning":"학습중"}
+                        </button>}
+                      </>);
+                    })()}
+                  </div>
+                </>
+              )}
             </div>
             <div className="quiz-btn-row" style={S.quizBtnRow}>
               {!confirmed?<button style={{...S.btnConfirm,...(!selected?S.btnDisabled:{})}} onClick={handleConfirm} disabled={!selected}>{T.confirm}</button>:<button style={S.btnNext} onClick={handleNext}>{current+1>=questions.length?T.finish:T.next}</button>}
@@ -916,10 +955,29 @@ export default function HebrewQuiz() {
                 onKeyDown={e=>{if(e.key==="Enter"){if(!essayConfirmed)handleEssayConfirm();else handleEssayNext();}}}/>
             )}
 
-            {essayConfirmed&&(()=>{ const last=essayResults[essayResults.length-1];
-              if(last?.result==="exact") return<div style={{...S.feedbackCorrect,flexWrap:"wrap"}}>✅ 정답! <SpeakBtn text={eq.hebrewWord} onSpeak={speak} muted={muted}/></div>;
-              if(last?.result==="partial") return<div style={{...S.feedbackCorrect,background:"rgba(196,160,80,0.15)",borderColor:"rgba(196,160,80,0.3)",color:"#e8c875",flexWrap:"wrap"}}>부분 정답! 정확한 답: <b style={{fontFamily:eq.questionType==="mean_to_heb"?"Arial,sans-serif":"inherit",direction:eq.questionType==="mean_to_heb"?"rtl":"ltr"}}>{eq.answer}</b> <SpeakBtn text={eq.hebrewWord} onSpeak={speak} muted={muted}/></div>;
-              return<div style={{...S.feedbackWrong,flexWrap:"wrap"}}>❌ 오답 — 정답: <b style={{fontFamily:eq.questionType==="mean_to_heb"?"Arial,sans-serif":"inherit",direction:eq.questionType==="mean_to_heb"?"rtl":"ltr"}}>{eq.answer}</b> <SpeakBtn text={eq.hebrewWord} onSpeak={speak} muted={muted}/></div>;
+            {essayConfirmed&&(()=>{ const last=essayResults[essayResults.length-1]; const w=words.find(x=>x.id===eq.wordId);
+              return(<>
+                {last?.result==="exact"
+                  ?<div style={{...S.feedbackCorrect,flexWrap:"wrap",marginBottom:"6px"}}>✅ 정답! <SpeakBtn text={eq.hebrewWord} onSpeak={speak} muted={muted}/></div>
+                  :last?.result==="partial"
+                  ?<div style={{...S.feedbackCorrect,background:"rgba(196,160,80,0.15)",borderColor:"rgba(196,160,80,0.3)",color:"#e8c875",flexWrap:"wrap",marginBottom:"6px"}}>부분 정답! 정답: <b>{eq.answer}</b> <SpeakBtn text={eq.hebrewWord} onSpeak={speak} muted={muted}/></div>
+                  :<div style={{...S.feedbackWrong,flexWrap:"wrap",marginBottom:"6px"}}>❌ 오답 — 정답: <b>{eq.answer}</b> <SpeakBtn text={eq.hebrewWord} onSpeak={speak} muted={muted}/></div>
+                }
+                {w&&<div style={{display:"flex",gap:"6px",justifyContent:"center",flexWrap:"wrap",marginBottom:"8px"}}>
+                  {w.status!=="hard"&&<button onClick={()=>setManualStatus(eq.wordId,"hard")}
+                    style={{padding:"3px 10px",borderRadius:"6px",background:"rgba(200,80,60,0.15)",border:"1px solid rgba(200,80,60,0.4)",color:"#f07050",fontSize:"0.72rem",cursor:"pointer",fontWeight:600}}>
+                    🔥 {uiLang==="en"?"Mark Hard":"어려움"}
+                  </button>}
+                  {w.status!=="mastered"&&<button onClick={()=>setManualStatus(eq.wordId,"mastered")}
+                    style={{padding:"3px 10px",borderRadius:"6px",background:"rgba(60,180,100,0.15)",border:"1px solid rgba(60,180,100,0.4)",color:"#60c880",fontSize:"0.72rem",cursor:"pointer",fontWeight:600}}>
+                    ✅ {uiLang==="en"?"Mark Done":"암기완료"}
+                  </button>}
+                  {w.status!=="learning"&&<button onClick={()=>setManualStatus(eq.wordId,"learning")}
+                    style={{padding:"3px 10px",borderRadius:"6px",background:"rgba(120,120,160,0.15)",border:"1px solid rgba(120,120,160,0.3)",color:"#9090b0",fontSize:"0.72rem",cursor:"pointer",fontWeight:600}}>
+                    📖 {uiLang==="en"?"Learning":"학습중"}
+                  </button>}
+                </div>}
+              </>);
             })()}
 
             <div className="quiz-btn-row" style={S.quizBtnRow}>
