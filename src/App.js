@@ -1,4 +1,19 @@
 import { useState, useRef, useEffect, useCallback } from "react";
+import { initializeApp } from "firebase/app";
+import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "firebase/auth";
+import { getFirestore, doc, setDoc, getDoc } from "firebase/firestore";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyA1Zz_9BEKZjV3FHdLWaJas2P0kIH1bxGM",
+  authDomain: "vocabulary-book-ab50d.firebaseapp.com",
+  projectId: "vocabulary-book-ab50d",
+  storageBucket: "vocabulary-book-ab50d.firebasestorage.app",
+  messagingSenderId: "459207075657",
+  appId: "1:459207075657:web:ac37a3a847bb3461dd5c98"
+};
+const fbApp  = initializeApp(firebaseConfig);
+const fbAuth = getAuth(fbApp);
+const fbDb   = getFirestore(fbApp);
 
 // SheetJS 동적 로드 (xlsx 파일 파싱용)
 let XLSX_LIB = null;
@@ -152,6 +167,92 @@ export default function HebrewQuiz() {
   const [apiKey]=useState(envKey); const ttsReady=!!envKey;
   const speak=useCallback(async(text,forceMuted=false)=>{ if(forceMuted) return; if(apiKey){try{await googleTTS(text,apiKey);return;}catch{}} browserTTS(text); },[apiKey]);
 
+  // ── Firebase 로그인 상태 ──
+  const [user,setUser]     =useState(null);   // null = 비로그인
+  const [syncing,setSyncing]=useState(false);
+
+  const [showMergeModal,setShowMergeModal]=useState(false);
+  const [pendingCloudWords,setPendingCloudWords]=useState(null);
+
+  useEffect(()=>{
+    const unsub = onAuthStateChanged(fbAuth, async(u)=>{
+      setUser(u);
+      if(u){
+        try{
+          const snap = await getDoc(doc(fbDb,"users",u.uid));
+          const localWords = loadWords();
+          const hasLocal = localWords.length > 0 && !(localWords.length===8 && localWords[0].hebrew==="שָׁלוֹם");
+
+          if(snap.exists()){
+            const cloud = snap.data().words;
+            if(cloud&&cloud.length){
+              if(hasLocal){
+                // 로컬 단어 + 클라우드 단어 둘 다 있음 → 선택 모달
+                setPendingCloudWords(cloud);
+                setShowMergeModal(true);
+              } else {
+                // 로컬에 단어 없음 → 클라우드 단어로 교체
+                setWordsRaw(cloud); saveWords(cloud);
+                showToast("☁️ 클라우드 단어장을 불러왔어요!");
+              }
+            } else {
+              // 클라우드 비어있음 → 로컬 단어를 클라우드에 업로드
+              if(hasLocal){
+                await setDoc(doc(fbDb,"users",u.uid),{words:localWords,updatedAt:new Date().toISOString()});
+                showToast("☁️ 기존 단어장을 클라우드에 저장했어요!");
+              }
+            }
+          } else {
+            // 클라우드에 계정 없음(첫 로그인) → 로컬 단어 업로드
+            if(hasLocal){
+              await setDoc(doc(fbDb,"users",u.uid),{words:localWords,updatedAt:new Date().toISOString()});
+              showToast("☁️ 기존 단어장을 클라우드에 저장했어요!");
+            }
+          }
+        }catch(e){ console.error(e); }
+      }
+    });
+    return ()=>unsub();
+  },[]); // eslint-disable-line
+
+  // 병합 or 클라우드 선택
+  const handleMerge=(choice)=>{
+    if(!pendingCloudWords) return;
+    if(choice==="cloud"){
+      setWordsRaw(pendingCloudWords); saveWords(pendingCloudWords);
+      showToast("☁️ 클라우드 단어장으로 교체했어요!");
+    } else if(choice==="local"){
+      // 로컬 유지, 클라우드에 로컬 업로드
+      const local=loadWords();
+      if(user) setDoc(doc(fbDb,"users",user.uid),{words:local,updatedAt:new Date().toISOString()});
+      showToast("💾 기존 단어장을 클라우드에 저장했어요!");
+    } else {
+      // 병합: 히브리어 기준 중복 제거
+      const local=loadWords();
+      const hebrewSet=new Set(pendingCloudWords.map(w=>w.hebrew));
+      const merged=[...pendingCloudWords,...local.filter(w=>!hebrewSet.has(w.hebrew))];
+      setWordsRaw(merged); saveWords(merged);
+      if(user) setDoc(doc(fbDb,"users",user.uid),{words:merged,updatedAt:new Date().toISOString()});
+      showToast(`☁️ 병합 완료! 총 ${merged.length}개 단어`);
+    }
+    setPendingCloudWords(null); setShowMergeModal(false);
+  };
+
+  const signInGoogle = async()=>{
+    try{ await signInWithPopup(fbAuth, new GoogleAuthProvider()); showToast("로그인 성공! 단어장을 불러오는 중..."); }
+    catch(e){ showToast("로그인 실패: "+e.message,"err"); }
+  };
+  const signOutUser = async()=>{
+    await signOut(fbAuth); showToast("로그아웃 됐어요.");
+  };
+  const syncToCloud = async(wordsToSync)=>{
+    if(!user) return;
+    setSyncing(true);
+    try{ await setDoc(doc(fbDb,"users",user.uid),{words:wordsToSync,updatedAt:new Date().toISOString()}); }
+    catch(e){ console.error("sync error",e); }
+    finally{ setSyncing(false); }
+  };
+
   const [words,setWordsRaw]             =useState(loadWords);
   const [mode,setMode]                  =useState(MODES.LIST);
   const [newHebrew,setNewHebrew]        =useState("");
@@ -190,7 +291,7 @@ export default function HebrewQuiz() {
   const [essayType,setEssayType]         =useState("heb_to_mean"); // heb_to_mean | mean_to_heb | mixed
   const essayInputRef=useRef(null); const essayHebrewRef=useRef(null); const fileInputRef=useRef(null); const csvInputRef=useRef(null);
 
-  const setWords=(updater)=>{ setWordsRaw(prev=>{ const next=typeof updater==="function"?updater(prev):updater; saveWords(next); return next; }); };
+  const setWords=(updater)=>{ setWordsRaw(prev=>{ const next=typeof updater==="function"?updater(prev):updater; saveWords(next); syncToCloud(next); return next; }); };
   const masteredCount=words.filter(w=>w.status==="mastered").length;
   const hardCount=words.filter(w=>w.status==="hard").length;
   const learningCount=words.filter(w=>w.status==="learning").length;
@@ -328,6 +429,27 @@ export default function HebrewQuiz() {
         </div>
       </Modal>
 
+      {/* 로그인 시 단어 병합 선택 모달 */}
+      {showMergeModal&&pendingCloudWords&&(
+        <div style={S.modalOverlay}>
+          <div style={S.modal}>
+            <h3 style={S.modalTitle}>☁️ 단어장 동기화</h3>
+            <p style={S.modalSub}>기기에 저장된 단어와 클라우드 단어가 모두 있어요. 어떻게 할까요?</p>
+            <div style={{display:"flex",flexDirection:"column",gap:"8px",marginBottom:"4px"}}>
+              <button style={{...S.btnMerge,padding:"12px"}} onClick={()=>handleMerge("merge")}>
+                🔀 합치기 — 두 단어장을 합쳐요 ({(() => { const local=loadWords(); const set=new Set(pendingCloudWords.map(w=>w.hebrew)); return pendingCloudWords.length + local.filter(w=>!set.has(w.hebrew)).length; })()}개)
+              </button>
+              <button style={{...S.btnReplace,padding:"12px"}} onClick={()=>handleMerge("cloud")}>
+                ☁️ 클라우드 사용 — 클라우드 단어장으로 교체 ({pendingCloudWords.length}개)
+              </button>
+              <button style={{...S.btnCancel2,padding:"12px"}} onClick={()=>handleMerge("local")}>
+                💾 기기 단어 유지 — 현재 기기 단어장을 클라우드에 저장
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {importPreview&&(
         <div style={S.modalOverlay}><div style={S.modal}>
           <h3 style={S.modalTitle}>📥 단어 불러오기</h3>
@@ -364,10 +486,19 @@ export default function HebrewQuiz() {
               <div style={{...S.statBadge,color:"#c4a050",background:"rgba(196,160,80,0.12)",border:"1px solid rgba(196,160,80,0.3)"}}>📖 {learningCount}</div>
             </div>
             <div style={{fontSize:"0.68rem",color:ttsReady?"#60c880":"#f07050"}}>{ttsReady?"🔊 Google TTS 연결됨":"⚠️ 브라우저 TTS 사용 중"}</div>
+            {user
+              ? <div style={{display:"flex",alignItems:"center",gap:"6px"}}>
+                  <img src={user.photoURL} alt="" style={{width:"22px",height:"22px",borderRadius:"50%"}}/>
+                  <span style={{fontSize:"0.7rem",color:"#c4a050",maxWidth:"80px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{user.displayName}</span>
+                  {syncing&&<span style={{fontSize:"0.65rem",color:"#5a5870"}}>저장중...</span>}
+                  <button onClick={signOutUser} style={{fontSize:"0.65rem",padding:"3px 8px",borderRadius:"6px",background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.15)",color:"#7a7890",cursor:"pointer"}}>로그아웃</button>
+                </div>
+              : <button onClick={signInGoogle} style={{fontSize:"0.72rem",padding:"5px 10px",borderRadius:"8px",background:"linear-gradient(135deg,#c4a050,#e8c875)",border:"none",color:"#1a1820",fontWeight:700,cursor:"pointer"}}>Google 로그인</button>
+            }
           </div>
         </header>
 
-        <div style={S.autoSaveBanner}>💾 단어장이 이 기기에 자동저장돼요!</div>
+        <div style={{...S.autoSaveBanner,borderColor:user?"rgba(60,180,100,0.3)":"rgba(196,160,80,0.2)",color:user?"#60c880":"#c4a050"}}>{user?`☁️ ${user.displayName}의 단어장 — 모든 기기에서 자동 동기화돼요!`:"💾 이 기기에만 저장돼요. Google 로그인하면 모든 기기에서 동기화!"}</div>
 
         {/* 플로팅 스크롤 버튼 — 단어장 화면에서만 표시 */}
         {mode===MODES.LIST&&(
