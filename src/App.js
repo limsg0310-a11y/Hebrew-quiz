@@ -369,6 +369,24 @@ export default function HebrewQuiz() {
 
         <div style={S.autoSaveBanner}>💾 단어장이 이 기기에 자동저장돼요!</div>
 
+        {/* 플로팅 스크롤 버튼 — 단어장 화면에서만 표시 */}
+        {mode===MODES.LIST&&(
+          <>
+            <button
+              onClick={()=>window.scrollTo({top:0,behavior:"smooth"})}
+              style={S.floatBtn}
+              title="맨 위로">
+              ↑
+            </button>
+            <button
+              onClick={()=>window.scrollTo({top:document.body.scrollHeight,behavior:"smooth"})}
+              style={{...S.floatBtn,bottom:"70px"}}
+              title="맨 아래로">
+              ↓
+            </button>
+          </>
+        )}
+
         {/* ── LIST MODE ── */}
         {mode===MODES.LIST&&(
           <div>
@@ -446,10 +464,7 @@ export default function HebrewQuiz() {
                   </button>
                 )}
               </div>
-              <div style={{display:"flex",gap:"6px"}}>
-                <button style={S.scrollBtn} onClick={()=>window.scrollTo({top:0,behavior:"smooth"})}>↑ 맨 위</button>
-                <button style={S.scrollBtn} onClick={()=>window.scrollTo({top:document.body.scrollHeight,behavior:"smooth"})}>↓ 맨 아래</button>
-              </div>
+
             </div>
 
             <div style={S.wordList}>
@@ -709,6 +724,7 @@ const S={
   btnAdd:{padding:"12px 18px",borderRadius:"10px",background:"linear-gradient(135deg,#c4a050,#e8c875)",border:"none",color:"#1a1820",fontWeight:700,cursor:"pointer",fontSize:"0.95rem"},
   btnCancel:{padding:"12px 14px",borderRadius:"10px",background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.12)",color:"#a0a0b0",cursor:"pointer",fontSize:"0.9rem"},
   scrollBtn:{padding:"6px 12px",borderRadius:"8px",background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.12)",color:"#a0a0c0",cursor:"pointer",fontSize:"0.78rem"},
+  floatBtn:{position:"fixed",right:"16px",bottom:"20px",width:"44px",height:"44px",borderRadius:"50%",background:"rgba(196,160,80,0.9)",border:"none",color:"#1a1820",fontWeight:700,fontSize:"1.1rem",cursor:"pointer",zIndex:500,boxShadow:"0 4px 14px rgba(0,0,0,0.4)",display:"flex",alignItems:"center",justifyContent:"center"},
   filterTabs:{display:"flex",gap:"6px",marginBottom:"12px",flexWrap:"wrap"},
   filterTab:{padding:"8px 12px",borderRadius:"8px",border:"1px solid rgba(255,255,255,0.1)",background:"transparent",color:"#7a7890",cursor:"pointer",fontSize:"0.8rem"},
   filterTabActive:{background:"rgba(196,160,80,0.15)",borderColor:"rgba(196,160,80,0.4)",color:"#c4a050"},
