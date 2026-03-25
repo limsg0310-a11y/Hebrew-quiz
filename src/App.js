@@ -278,14 +278,6 @@ function parseTextFormat(text) {
 export default function HebrewQuiz() {
   const envKey=process.env.REACT_APP_GOOGLE_TTS_KEY||"";
   const [apiKey]=useState(envKey); const ttsReady=!!envKey;
-  const speak=useCallback(async(text,forceMuted=false)=>{ 
-    if(forceMuted) return;
-    const book = BOOKS.find(b=>b.id===currentBook)||BOOKS[0];
-    const {ttsLang,ttsName,ttsRate} = book;
-    if(apiKey){ try{ await googleTTS(text,apiKey,ttsLang,ttsName,ttsRate); return; }catch{} }
-    browserTTS(text,ttsLang,ttsRate);
-  },[apiKey,currentBook]);
-
   // ── Firebase 로그인 상태 ──
   const [user,setUser]     =useState(null);   // null = 비로그인
   const [syncing,setSyncing]=useState(false);
@@ -376,6 +368,13 @@ export default function HebrewQuiz() {
   const [uiLang,setUiLang]               =useState("ko");
   const T = UI_TEXT[uiLang] || UI_TEXT.ko;
   const bookInfo = BOOKS.find(b=>b.id===currentBook)||BOOKS[0];
+  const speak=useCallback(async(text,forceMuted=false)=>{
+    if(forceMuted) return;
+    const book = BOOKS.find(b=>b.id===currentBook)||BOOKS[0];
+    const {ttsLang,ttsName,ttsRate} = book;
+    if(apiKey){ try{ await googleTTS(text,apiKey,ttsLang,ttsName,ttsRate); return; }catch{} }
+    browserTTS(text,ttsLang,ttsRate);
+  },[apiKey,currentBook]);
   const [words,setWordsRaw]             =useState(()=>loadWords("hebrew"));
   const [mode,setMode]                  =useState(MODES.LIST);
   const [newHebrew,setNewHebrew]        =useState("");
