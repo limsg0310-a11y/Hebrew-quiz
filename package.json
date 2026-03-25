@@ -9,8 +9,8 @@
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-scripts": "5.0.1",
-    "ajv": "^8.11.0"
-    "firebase": "^10.12.0",
+    "ajv": "^8.11.0",
+    "firebase": "^10.12.0"
   },
   "scripts": {
     "start": "react-scripts start",
