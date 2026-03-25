@@ -4,12 +4,12 @@ import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChang
 import { getFirestore, doc, setDoc, getDoc } from "firebase/firestore";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyA1Zz_9BEKZjV3FHdLWaJas2P0kIH1bxGM",
-  authDomain: "vocabulary-book-ab50d.firebaseapp.com",
-  projectId: "vocabulary-book-ab50d",
-  storageBucket: "vocabulary-book-ab50d.firebasestorage.app",
-  messagingSenderId: "459207075657",
-  appId: "1:459207075657:web:ac37a3a847bb3461dd5c98"
+  apiKey: process.env.REACT_APP_FIREBASE_API_KEY,
+  authDomain: process.env.REACT_APP_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.REACT_APP_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.REACT_APP_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.REACT_APP_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.REACT_APP_FIREBASE_APP_ID,
 };
 const fbApp  = initializeApp(firebaseConfig);
 const fbAuth = getAuth(fbApp);
@@ -42,10 +42,76 @@ const MODES = { LIST:"list", QUIZ:"quiz", ESSAY:"essay", RESULT:"result", ESSAY_
 const QUIZ_TYPES = { HEB_TO_MEAN:"heb_to_mean", MEAN_TO_HEB:"mean_to_heb", MIXED:"mixed" };
 const QUIZ_FILTERS = { ALL:"all", EXCLUDE_MASTERED:"exclude_mastered", HARD_ONLY:"hard_only" };
 const BOOKS = [
-  { id:"hebrew",  label:"히브리어", emoji:"🇮🇱", color:"#c4a050" },
-  { id:"english", label:"영어",     emoji:"🇺🇸", color:"#60a0e0" },
-  { id:"korean",  label:"한국어",   emoji:"🇰🇷", color:"#e06080" },
+  { id:"hebrew",  label:{ko:"히브리어", en:"Hebrew"},  emoji:"🇮🇱", color:"#c4a050",
+    termA:{ko:"히브리어", en:"Word"}, termB:{ko:"뜻", en:"Meaning"},
+    placeholderA:{ko:"עברית (히브리어)", en:"Hebrew word"},
+    placeholderB:{ko:"뜻 (한국어/영어)", en:"Meaning"},
+    dir:"rtl" },
+  { id:"english", label:{ko:"영어", en:"English"}, emoji:"🇺🇸", color:"#60a0e0",
+    termA:{ko:"영어 단어", en:"English word"}, termB:{ko:"뜻 (한국어)", en:"Korean meaning"},
+    placeholderA:{ko:"English word", en:"English word"},
+    placeholderB:{ko:"뜻 (한국어)", en:"Korean meaning"},
+    dir:"ltr" },
+  { id:"korean",  label:{ko:"한국어", en:"Korean"}, emoji:"🇰🇷", color:"#e06080",
+    termA:{ko:"한국어 단어", en:"Korean word"}, termB:{ko:"뜻 (영어)", en:"English meaning"},
+    placeholderA:{ko:"한국어 단어", en:"Korean word"},
+    placeholderB:{ko:"뜻 (영어)", en:"English meaning"},
+    dir:"ltr" },
 ];
+
+// UI 언어별 텍스트
+const UI_TEXT = {
+  ko: {
+    appTitle:"히브리어 단어 퀴즈", appSub:"Hebrew Vocabulary Trainer",
+    addWord:"➕ 단어 추가", editWord:"✏️ 단어 수정", addBtn:"추가", editBtn:"수정 완료", cancelBtn:"취소",
+    saveLoad:"💾 단어장 저장 / 불러오기", telegramTip:"텔레그램 등 파일 저장이 안 되면 📋 복사 사용",
+    fileSave:"⬇️ 파일 저장", copy:"📋 복사", fileOpen:"⬆️ 파일 열기", paste:"📋 붙여넣기", textAdd:"📝 텍스트 추가", csvExcel:"📊 CSV/엑셀",
+    searchPlaceholder:"단어 검색...", all:"전체", learning:"📖 학습중", hard:"🔥 어려움", done:"✅ 완료",
+    selectAll:"전체 선택", deselect:"선택 해제", deleteN:(n)=>`🗑️ ${n}개 삭제`, wordCount:(n)=>`${n}개 단어`,
+    mcqTitle:"🎯 객관식 퀴즈", direction:"문제 방향", wordRange:"단어 범위", questionCount:"문제 수",
+    dirAtoB:(b)=>`${b.termA.ko} → ${b.termB.ko}`, dirBtoA:(b)=>`${b.termB.ko} → ${b.termA.ko}`, mixed:"랜덤 혼합",
+    allRange:(n)=>`전체 (${n})`, excludeMastered:(n)=>`암기 제외 (${n})`, hardOnly:(n)=>`🔥 어려운 것만 (${n})`,
+    autoPlay:"🔊 퀴즈 자동 발음", autoPlaySub:"문제 시 자동 재생", mute:"🔇 음소거", muteSub:"모든 발음을 끕니다",
+    startMCQ:(n)=>`🚀 객관식 시작! (${n}문제)`, needMore:(n)=>`단어 최소 4개 필요 (현재 ${n}개)`,
+    essayTitle:"✍️ 서술형 시험", essaySub:"직접 타이핑해서 답하는 서술형! 부분 정답도 인정됩니다.",
+    dirAtoB_e:(b)=>`${b.termA.ko} → ${b.termB.ko} 입력`, dirBtoA_e:(b)=>`${b.termB.ko} → ${b.termA.ko} 입력`,
+    startEssay:(n)=>`✍️ 서술형 시작! (${n}문제)`,
+    questionTagAtoB:(b)=>`${b.termA.ko}의 ${b.termB.ko}는?`, questionTagBtoA:(b)=>`${b.termB.ko}에 해당하는 ${b.termA.ko}는?`,
+    inputPlaceholderA:(b)=>`${b.termB.ko}을 입력하세요...`, inputPlaceholderB:(b)=>`${b.termA.ko}로 입력하세요...`,
+    markHard:T.markHard, markedHard:T.markedHard,
+    correct:"✅ 정답!", wrong:(a)=>`❌ 오답 — 정답: ${a}`,
+    confirm:"확인", next:"다음 문제 →", finish:"결과 보기 🏁", quit:"그만하기",
+    autoSaveLocal:"💾 이 기기에만 저장돼요. Google 로그인하면 모든 기기에서 동기화!",
+    autoSaveCloud:(name)=>`☁️ ${name}의 단어장 — 모든 기기에서 자동 동기화돼요!`,
+    login:"Google 로그인", logout:"로그아웃", saving:"저장중...",
+    directInput:"직접:", questions:(n)=>`${n}문제`,
+  },
+  en: {
+    appTitle:"Vocabulary Quiz", appSub:"Multi-language Vocabulary Trainer",
+    addWord:"➕ Add Word", editWord:"✏️ Edit Word", addBtn:"Add", editBtn:"Save", cancelBtn:"Cancel",
+    saveLoad:"💾 Save / Load", telegramTip:"Can't save files? Use 📋 Copy instead",
+    fileSave:"⬇️ Export", copy:"📋 Copy", fileOpen:"⬆️ Import", paste:"📋 Paste", textAdd:"📝 Text", csvExcel:"📊 CSV/Excel",
+    searchPlaceholder:"Search words...", all:"All", learning:"📖 Learning", hard:"🔥 Hard", done:"✅ Done",
+    selectAll:"Select All", deselect:"Deselect", deleteN:(n)=>`🗑️ Delete ${n}`, wordCount:(n)=>`${n} words`,
+    mcqTitle:"🎯 Multiple Choice", direction:"Direction", wordRange:"Word Range", questionCount:"Questions",
+    dirAtoB:(b)=>`${b.termA.en} → ${b.termB.en}`, dirBtoA:(b)=>`${b.termB.en} → ${b.termA.en}`, mixed:"Random Mix",
+    allRange:(n)=>`All (${n})`, excludeMastered:(n)=>`Excl. Mastered (${n})`, hardOnly:(n)=>`🔥 Hard Only (${n})`,
+    autoPlay:"🔊 Auto Pronunciation", autoPlaySub:"Auto play on question", mute:"🔇 Mute", muteSub:"Mute all sounds",
+    startMCQ:(n)=>`🚀 Start! (${n} questions)`, needMore:(n)=>`Need at least 4 words (now ${n})`,
+    essayTitle:"✍️ Written Test", essaySub:"Type your answer directly! Partial answers accepted.",
+    dirAtoB_e:(b)=>`${b.termA.en} → type ${b.termB.en}`, dirBtoA_e:(b)=>`${b.termB.en} → type ${b.termA.en}`,
+    startEssay:(n)=>`✍️ Start! (${n} questions)`,
+    questionTagAtoB:(b)=>`What is the ${b.termB.en}?`, questionTagBtoA:(b)=>`What is the ${b.termA.en}?`,
+    inputPlaceholderA:(b)=>`Type the ${b.termB.en}...`, inputPlaceholderB:(b)=>`Type the ${b.termA.en}...`,
+    markHard:"🔥 Mark as Hard", markedHard:"🔥 Marked as Hard",
+    correct:"✅ Correct!", wrong:(a)=>`❌ Wrong — Answer: ${a}`,
+    confirm:"Check", next:"Next →", finish:"See Results 🏁", quit:"Quit",
+    autoSaveLocal:"💾 Saved on this device only. Login to sync across devices!",
+    autoSaveCloud:(name)=>`☁️ ${name}'s words — Synced across all devices!`,
+    login:"Sign in with Google", logout:"Sign out", saving:"Saving...",
+    directInput:"Custom:", questions:(n)=>`${n} q`,
+  }
+};
 function getLSKey(book) { return `hebrew_quiz_words_${book||"hebrew"}`; }
 const LS_KEY = "hebrew_quiz_words"; // legacy key
 
@@ -298,6 +364,9 @@ export default function HebrewQuiz() {
   };
 
   const [currentBook,setCurrentBook]     =useState("hebrew");
+  const [uiLang,setUiLang]               =useState("ko");
+  const T = UI_TEXT[uiLang] || UI_TEXT.ko;
+  const bookInfo = BOOKS.find(b=>b.id===currentBook)||BOOKS[0];
   const [words,setWordsRaw]             =useState(()=>loadWords("hebrew"));
   const [mode,setMode]                  =useState(MODES.LIST);
   const [newHebrew,setNewHebrew]        =useState("");
@@ -529,7 +598,7 @@ export default function HebrewQuiz() {
         <header style={S.header}>
           <div style={S.headerLeft}>
             <span style={S.logo}>אב</span>
-            <div><h1 style={S.title}>히브리어 단어 퀴즈</h1><p style={S.subtitle}>Hebrew Vocabulary Trainer</p></div>
+            <div><h1 style={S.title}>{T.appTitle}</h1><p style={S.subtitle}>{T.appSub}</p></div>
           </div>
           <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:"6px"}}>
             <div style={S.statsRow}>
@@ -542,15 +611,19 @@ export default function HebrewQuiz() {
               ? <div style={{display:"flex",alignItems:"center",gap:"6px"}}>
                   <img src={user.photoURL} alt="" style={{width:"22px",height:"22px",borderRadius:"50%"}}/>
                   <span style={{fontSize:"0.7rem",color:"#c4a050",maxWidth:"80px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{user.displayName}</span>
-                  {syncing&&<span style={{fontSize:"0.65rem",color:"#5a5870"}}>저장중...</span>}
-                  <button onClick={signOutUser} style={{fontSize:"0.65rem",padding:"3px 8px",borderRadius:"6px",background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.15)",color:"#7a7890",cursor:"pointer"}}>로그아웃</button>
+                  {syncing&&<span style={{fontSize:"0.65rem",color:"#5a5870"}}>{T.saving}</span>}
+                  <button onClick={()=>setUiLang(l=>l==="ko"?"en":"ko")} style={{fontSize:"0.65rem",padding:"3px 8px",borderRadius:"6px",background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.15)",color:"#c4a050",cursor:"pointer",fontWeight:700}}>{uiLang==="ko"?"EN":"KO"}</button>
+                  <button onClick={signOutUser} style={{fontSize:"0.65rem",padding:"3px 8px",borderRadius:"6px",background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.15)",color:"#7a7890",cursor:"pointer"}}>{T.logout}</button>
                 </div>
-              : <button onClick={signInGoogle} style={{fontSize:"0.72rem",padding:"5px 10px",borderRadius:"8px",background:"linear-gradient(135deg,#c4a050,#e8c875)",border:"none",color:"#1a1820",fontWeight:700,cursor:"pointer"}}>Google 로그인</button>
+              : <div style={{display:"flex",gap:"6px",alignItems:"center"}}>
+                  <button onClick={signInGoogle} style={{fontSize:"0.72rem",padding:"5px 10px",borderRadius:"8px",background:"linear-gradient(135deg,#c4a050,#e8c875)",border:"none",color:"#1a1820",fontWeight:700,cursor:"pointer"}}>{T.login}</button>
+                  <button onClick={()=>setUiLang(l=>l==="ko"?"en":"ko")} style={{fontSize:"0.65rem",padding:"3px 8px",borderRadius:"6px",background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.15)",color:"#c4a050",cursor:"pointer",fontWeight:700}}>{uiLang==="ko"?"EN":"KO"}</button>
+                </div>
             }
           </div>
         </header>
 
-        <div style={{...S.autoSaveBanner,borderColor:user?"rgba(60,180,100,0.3)":"rgba(196,160,80,0.2)",color:user?"#60c880":"#c4a050"}}>{user?`☁️ ${user.displayName}의 단어장 — 모든 기기에서 자동 동기화돼요!`:"💾 이 기기에만 저장돼요. Google 로그인하면 모든 기기에서 동기화!"}</div>
+        <div style={{...S.autoSaveBanner,borderColor:user?"rgba(60,180,100,0.3)":"rgba(196,160,80,0.2)",color:user?"#60c880":"#c4a050"}}>{user?T.autoSaveCloud(user.displayName):T.autoSaveLocal}</div>
 
         {/* 단어장 탭 */}
         <div style={{display:"flex",gap:"6px",marginBottom:"12px",flexWrap:"wrap"}}>
@@ -560,7 +633,7 @@ export default function HebrewQuiz() {
                 background:currentBook===b.id?`rgba(${b.id==="hebrew"?"196,160,80":b.id==="english"?"60,100,200":"200,60,100"},0.2)`:"rgba(255,255,255,0.04)",
                 borderColor:currentBook===b.id?b.color:"rgba(255,255,255,0.1)",
                 color:currentBook===b.id?b.color:"#5a5870"}}>
-              {b.emoji} {b.label}
+              {b.emoji} {b.label[uiLang]||b.label.ko}
             </button>
           ))}
         </div>
@@ -587,21 +660,25 @@ export default function HebrewQuiz() {
         {mode===MODES.LIST&&(
           <div>
             <div style={S.card}>
-              <h2 style={S.cardTitle}>{editId!==null?"✏️ 단어 수정":"➕ 단어 추가"}</h2>
+              <h2 style={S.cardTitle}>{editId!==null?T.editWord:T.addWord}</h2>
               <div className="form-row" style={S.formRow}>
-                <input style={{...S.input,direction:"rtl",fontFamily:"Arial,sans-serif",fontSize:"1.15rem"}} placeholder="עברית (히브리어)" value={newHebrew} onChange={e=>setNewHebrew(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addWord()}/>
-                <input style={S.input} placeholder="뜻 (한국어/영어)" value={newMeaning} onChange={e=>setNewMeaning(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addWord()}/>
+                <input style={{...S.input,direction:bookInfo.dir,fontFamily:"Arial,sans-serif",fontSize:"1.1rem"}}
+                  placeholder={bookInfo.placeholderA[uiLang]||bookInfo.placeholderA.ko}
+                  value={newHebrew} onChange={e=>setNewHebrew(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addWord()}/>
+                <input style={S.input}
+                  placeholder={bookInfo.placeholderB[uiLang]||bookInfo.placeholderB.ko}
+                  value={newMeaning} onChange={e=>setNewMeaning(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addWord()}/>
                 <div style={{display:"flex",gap:"8px"}}>
-                  <button style={{...S.btnAdd,flex:1}} onClick={addWord}>{editId!==null?"수정 완료":"추가"}</button>
+                  <button style={{...S.btnAdd,flex:1}} onClick={addWord}>{editId!==null?T.editBtn:T.addBtn}</button>
                   {newHebrew&&<SpeakBtn text={newHebrew} onSpeak={speak} muted={muted}/>}
-                  {editId!==null&&<button style={S.btnCancel} onClick={cancelEdit}>취소</button>}
+                  {editId!==null&&<button style={S.btnCancel} onClick={cancelEdit}>{T.cancelBtn}</button>}
                 </div>
               </div>
             </div>
 
             <div style={S.ioCard}>
-              <div style={S.ioTitle}>💾 단어장 저장 / 불러오기</div>
-              <div style={{...S.ioSub,marginBottom:"10px"}}>텔레그램 등 파일 저장이 안 되면 📋 복사 사용</div>
+              <div style={S.ioTitle}>{T.saveLoad}</div>
+              <div style={{...S.ioSub,marginBottom:"10px"}}>{T.telegramTip}</div>
               <div className="io-btns" style={{display:"flex",gap:"8px",flexWrap:"wrap"}}>
                 <button style={S.btnIO("#c4a050","rgba(196,160,80,0.15)","rgba(196,160,80,0.4)")} onClick={exportWords}>⬇️ 파일 저장</button>
                 <button style={S.btnIO("#c4a050","rgba(196,160,80,0.1)","rgba(196,160,80,0.3)")} onClick={copyToClipboard}>📋 복사</button>
@@ -620,7 +697,7 @@ export default function HebrewQuiz() {
             <div style={{display:"flex",gap:"8px",marginBottom:"10px",flexWrap:"wrap",alignItems:"center"}}>
               <input
                 style={{...S.input,flex:1,minWidth:"160px",padding:"9px 14px",fontSize:"0.9rem"}}
-                placeholder="단어 검색..."
+                placeholder={T.searchPlaceholder}
                 value={searchQuery}
                 onChange={e=>{setSearchQuery(e.target.value);setPage(0);}}
               />
@@ -636,7 +713,7 @@ export default function HebrewQuiz() {
 
             {/* 필터 탭 */}
             <div style={S.filterTabs}>
-              {[["all","전체",words.length],["learning","📖 학습중",learningCount],["hard","🔥 어려움",hardCount],["mastered","✅ 완료",masteredCount]].map(([val,label,cnt])=>(
+              {[["all",T.all,words.length],["learning",T.learning,learningCount],["hard",T.hard,hardCount],["mastered",T.done,masteredCount]].map(([val,label,cnt])=>(
                 <button key={val} style={{...S.filterTab,...(listFilter===val?S.filterTabActive:{})}} onClick={()=>{setListFilter(val);setPage(0);setSelectedIds(new Set());}}>
                   {label}<span style={S.filterCnt}>{cnt}</span>
                 </button>
@@ -646,17 +723,17 @@ export default function HebrewQuiz() {
             {/* 맨 위로 버튼 + 전체 선택 삭제 */}
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"6px",flexWrap:"wrap",gap:"6px"}}>
               <div style={{display:"flex",alignItems:"center",gap:"8px"}}>
-                <span style={{fontSize:"0.78rem",color:"#5a5870"}}>{searchedWords.length}개 단어</span>
+                <span style={{fontSize:"0.78rem",color:"#5a5870"}}>{T.wordCount(searchedWords.length)}</span>
                 <button style={{...S.scrollBtn,fontSize:"0.75rem"}} onClick={()=>{
                   if(selectedIds.size===filteredWords.length) setSelectedIds(new Set());
                   else setSelectedIds(new Set(filteredWords.map(w=>w.id)));
                 }}>
-                  {selectedIds.size===filteredWords.length&&filteredWords.length>0?"선택 해제":"전체 선택"}
+                  {selectedIds.size===filteredWords.length&&filteredWords.length>0?T.deselect:T.selectAll}
                 </button>
                 {selectedIds.size>0&&(
                   <button style={{...S.scrollBtn,background:"rgba(200,60,60,0.15)",borderColor:"rgba(200,60,60,0.4)",color:"#f08080",fontSize:"0.75rem"}}
-                    onClick={()=>{ if(window.confirm(`선택한 ${selectedIds.size}개 단어를 삭제할까요?`)){setWords(ws=>ws.filter(w=>!selectedIds.has(w.id)));setSelectedIds(new Set());} }}>
-                    🗑️ {selectedIds.size}개 삭제
+                    onClick={()=>{ if(window.confirm(uiLang==="en"?`Delete ${selectedIds.size} selected words?`:`선택한 ${selectedIds.size}개 단어를 삭제할까요?`)){setWords(ws=>ws.filter(w=>!selectedIds.has(w.id)));setSelectedIds(new Set());} }}>
+                    {T.deleteN(selectedIds.size)}
                   </button>
                 )}
               </div>
@@ -664,7 +741,7 @@ export default function HebrewQuiz() {
             </div>
 
             <div style={S.wordList}>
-              {filteredWords.length===0&&<div style={S.emptyMsg}>{searchQuery?"검색 결과가 없어요":"단어가 없어요"}</div>}
+              {filteredWords.length===0&&<div style={S.emptyMsg}>{searchQuery?(uiLang==="en"?"No results":"검색 결과가 없어요"):(uiLang==="en"?"No words yet":"단어가 없어요")}</div>}
               {filteredWords.map((w,i)=>{ const st=STATUS_CONFIG[w.status]; return(
                 <div key={w.id} style={{...S.wordItem,borderColor:selectedIds.has(w.id)?"rgba(200,60,60,0.5)":st.border,background:selectedIds.has(w.id)?"rgba(200,60,60,0.08)":undefined}}>
                   <input type="checkbox" checked={selectedIds.has(w.id)}
@@ -699,42 +776,48 @@ export default function HebrewQuiz() {
 
             {/* 객관식 */}
             <div style={S.card}>
-              <h2 style={S.cardTitle}>🎯 객관식 퀴즈</h2>
-              <p style={S.settingLabel}>문제 방향</p>
-              <div style={S.optionRow}>{[[QUIZ_TYPES.HEB_TO_MEAN,"히브리어 → 뜻"],[QUIZ_TYPES.MEAN_TO_HEB,"뜻 → 히브리어"],[QUIZ_TYPES.MIXED,"랜덤 혼합"]].map(([val,label])=><button key={val} style={{...S.optBtn,...(quizType===val?S.optBtnActive:{})}} onClick={()=>setQuizType(val)}>{label}</button>)}</div>
-              <p style={S.settingLabel}>단어 범위</p>
-              <div style={S.optionRow}>{[[QUIZ_FILTERS.ALL,`전체 (${words.length})`],[QUIZ_FILTERS.EXCLUDE_MASTERED,`암기 제외 (${words.filter(w=>w.status!=="mastered").length})`],[QUIZ_FILTERS.HARD_ONLY,`🔥 어려운 것만 (${hardCount})`]].map(([val,label])=><button key={val} style={{...S.optBtn,...(quizFilter===val?S.optBtnActive:{})}} onClick={()=>setQuizFilter(val)}>{label}</button>)}</div>
-              <p style={S.settingLabel}>문제 수</p>
+              <h2 style={S.cardTitle}>{T.mcqTitle}</h2>
+              <p style={S.settingLabel}>{T.direction}</p>
+              <div style={S.optionRow}>{[[QUIZ_TYPES.HEB_TO_MEAN,T.dirAtoB(bookInfo)],[QUIZ_TYPES.MEAN_TO_HEB,T.dirBtoA(bookInfo)],[QUIZ_TYPES.MIXED,T.mixed]].map(([val,label])=><button key={val} style={{...S.optBtn,...(quizType===val?S.optBtnActive:{})}} onClick={()=>setQuizType(val)}>{label}</button>)}</div>
+              <p style={S.settingLabel}>{T.wordRange}</p>
+              <div style={S.optionRow}>{[[QUIZ_FILTERS.ALL,T.allRange(words.length)],[QUIZ_FILTERS.EXCLUDE_MASTERED,T.excludeMastered(words.filter(w=>w.status!=="mastered").length)],[QUIZ_FILTERS.HARD_ONLY,T.hardOnly(hardCount)]].map(([val,label])=><button key={val} style={{...S.optBtn,...(quizFilter===val?S.optBtnActive:{})}} onClick={()=>setQuizFilter(val)}>{label}</button>)}</div>
+              <p style={S.settingLabel}>{T.questionCount}</p>
               <div style={S.optionRow}>{countOptions.map(({label,value})=>{ const d=value!==9999&&value>poolSize; return<button key={value} style={{...S.optBtn,...(quizCount===value?S.optBtnActive:{}),...(d?{opacity:0.3,cursor:"not-allowed"}:{})}} onClick={()=>!d&&setQuizCount(value)} disabled={d}>{label}</button>; })}</div>
-              <div style={S.sliderWrap}><span style={S.sliderLabel}>직접:</span><input type="range" min={4} max={Math.max(4,poolSize)} value={Math.min(quizCount===9999?poolSize:quizCount,poolSize)} onChange={e=>setQuizCount(Number(e.target.value))} style={S.slider}/><span style={S.sliderVal}>{quizCount===9999?poolSize:Math.min(quizCount,poolSize)}문제</span></div>
+              <div style={S.sliderWrap}>
+                <span style={S.sliderLabel}>{T.directInput}</span>
+                <input type="range" min={1} max={Math.max(4,poolSize)} value={Math.min(quizCount===9999?poolSize:quizCount,poolSize)} onChange={e=>setQuizCount(Number(e.target.value))} style={S.slider}/>
+                <input type="number" min={1} max={poolSize} value={quizCount===9999?poolSize:Math.min(quizCount,poolSize)}
+                  onChange={e=>{ const v=Math.max(1,Math.min(poolSize,Number(e.target.value)||1)); setQuizCount(v); }}
+                  style={{width:"52px",padding:"4px 6px",background:"rgba(255,255,255,0.08)",border:"1px solid rgba(196,160,80,0.4)",borderRadius:"6px",color:"#c4a050",fontSize:"0.9rem",fontWeight:700,textAlign:"center",outline:"none"}}/>
+              </div>
               <div style={{display:"flex",flexDirection:"column",gap:"8px",marginBottom:"14px"}}>
                 <div style={S.autoPlayRow}>
-                  <div><div style={{fontSize:"0.85rem",color:"#c4a050",fontWeight:600}}>🔊 퀴즈 자동 발음</div><div style={{fontSize:"0.75rem",color:"#5a5870",marginTop:"2px"}}>히브리어 문제 시 자동 재생</div></div>
+                  <div><div style={{fontSize:"0.85rem",color:"#c4a050",fontWeight:600}}>{T.autoPlay}</div><div style={{fontSize:"0.75rem",color:"#5a5870",marginTop:"2px"}}>{T.autoPlaySub}</div></div>
                   <button onClick={()=>setAutoPlay(v=>!v)} style={{...S.toggleBtn,...(autoPlay?S.toggleOn:S.toggleOff)}}>{autoPlay?"ON":"OFF"}</button>
                 </div>
                 <div style={S.autoPlayRow}>
-                  <div><div style={{fontSize:"0.85rem",color:"#f07050",fontWeight:600}}>🔇 음소거</div><div style={{fontSize:"0.75rem",color:"#5a5870",marginTop:"2px"}}>모든 발음을 끕니다</div></div>
+                  <div><div style={{fontSize:"0.85rem",color:"#f07050",fontWeight:600}}>{T.mute}</div><div style={{fontSize:"0.75rem",color:"#5a5870",marginTop:"2px"}}>{T.muteSub}</div></div>
                   <button onClick={()=>setMuted(v=>!v)} style={{...S.toggleBtn,...(muted?{background:"rgba(200,60,60,0.3)",color:"#f08080"}:S.toggleOff)}}>{muted?"ON":"OFF"}</button>
                 </div>
               </div>
-              <button style={{...S.btnStart,...(poolSize<4?S.btnDisabled:{})}} onClick={startQuiz} disabled={poolSize<4}>{poolSize<4?`단어 최소 4개 필요 (현재 ${poolSize}개)`:`🚀 객관식 시작! (${quizCount===9999?poolSize:Math.min(quizCount,poolSize)}문제)`}</button>
+              <button style={{...S.btnStart,...(poolSize<4?S.btnDisabled:{})}} onClick={startQuiz} disabled={poolSize<4}>{poolSize<4?T.needMore(poolSize):T.startMCQ(quizCount===9999?poolSize:Math.min(quizCount,poolSize))}</button>
             </div>
 
             {/* 서술형 */}
             <div style={{...S.card,border:"1px solid rgba(100,80,200,0.3)"}}>
-              <h2 style={{...S.cardTitle,color:"#9060f0"}}>✍️ 서술형 시험</h2>
-              <p style={{fontSize:"0.82rem",color:"#7a7890",marginBottom:"12px"}}>직접 타이핑해서 답하는 서술형! 부분 정답도 인정됩니다.</p>
+              <h2 style={{...S.cardTitle,color:"#9060f0"}}>{T.essayTitle}</h2>
+              <p style={{fontSize:"0.82rem",color:"#7a7890",marginBottom:"12px"}}>{T.essaySub}</p>
               <p style={S.settingLabel}>문제 방향</p>
               <div style={S.optionRow}>
-                {[["heb_to_mean","히브리어 → 뜻 입력"],["mean_to_heb","뜻 → 히브리어 입력"],["mixed","랜덤 혼합"]].map(([val,label])=>(
+                {[["heb_to_mean",T.dirAtoB_e(bookInfo)],["mean_to_heb",T.dirBtoA_e(bookInfo)],["mixed",T.mixed]].map(([val,label])=>(
                   <button key={val} style={{...S.optBtn,...(essayType===val?S.essayOptActive:{})}} onClick={()=>setEssayType(val)}>{label}</button>
                 ))}
               </div>
               <p style={S.settingLabel}>단어 범위</p>
-              <div style={S.optionRow}>{[[QUIZ_FILTERS.ALL,`전체 (${words.length})`],[QUIZ_FILTERS.EXCLUDE_MASTERED,`암기 제외 (${words.filter(w=>w.status!=="mastered").length})`],[QUIZ_FILTERS.HARD_ONLY,`어려운 것만 (${hardCount})`]].map(([val,label])=><button key={val} style={{...S.optBtn,...(essayFilter===val?S.essayOptActive:{})}} onClick={()=>setEssayFilter(val)}>{label}</button>)}</div>
-              <p style={S.settingLabel}>문제 수</p>
+              <div style={S.optionRow}>{[[QUIZ_FILTERS.ALL,T.allRange(words.length)],[QUIZ_FILTERS.EXCLUDE_MASTERED,T.excludeMastered(words.filter(w=>w.status!=="mastered").length)],[QUIZ_FILTERS.HARD_ONLY,T.hardOnly(hardCount)]].map(([val,label])=><button key={val} style={{...S.optBtn,...(essayFilter===val?S.essayOptActive:{})}} onClick={()=>setEssayFilter(val)}>{label}</button>)}</div>
+              <p style={S.settingLabel}>{T.questionCount}</p>
               <div style={S.optionRow}>{countOptions.map(({label,value})=>{ const d=value!==9999&&value>essayPoolSize; return<button key={value} style={{...S.optBtn,...(essayCount===value?S.essayOptActive:{}),...(d?{opacity:0.3,cursor:"not-allowed"}:{})}} onClick={()=>!d&&setEssayCount(value)} disabled={d}>{label}</button>; })}</div>
-              <button style={{...S.btnEssayStart,...(!essayPoolSize?S.btnDisabled:{})}} onClick={startEssay} disabled={!essayPoolSize}>✍️ 서술형 시작! ({essayCount===9999?essayPoolSize:Math.min(essayCount,essayPoolSize)}문제)</button>
+              <button style={{...S.btnEssayStart,...(!essayPoolSize?S.btnDisabled:{})}} onClick={startEssay} disabled={!essayPoolSize}>✍️ 서술형 시작! ({essayCount===9999?essayPoolSize:Math.min(essayCount,essayPoolSize)} {uiLang==="en"?"questions":"문제"})</button>
             </div>
           </div>
         )}
@@ -745,14 +828,14 @@ export default function HebrewQuiz() {
             <div style={S.progressBar}><div style={{...S.progressFill,width:`${progress}%`}}/></div>
             <div style={S.progressLabel}><span>{current+1} / {questions.length}</span><span style={S.scoreLabel}>점수: {score} / {current+(confirmed?1:0)}</span></div>
             <div style={S.questionCard}>
-              <div style={S.questionTag}>{q.questionType===QUIZ_TYPES.HEB_TO_MEAN?"히브리어의 뜻은?":"뜻에 해당하는 히브리어는?"}</div>
+              <div style={S.questionTag}>{q.questionType===QUIZ_TYPES.HEB_TO_MEAN?T.questionTagAtoB(bookInfo):T.questionTagBtoA(bookInfo)}</div>
               <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:"12px"}}>
                 <div style={{...S.questionText,...(q.questionType===QUIZ_TYPES.HEB_TO_MEAN?{fontFamily:"Arial,sans-serif",fontSize:"clamp(2rem,8vw,3rem)",direction:"rtl"}:{fontSize:"clamp(1.1rem,4vw,1.5rem)"})}}>
                   {q.question}
                 </div>
                 <div style={{display:"flex",gap:"8px",alignItems:"center",justifyContent:"center",flexWrap:"wrap"}}>
                   {q.questionType===QUIZ_TYPES.HEB_TO_MEAN?(<RepeatSpeakBtn text={q.question} onSpeak={speak} muted={muted}/>)
-                  :confirmed?(<><RepeatSpeakBtn text={q.answer} onSpeak={speak} muted={muted}/><span style={{fontSize:"0.75rem",color:"#5a5870"}}>정답 발음</span></>):null}
+                  :confirmed?(<><RepeatSpeakBtn text={q.answer} onSpeak={speak} muted={muted}/><span style={{fontSize:"0.75rem",color:"#5a5870"}}>{uiLang==="en"?"Answer pronunciation":"정답 발음"}</span></>):null}
                 </div>
               </div>
               {(()=>{const w=words.find(x=>x.id===q.wordId);const st=w?STATUS_CONFIG[w.status]:null;return st?<div style={{...S.statusPill,color:st.color,background:st.bg,border:`1px solid ${st.border}`}}>{st.emoji} {st.label}</div>:null;})()}
@@ -768,7 +851,7 @@ export default function HebrewQuiz() {
             </div>
             <div style={{minHeight:"52px",marginBottom:"8px"}}>
               {confirmed&&<div style={{...(selected===q.answer?S.feedbackCorrect:S.feedbackWrong),display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:"8px"}}>
-                <span>{selected===q.answer?"✅ 정답!":`❌ 오답 — 정답: ${q.answer}`}
+                <span>{selected===q.answer?T.correct:T.wrong(q.answer)}
                 {(()=>{const w=words.find(x=>x.id===q.wordId);const st=w?STATUS_CONFIG[w.status]:null;return st?<span style={{marginLeft:8,fontSize:"0.78rem",opacity:0.8}}>{st.emoji} {st.label}</span>:null;})()}</span>
                 {/* 퀴즈 중 어려움 표시 버튼 */}
                 {(()=>{ const w=words.find(x=>x.id===q.wordId); return w&&w.status!=="hard"?(
@@ -782,8 +865,8 @@ export default function HebrewQuiz() {
               </div>}
             </div>
             <div className="quiz-btn-row" style={S.quizBtnRow}>
-              {!confirmed?<button style={{...S.btnConfirm,...(!selected?S.btnDisabled:{})}} onClick={handleConfirm} disabled={!selected}>확인</button>:<button style={S.btnNext} onClick={handleNext}>{current+1>=questions.length?"결과 보기 🏁":"다음 문제 →"}</button>}
-              <button style={S.btnQuit} onClick={()=>{window.speechSynthesis?.cancel();setMode(MODES.LIST);}}>그만하기</button>
+              {!confirmed?<button style={{...S.btnConfirm,...(!selected?S.btnDisabled:{})}} onClick={handleConfirm} disabled={!selected}>{T.confirm}</button>:<button style={S.btnNext} onClick={handleNext}>{current+1>=questions.length?T.finish:T.next}</button>}
+              <button style={S.btnQuit} onClick={()=>{window.speechSynthesis?.cancel();setMode(MODES.LIST);}}>{T.quit}</button>
             </div>
           </div>
         )}
@@ -795,7 +878,7 @@ export default function HebrewQuiz() {
             <div style={S.progressLabel}><span>✍️ {essayCurrent+1} / {essayQuestions.length}</span><span style={{color:"#9060f0",fontWeight:600}}>정답 {essayResults.filter(r=>r.result!=="wrong").length} / {essayCurrent+(essayConfirmed?1:0)}</span></div>
             <div style={{...S.questionCard,border:"1px solid rgba(100,80,200,0.3)"}}>
               <div style={{...S.questionTag,color:"#9060f0"}}>
-                {eq.questionType==="heb_to_mean"?"히브리어의 뜻을 입력하세요":"뜻에 해당하는 히브리어를 입력하세요"}
+                {eq.questionType==="heb_to_mean"?T.questionTagAtoB(bookInfo):T.questionTagBtoA(bookInfo)}
               </div>
               {eq.questionType==="heb_to_mean"
                 ?<div style={{fontFamily:"Arial,sans-serif",fontSize:"clamp(2rem,8vw,3rem)",direction:"rtl",color:"#f0ece0",marginBottom:"14px"}}>{eq.question}</div>
@@ -810,7 +893,7 @@ export default function HebrewQuiz() {
             {eq.questionType==="heb_to_mean"&&(
               <input ref={essayInputRef}
                 style={{...S.input,fontSize:"1.1rem",marginBottom:"12px",...(essayConfirmed?{borderColor:essayResults[essayResults.length-1]?.result==="exact"?"rgba(60,180,100,0.6)":essayResults[essayResults.length-1]?.result==="partial"?"rgba(196,160,80,0.6)":"rgba(200,60,60,0.6)"}:{})}}
-                placeholder="뜻을 한국어/영어로 입력하세요..." value={essayInput}
+                placeholder={T.inputPlaceholderA(bookInfo)} value={essayInput}
                 onChange={e=>!essayConfirmed&&setEssayInput(e.target.value)}
                 onKeyDown={e=>{if(e.key==="Enter"){if(!essayConfirmed)handleEssayConfirm();else handleEssayNext();}}}
                 readOnly={essayConfirmed}/>
@@ -820,7 +903,7 @@ export default function HebrewQuiz() {
             {eq.questionType==="mean_to_heb"&&(
               <input ref={essayHebrewRef}
                 style={{...S.input,fontSize:"1.3rem",fontFamily:"Arial,sans-serif",direction:"rtl",marginBottom:"12px",unicodeBidi:"plaintext",...(essayConfirmed?{borderColor:essayResults[essayResults.length-1]?.result==="exact"?"rgba(60,180,100,0.6)":essayResults[essayResults.length-1]?.result==="partial"?"rgba(196,160,80,0.6)":"rgba(200,60,60,0.6)"}:{})}}
-                placeholder="히브리어로 입력하세요..." lang="he" spellCheck={false} autoCorrect="off"
+                placeholder={T.inputPlaceholderB(bookInfo)} lang="he" spellCheck={false} autoCorrect="off"
                 defaultValue="" readOnly={essayConfirmed}
                 onKeyDown={e=>{if(e.key==="Enter"){if(!essayConfirmed)handleEssayConfirm();else handleEssayNext();}}}/>
             )}
@@ -833,9 +916,9 @@ export default function HebrewQuiz() {
 
             <div className="quiz-btn-row" style={S.quizBtnRow}>
               {!essayConfirmed
-                ?<button style={S.btnEssayConfirm} onClick={handleEssayConfirm}>확인</button>
-                :<button style={S.btnNext} onClick={handleEssayNext}>{essayCurrent+1>=essayQuestions.length?"결과 보기 🏁":"다음 문제 →"}</button>}
-              <button style={S.btnQuit} onClick={()=>{window.speechSynthesis?.cancel();setMode(MODES.LIST);}}>그만하기</button>
+                ?<button style={S.btnEssayConfirm} onClick={handleEssayConfirm}>{T.confirm}</button>
+                :<button style={S.btnNext} onClick={handleEssayNext}>{essayCurrent+1>=essayQuestions.length?T.finish:T.next}</button>}
+              <button style={S.btnQuit} onClick={()=>{window.speechSynthesis?.cancel();setMode(MODES.LIST);}}>{T.quit}</button>
             </div>
           </div>
         )}
