@@ -78,7 +78,7 @@ const UI_TEXT = {
     startEssay:(n)=>`✍️ 서술형 시작! (${n}문제)`,
     questionTagAtoB:(b)=>`${b.termA.ko}의 ${b.termB.ko}는?`, questionTagBtoA:(b)=>`${b.termB.ko}에 해당하는 ${b.termA.ko}는?`,
     inputPlaceholderA:(b)=>`${b.termB.ko}을 입력하세요...`, inputPlaceholderB:(b)=>`${b.termA.ko}로 입력하세요...`,
-    markHard:T.markHard, markedHard:T.markedHard,
+    markHard:"🔥 어려움으로 표시", markedHard:"🔥 어려움으로 분류됨",
     correct:"✅ 정답!", wrong:(a)=>`❌ 오답 — 정답: ${a}`,
     confirm:"확인", next:"다음 문제 →", finish:"결과 보기 🏁", quit:"그만하기",
     autoSaveLocal:"💾 이 기기에만 저장돼요. Google 로그인하면 모든 기기에서 동기화!",
