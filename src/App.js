@@ -42,17 +42,17 @@ const MODES = { LIST:"list", QUIZ:"quiz", ESSAY:"essay", RESULT:"result", ESSAY_
 const QUIZ_TYPES = { HEB_TO_MEAN:"heb_to_mean", MEAN_TO_HEB:"mean_to_heb", MIXED:"mixed" };
 const QUIZ_FILTERS = { ALL:"all", EXCLUDE_MASTERED:"exclude_mastered", HARD_ONLY:"hard_only" };
 const BOOKS = [
-  { id:"hebrew",  label:{ko:"히브리어", en:"Hebrew"},  emoji:"🇮🇱", color:"#c4a050",
+  { id:"hebrew",  label:{ko:"히브리어", en:"Hebrew"},  emoji:"🇮🇱", color:"#c4a050", ttsLang:"he-IL", ttsName:"he-IL-Standard-A", ttsRate:0.85,
     termA:{ko:"히브리어", en:"Word"}, termB:{ko:"뜻", en:"Meaning"},
     placeholderA:{ko:"עברית (히브리어)", en:"Hebrew word"},
     placeholderB:{ko:"뜻 (한국어/영어)", en:"Meaning"},
     dir:"rtl" },
-  { id:"english", label:{ko:"영어", en:"English"}, emoji:"🇺🇸", color:"#60a0e0",
+  { id:"english", label:{ko:"영어", en:"English"}, emoji:"🇺🇸", color:"#60a0e0", ttsLang:"en-US", ttsName:"en-US-Standard-C", ttsRate:0.9,
     termA:{ko:"영어 단어", en:"English word"}, termB:{ko:"뜻 (한국어)", en:"Korean meaning"},
     placeholderA:{ko:"English word", en:"English word"},
     placeholderB:{ko:"뜻 (한국어)", en:"Korean meaning"},
     dir:"ltr" },
-  { id:"korean",  label:{ko:"한국어", en:"Korean"}, emoji:"🇰🇷", color:"#e06080",
+  { id:"korean",  label:{ko:"한국어", en:"Korean"}, emoji:"🇰🇷", color:"#e06080", ttsLang:"ko-KR", ttsName:"ko-KR-Standard-A", ttsRate:0.9,
     termA:{ko:"한국어 단어", en:"Korean word"}, termB:{ko:"뜻 (영어)", en:"English meaning"},
     placeholderA:{ko:"한국어 단어", en:"Korean word"},
     placeholderB:{ko:"뜻 (영어)", en:"English meaning"},
@@ -163,20 +163,23 @@ function generateQuestion(word, allWords, type) {
   return { question, answer, choices:shuffle([answer,...distractors]), questionType:actualType, wordId:word.id };
 }
 
-async function googleTTS(text,apiKey) {
+async function googleTTS(text, apiKey, lang="he-IL", name="he-IL-Standard-A", rate=0.85) {
+  // 히브리어는 닉쿠드 제거, 다른 언어는 그대로
+  const input = lang.startsWith("he") ? stripNikkud(text) : text;
   const res = await fetch(`https://texttospeech.googleapis.com/v1/text:synthesize?key=${apiKey}`,{
-    method:"POST",headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({input:{text:stripNikkud(text)},voice:{languageCode:"he-IL",name:"he-IL-Standard-A"},audioConfig:{audioEncoding:"MP3",speakingRate:0.85}}),
+    method:"POST", headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({input:{text:input}, voice:{languageCode:lang, name}, audioConfig:{audioEncoding:"MP3", speakingRate:rate}}),
   });
   if(!res.ok) throw new Error("TTS error");
   const data=await res.json();
   new Audio(`data:audio/mp3;base64,${data.audioContent}`).play();
 }
-function browserTTS(text) {
+function browserTTS(text, lang="he-IL", rate=0.85) {
   if(!window.speechSynthesis) return;
   window.speechSynthesis.cancel();
-  const utt=new SpeechSynthesisUtterance(stripNikkud(text));
-  utt.lang="he-IL"; utt.rate=0.85; window.speechSynthesis.speak(utt);
+  const input = lang.startsWith("he") ? stripNikkud(text) : text;
+  const utt=new SpeechSynthesisUtterance(input);
+  utt.lang=lang; utt.rate=rate; window.speechSynthesis.speak(utt);
 }
 
 function SpeakBtn({text,onSpeak,size="md",muted=false}) {
@@ -275,7 +278,13 @@ function parseTextFormat(text) {
 export default function HebrewQuiz() {
   const envKey=process.env.REACT_APP_GOOGLE_TTS_KEY||"";
   const [apiKey]=useState(envKey); const ttsReady=!!envKey;
-  const speak=useCallback(async(text,forceMuted=false)=>{ if(forceMuted) return; if(apiKey){try{await googleTTS(text,apiKey);return;}catch{}} browserTTS(text); },[apiKey]);
+  const speak=useCallback(async(text,forceMuted=false)=>{ 
+    if(forceMuted) return;
+    const book = BOOKS.find(b=>b.id===currentBook)||BOOKS[0];
+    const {ttsLang,ttsName,ttsRate} = book;
+    if(apiKey){ try{ await googleTTS(text,apiKey,ttsLang,ttsName,ttsRate); return; }catch{} }
+    browserTTS(text,ttsLang,ttsRate);
+  },[apiKey,currentBook]);
 
   // ── Firebase 로그인 상태 ──
   const [user,setUser]     =useState(null);   // null = 비로그인
