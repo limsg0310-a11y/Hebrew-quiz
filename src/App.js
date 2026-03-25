@@ -321,7 +321,7 @@ export default function HebrewQuiz() {
         <div style={{background:"rgba(196,160,80,0.08)",border:"1px solid rgba(196,160,80,0.2)",borderRadius:"10px",padding:"10px 12px",marginBottom:"10px",fontSize:"0.82rem",color:"#c4a050",lineHeight:1.8,fontFamily:"monospace"}}>
           שָׁלוֹם=평화<br/>תּוֹדָה=감사합니다<br/>אֱלֹהִים=하나님
         </div>
-        <textarea ref={batchTextRef} style={{...S.modalTA, fontFamily:"Frank Ruhl Libre, serif", unicodeBidi:"plaintext"}} lang="he" placeholder={"שָׁלוֹם=평화\nתּוֹדָה=감사합니다"} defaultValue="" spellCheck={false} autoCorrect="off" autoCapitalize="off"/>
+        <textarea ref={batchTextRef} style={{...S.modalTA, fontFamily:"Arial,sans-serif", unicodeBidi:"plaintext"}} lang="he" placeholder={"שָׁלוֹם=평화\nתּוֹדָה=감사합니다"} defaultValue="" spellCheck={false} autoCorrect="off" autoCapitalize="off"/>
         <div className="modal-btn-row" style={S.modalBtnRow}>
           <button style={S.btnMerge} onClick={importFromBatchText}>✅ 단어 추가</button>
           <button style={S.btnCancel2} onClick={()=>{setShowBatchModal(false); if(batchTextRef.current) batchTextRef.current.value="";}}>취소</button>
@@ -336,7 +336,7 @@ export default function HebrewQuiz() {
           <div style={S.modalPreview}>
             {importPreview.words.slice(0,5).map((w,i)=>(
               <div key={i} style={S.modalPreviewItem}>
-                <span style={{fontFamily:"'Frank Ruhl Libre',serif",color:"#c4a050",direction:"rtl"}}>{w.hebrew}</span>
+                <span style={{fontFamily:"Arial,sans-serif",color:"#c4a050",direction:"rtl"}}>{w.hebrew}</span>
                 <span style={{color:"#5a5870",margin:"0 6px"}}>→</span>
                 <span style={{color:"#a0a0c0",fontSize:"0.85rem"}}>{w.meaning}</span>
               </div>
@@ -393,7 +393,7 @@ export default function HebrewQuiz() {
             <div style={S.card}>
               <h2 style={S.cardTitle}>{editId!==null?"✏️ 단어 수정":"➕ 단어 추가"}</h2>
               <div className="form-row" style={S.formRow}>
-                <input style={{...S.input,direction:"rtl",fontFamily:"'Frank Ruhl Libre',serif",fontSize:"1.15rem"}} placeholder="עברית (히브리어)" value={newHebrew} onChange={e=>setNewHebrew(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addWord()}/>
+                <input style={{...S.input,direction:"rtl",fontFamily:"Arial,sans-serif",fontSize:"1.15rem"}} placeholder="עברית (히브리어)" value={newHebrew} onChange={e=>setNewHebrew(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addWord()}/>
                 <input style={S.input} placeholder="뜻 (한국어/영어)" value={newMeaning} onChange={e=>setNewMeaning(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addWord()}/>
                 <div style={{display:"flex",gap:"8px"}}>
                   <button style={{...S.btnAdd,flex:1}} onClick={addWord}>{editId!==null?"수정 완료":"추가"}</button>
@@ -551,7 +551,7 @@ export default function HebrewQuiz() {
             <div style={S.questionCard}>
               <div style={S.questionTag}>{q.questionType===QUIZ_TYPES.HEB_TO_MEAN?"히브리어의 뜻은?":"뜻에 해당하는 히브리어는?"}</div>
               <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:"12px"}}>
-                <div style={{...S.questionText,...(q.questionType===QUIZ_TYPES.HEB_TO_MEAN?{fontFamily:"'Frank Ruhl Libre',serif",fontSize:"clamp(2rem,8vw,3rem)",direction:"rtl"}:{fontSize:"clamp(1.1rem,4vw,1.5rem)"})}}>
+                <div style={{...S.questionText,...(q.questionType===QUIZ_TYPES.HEB_TO_MEAN?{fontFamily:"Arial,sans-serif",fontSize:"clamp(2rem,8vw,3rem)",direction:"rtl"}:{fontSize:"clamp(1.1rem,4vw,1.5rem)"})}}>
                   {q.question}
                 </div>
                 <div style={{display:"flex",gap:"8px",alignItems:"center",justifyContent:"center",flexWrap:"wrap"}}>
@@ -565,7 +565,7 @@ export default function HebrewQuiz() {
               {q.choices.map((choice,idx)=>{ let extra={}; if(confirmed){if(choice===q.answer)extra=S.choiceCorrect;else if(choice===selected)extra=S.choiceWrong;}else if(choice===selected)extra=S.choiceSelected; return(
                 <button key={idx} style={{...S.choiceBtn,...extra}} onClick={()=>handleSelect(choice)}>
                   <span style={S.choiceAlpha}>{"ABCD"[idx]}</span>
-                  <span style={q.questionType===QUIZ_TYPES.MEAN_TO_HEB?{fontFamily:"'Frank Ruhl Libre',serif",fontSize:"1.2rem",direction:"rtl"}:{}}>{choice}</span>
+                  <span style={q.questionType===QUIZ_TYPES.MEAN_TO_HEB?{fontFamily:"Arial,sans-serif",fontSize:"1.2rem",direction:"rtl"}:{}}>{choice}</span>
                   {q.questionType===QUIZ_TYPES.MEAN_TO_HEB&&<span style={{marginLeft:"auto"}} onClick={e=>{e.stopPropagation();if(!muted)speak(choice);}}>🔈</span>}
                 </button>
               );})}
@@ -593,7 +593,7 @@ export default function HebrewQuiz() {
                 {eq.questionType==="heb_to_mean"?"히브리어의 뜻을 입력하세요":"뜻에 해당하는 히브리어를 입력하세요"}
               </div>
               {eq.questionType==="heb_to_mean"
-                ?<div style={{fontFamily:"'Frank Ruhl Libre',serif",fontSize:"clamp(2rem,8vw,3rem)",direction:"rtl",color:"#f0ece0",marginBottom:"14px"}}>{eq.question}</div>
+                ?<div style={{fontFamily:"Arial,sans-serif",fontSize:"clamp(2rem,8vw,3rem)",direction:"rtl",color:"#f0ece0",marginBottom:"14px"}}>{eq.question}</div>
                 :<div style={{fontSize:"clamp(1.1rem,4vw,1.5rem)",color:"#f0ece0",marginBottom:"14px",lineHeight:1.4}}>{eq.question}</div>
               }
               <div style={{display:"flex",alignItems:"center",gap:"8px",justifyContent:"center",flexWrap:"wrap"}}>
@@ -614,7 +614,7 @@ export default function HebrewQuiz() {
             {/* 히브리어 입력 (mean_to_heb) — uncontrolled ref (히브리어 IME 문제 방지) */}
             {eq.questionType==="mean_to_heb"&&(
               <input ref={essayHebrewRef}
-                style={{...S.input,fontSize:"1.3rem",fontFamily:"'Frank Ruhl Libre',serif",direction:"rtl",marginBottom:"12px",unicodeBidi:"plaintext",...(essayConfirmed?{borderColor:essayResults[essayResults.length-1]?.result==="exact"?"rgba(60,180,100,0.6)":essayResults[essayResults.length-1]?.result==="partial"?"rgba(196,160,80,0.6)":"rgba(200,60,60,0.6)"}:{})}}
+                style={{...S.input,fontSize:"1.3rem",fontFamily:"Arial,sans-serif",direction:"rtl",marginBottom:"12px",unicodeBidi:"plaintext",...(essayConfirmed?{borderColor:essayResults[essayResults.length-1]?.result==="exact"?"rgba(60,180,100,0.6)":essayResults[essayResults.length-1]?.result==="partial"?"rgba(196,160,80,0.6)":"rgba(200,60,60,0.6)"}:{})}}
                 placeholder="히브리어로 입력하세요..." lang="he" spellCheck={false} autoCorrect="off"
                 defaultValue="" readOnly={essayConfirmed}
                 onKeyDown={e=>{if(e.key==="Enter"){if(!essayConfirmed)handleEssayConfirm();else handleEssayNext();}}}/>
@@ -622,8 +622,8 @@ export default function HebrewQuiz() {
 
             {essayConfirmed&&(()=>{ const last=essayResults[essayResults.length-1];
               if(last?.result==="exact") return<div style={{...S.feedbackCorrect,flexWrap:"wrap"}}>✅ 정답! <SpeakBtn text={eq.hebrewWord} onSpeak={speak} muted={muted}/></div>;
-              if(last?.result==="partial") return<div style={{...S.feedbackCorrect,background:"rgba(196,160,80,0.15)",borderColor:"rgba(196,160,80,0.3)",color:"#e8c875",flexWrap:"wrap"}}>부분 정답! 정확한 답: <b style={{fontFamily:eq.questionType==="mean_to_heb"?"'Frank Ruhl Libre',serif":"inherit",direction:eq.questionType==="mean_to_heb"?"rtl":"ltr"}}>{eq.answer}</b> <SpeakBtn text={eq.hebrewWord} onSpeak={speak} muted={muted}/></div>;
-              return<div style={{...S.feedbackWrong,flexWrap:"wrap"}}>❌ 오답 — 정답: <b style={{fontFamily:eq.questionType==="mean_to_heb"?"'Frank Ruhl Libre',serif":"inherit",direction:eq.questionType==="mean_to_heb"?"rtl":"ltr"}}>{eq.answer}</b> <SpeakBtn text={eq.hebrewWord} onSpeak={speak} muted={muted}/></div>;
+              if(last?.result==="partial") return<div style={{...S.feedbackCorrect,background:"rgba(196,160,80,0.15)",borderColor:"rgba(196,160,80,0.3)",color:"#e8c875",flexWrap:"wrap"}}>부분 정답! 정확한 답: <b style={{fontFamily:eq.questionType==="mean_to_heb"?"Arial,sans-serif":"inherit",direction:eq.questionType==="mean_to_heb"?"rtl":"ltr"}}>{eq.answer}</b> <SpeakBtn text={eq.hebrewWord} onSpeak={speak} muted={muted}/></div>;
+              return<div style={{...S.feedbackWrong,flexWrap:"wrap"}}>❌ 오답 — 정답: <b style={{fontFamily:eq.questionType==="mean_to_heb"?"Arial,sans-serif":"inherit",direction:eq.questionType==="mean_to_heb"?"rtl":"ltr"}}>{eq.answer}</b> <SpeakBtn text={eq.hebrewWord} onSpeak={speak} muted={muted}/></div>;
             })()}
 
             <div className="quiz-btn-row" style={S.quizBtnRow}>
@@ -642,7 +642,7 @@ export default function HebrewQuiz() {
             <p style={S.resultMsg}>{score===questions.length?"🎉 완벽해요!":score>=questions.length*0.7?"👏 잘했어요!":score>=questions.length*0.5?"💪 조금 더 연습해봐요!":"📖 틀린 단어를 복습해봐요!"}</p>
             <p style={S.resultPct}>정답률: {Math.round(score/questions.length*100)}%</p>
             <div style={S.resultStats}>{[["mastered","✅ 암기완료","#60c880"],["hard","🔥 어려움","#f07050"],["learning","📖 학습중","#9090b0"]].map(([st,label,color])=><div key={st} style={{...S.resultStatItem,color}}><span style={S.resultStatNum}>{words.filter(w=>w.status===st).length}</span><span style={S.resultStatLabel}>{label}</span></div>)}</div>
-            {wrongWords.length>0&&<div style={S.wrongList}><h3 style={S.wrongTitle}>❌ 틀린 단어</h3>{wrongWords.map((q,i)=>{const w=words.find(x=>x.id===q.wordId);return w?<div key={i} style={S.wrongItem}><span style={{fontFamily:"'Frank Ruhl Libre',serif",fontSize:"1.1rem",direction:"rtl",color:"#c4a050"}}>{w.hebrew}</span><SpeakBtn text={w.hebrew} onSpeak={speak} muted={muted}/><span style={{color:"#a0a0b0",margin:"0 4px"}}>→</span><span style={{fontSize:"0.9rem"}}>{w.meaning}</span></div>:null;})}</div>}
+            {wrongWords.length>0&&<div style={S.wrongList}><h3 style={S.wrongTitle}>❌ 틀린 단어</h3>{wrongWords.map((q,i)=>{const w=words.find(x=>x.id===q.wordId);return w?<div key={i} style={S.wrongItem}><span style={{fontFamily:"Arial,sans-serif",fontSize:"1.1rem",direction:"rtl",color:"#c4a050"}}>{w.hebrew}</span><SpeakBtn text={w.hebrew} onSpeak={speak} muted={muted}/><span style={{color:"#a0a0b0",margin:"0 4px"}}>→</span><span style={{fontSize:"0.9rem"}}>{w.meaning}</span></div>:null;})}</div>}
             <div className="result-btn-row" style={S.resultBtnRow}><button style={{...S.btnStart,flex:1}} onClick={startQuiz}>🔄 다시 풀기</button><button style={{...S.btnQuit,flex:1}} onClick={()=>setMode(MODES.LIST)}>📚 단어장으로</button></div>
           </div>
         )}
@@ -667,7 +667,7 @@ export default function HebrewQuiz() {
                 const icon=r.result==="exact"?"✅":r.result==="partial"?"🟡":"❌";
                 return<div key={i} style={{...S.wrongItem,flexDirection:"column",alignItems:"flex-start",gap:"4px"}}>
                   <div style={{display:"flex",alignItems:"center",gap:"8px",width:"100%"}}>
-                    <span style={{fontFamily:r.questionType==="mean_to_heb"?"inherit":"'Frank Ruhl Libre',serif",fontSize:r.questionType==="mean_to_heb"?"0.95rem":"1.1rem",direction:r.questionType==="mean_to_heb"?"ltr":"rtl",color:"#c4a050"}}>{r.question}</span>
+                    <span style={{fontFamily:r.questionType==="mean_to_heb"?"inherit":"Arial,sans-serif",fontSize:r.questionType==="mean_to_heb"?"0.95rem":"1.1rem",direction:r.questionType==="mean_to_heb"?"ltr":"rtl",color:"#c4a050"}}>{r.question}</span>
                     <SpeakBtn text={r.question} onSpeak={speak} muted={muted}/>
                     <span style={{marginLeft:"auto"}}>{icon}</span>
                   </div>
@@ -708,7 +708,7 @@ const S={
   btnCancel2:{padding:"12px 14px",borderRadius:"10px",background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.1)",color:"#7a7890",cursor:"pointer",fontSize:"0.88rem"},
   header:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"12px",padding:"14px 16px",background:"rgba(255,255,255,0.04)",borderRadius:"16px",border:"1px solid rgba(196,160,80,0.2)"},
   headerLeft:{display:"flex",alignItems:"center",gap:"12px"},
-  logo:{fontSize:"1.6rem",fontFamily:"'Frank Ruhl Libre','Times New Roman',serif",color:"#c4a050",background:"rgba(196,160,80,0.15)",width:"44px",height:"44px",borderRadius:"10px",display:"flex",alignItems:"center",justifyContent:"center",border:"1px solid rgba(196,160,80,0.3)",flexShrink:0},
+  logo:{fontSize:"1.6rem",fontFamily:"Arial,sans-serif",color:"#c4a050",background:"rgba(196,160,80,0.15)",width:"44px",height:"44px",borderRadius:"10px",display:"flex",alignItems:"center",justifyContent:"center",border:"1px solid rgba(196,160,80,0.3)",flexShrink:0},
   title:{margin:0,fontSize:"1rem",fontWeight:700,color:"#f0ece0"},
   subtitle:{margin:"2px 0 0",fontSize:"0.68rem",color:"#7a7890"},
   statsRow:{display:"flex",gap:"5px"},
@@ -734,7 +734,7 @@ const S={
   wordItem:{display:"flex",alignItems:"center",gap:"10px",background:"rgba(255,255,255,0.03)",borderRadius:"12px",border:"1px solid",padding:"12px 14px"},
   wordIndex:{fontSize:"0.7rem",color:"#4a4860",minWidth:"16px",flexShrink:0},
   wordCenter:{display:"flex",flexDirection:"column",gap:"4px",flex:1,minWidth:0},
-  wordHeb:{fontFamily:"'Frank Ruhl Libre','Times New Roman',serif",fontSize:"1.15rem",color:"#c4a050",direction:"rtl"},
+  wordHeb:{fontFamily:"Arial,sans-serif",fontSize:"1.15rem",color:"#c4a050",direction:"rtl"},
   wordMean:{fontSize:"0.82rem",color:"#a0a0c0",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"},
   wordRight:{display:"flex",flexDirection:"column",gap:"6px",alignItems:"flex-end",flexShrink:0},
   statusBtns:{display:"flex",gap:"4px"},
