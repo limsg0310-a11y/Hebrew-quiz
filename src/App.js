@@ -41,7 +41,13 @@ const DEFAULT_WORDS = [
 const MODES = { LIST:"list", QUIZ:"quiz", ESSAY:"essay", RESULT:"result", ESSAY_RESULT:"essay_result" };
 const QUIZ_TYPES = { HEB_TO_MEAN:"heb_to_mean", MEAN_TO_HEB:"mean_to_heb", MIXED:"mixed" };
 const QUIZ_FILTERS = { ALL:"all", EXCLUDE_MASTERED:"exclude_mastered", HARD_ONLY:"hard_only" };
-const LS_KEY = "hebrew_quiz_words";
+const BOOKS = [
+  { id:"hebrew",  label:"히브리어", emoji:"🇮🇱", color:"#c4a050" },
+  { id:"english", label:"영어",     emoji:"🇺🇸", color:"#60a0e0" },
+  { id:"korean",  label:"한국어",   emoji:"🇰🇷", color:"#e06080" },
+];
+function getLSKey(book) { return `hebrew_quiz_words_${book||"hebrew"}`; }
+const LS_KEY = "hebrew_quiz_words"; // legacy key
 
 const STATUS_CONFIG = {
   learning: { label:"학습중",   emoji:"📖", color:"#9090b0", bg:"rgba(120,120,160,0.15)", border:"rgba(120,120,160,0.3)" },
@@ -51,11 +57,25 @@ const STATUS_CONFIG = {
 
 function stripNikkud(text) { return text.replace(/[\u0591-\u05C7]/g,""); }
 function shuffle(arr) { return [...arr].sort(()=>Math.random()-0.5); }
-function loadWords() {
-  try { const s=localStorage.getItem(LS_KEY); if(s) return JSON.parse(s); } catch {}
-  return DEFAULT_WORDS;
+function loadWords(book) {
+  try {
+    const key = book && book !== "hebrew" ? getLSKey(book) : LS_KEY;
+    const s = localStorage.getItem(key);
+    if (s) return JSON.parse(s);
+    // legacy migration: 처음 hebrew로 로드할 때 기존 키도 확인
+    if (!book || book === "hebrew") {
+      const leg = localStorage.getItem(LS_KEY);
+      if (leg) return JSON.parse(leg);
+    }
+  } catch {}
+  return book && book !== "hebrew" ? [] : DEFAULT_WORDS;
 }
-function saveWords(words) { try { localStorage.setItem(LS_KEY,JSON.stringify(words)); } catch {} }
+function saveWords(words, book) {
+  try {
+    const key = book && book !== "hebrew" ? getLSKey(book) : LS_KEY;
+    localStorage.setItem(key, JSON.stringify(words));
+  } catch {}
+}
 
 function checkEssayAnswer(userInput, correctAnswer) {
   const norm = s => s.trim().toLowerCase().replace(/[\/\-,\.·]/g," ").replace(/\s+/g," ").trim();
@@ -148,17 +168,41 @@ function RepeatSpeakBtn({text,onSpeak,muted=false,size="lg"}) { // size: lg | sm
 }
 
 function parseCSV(text) {
-  const lines=text.split(/\r?\n/).filter(l=>l.trim()); const results=[];
-  for(const line of lines){
-    const cols=line.split(/[,\t;]/);
-    if(cols.length>=2){const a=cols[0].trim().replace(/^["']|["']$/g,""); const b=cols[1].trim().replace(/^["']|["']$/g,""); if(a&&b) results.push({hebrew:a,meaning:b});}
+  // 탭/세미콜론 구분자면 단순 분리, 쉼표는 quoted CSV 파싱
+  const lines = text.split(/\r?\n/).filter(l => l.trim());
+  const results = [];
+  for (const line of lines) {
+    let cols = [];
+    if (/\t|;/.test(line)) {
+      // 탭 또는 세미콜론 구분자
+      cols = line.split(/[\t;]/).map(c => c.trim().replace(/^["']|["']$/g, ""));
+    } else {
+      // 쉼표 구분자 — 따옴표 안의 쉼표는 무시
+      const re = /("([^"]*)")|([^,]+)/g;
+      let m;
+      while ((m = re.exec(line)) !== null) {
+        cols.push((m[2] !== undefined ? m[2] : m[3]).trim());
+      }
+    }
+    if (cols.length >= 2 && cols[0] && cols[1]) {
+      results.push({ hebrew: cols[0], meaning: cols[1] });
+    }
   }
   return results;
 }
 
 function parseTextFormat(text) {
-  const lines=text.split(/\r?\n/).filter(l=>l.trim()); const results=[];
-  for(const line of lines){ const match=line.match(/^(.+?)[=:]+(.+)$/); if(match){const a=match[1].trim(); const b=match[2].trim(); if(a&&b) results.push({hebrew:a,meaning:b});} }
+  const lines = text.split(/\r?\n/).filter(l => l.trim());
+  const results = [];
+  for (const line of lines) {
+    // 첫 번째 = 또는 : 기준으로만 분리 (뜻에 괄호/기호 포함 허용)
+    const idx = line.search(/[=:]/);
+    if (idx > 0) {
+      const a = line.slice(0, idx).trim();
+      const b = line.slice(idx + 1).trim();
+      if (a && b) results.push({ hebrew: a, meaning: b });
+    }
+  }
   return results;
 }
 
@@ -253,7 +297,8 @@ export default function HebrewQuiz() {
     finally{ setSyncing(false); }
   };
 
-  const [words,setWordsRaw]             =useState(loadWords);
+  const [currentBook,setCurrentBook]     =useState("hebrew");
+  const [words,setWordsRaw]             =useState(()=>loadWords("hebrew"));
   const [mode,setMode]                  =useState(MODES.LIST);
   const [newHebrew,setNewHebrew]        =useState("");
   const [newMeaning,setNewMeaning]      =useState("");
@@ -291,11 +336,18 @@ export default function HebrewQuiz() {
   const [essayType,setEssayType]         =useState("heb_to_mean"); // heb_to_mean | mean_to_heb | mixed
   const essayInputRef=useRef(null); const essayHebrewRef=useRef(null); const fileInputRef=useRef(null); const csvInputRef=useRef(null);
 
-  const setWords=(updater)=>{ setWordsRaw(prev=>{ const next=typeof updater==="function"?updater(prev):updater; saveWords(next); syncToCloud(next); return next; }); };
+  const setWords=(updater)=>{ setWordsRaw(prev=>{ const next=typeof updater==="function"?updater(prev):updater; saveWords(next,currentBook); syncToCloud(next); return next; }); };
   const masteredCount=words.filter(w=>w.status==="mastered").length;
   const hardCount=words.filter(w=>w.status==="hard").length;
   const learningCount=words.filter(w=>w.status==="learning").length;
   const showToast=(msg,type="ok")=>{ setToast({msg,type}); setTimeout(()=>setToast(null),3000); };
+
+  const switchBook=(bookId)=>{
+    setCurrentBook(bookId);
+    const loaded = loadWords(bookId);
+    setWordsRaw(loaded);
+    setListFilter("all"); setSearchQuery(""); setPage(0); setSelectedIds(new Set()); setMode(MODES.LIST);
+  };
 
   useEffect(()=>{ if(mode!==MODES.QUIZ||!autoPlay||muted) return; const q=questions[current]; if(!q||q.questionType!==QUIZ_TYPES.HEB_TO_MEAN) return; const t=setTimeout(()=>speak(q.question),500); return()=>clearTimeout(t); },[current,animKey,mode,muted]); // eslint-disable-line
   useEffect(()=>{ if(mode===MODES.ESSAY&&essayInputRef.current) essayInputRef.current.focus(); },[essayCurrent,mode]);
@@ -500,6 +552,19 @@ export default function HebrewQuiz() {
 
         <div style={{...S.autoSaveBanner,borderColor:user?"rgba(60,180,100,0.3)":"rgba(196,160,80,0.2)",color:user?"#60c880":"#c4a050"}}>{user?`☁️ ${user.displayName}의 단어장 — 모든 기기에서 자동 동기화돼요!`:"💾 이 기기에만 저장돼요. Google 로그인하면 모든 기기에서 동기화!"}</div>
 
+        {/* 단어장 탭 */}
+        <div style={{display:"flex",gap:"6px",marginBottom:"12px",flexWrap:"wrap"}}>
+          {BOOKS.map(b=>(
+            <button key={b.id} onClick={()=>switchBook(b.id)}
+              style={{padding:"8px 16px",borderRadius:"10px",border:"1px solid",fontSize:"0.85rem",fontWeight:600,cursor:"pointer",
+                background:currentBook===b.id?`rgba(${b.id==="hebrew"?"196,160,80":b.id==="english"?"60,100,200":"200,60,100"},0.2)`:"rgba(255,255,255,0.04)",
+                borderColor:currentBook===b.id?b.color:"rgba(255,255,255,0.1)",
+                color:currentBook===b.id?b.color:"#5a5870"}}>
+              {b.emoji} {b.label}
+            </button>
+          ))}
+        </div>
+
         {/* 플로팅 스크롤 버튼 — 단어장 화면에서만 표시 */}
         {mode===MODES.LIST&&(
           <>
@@ -701,10 +766,19 @@ export default function HebrewQuiz() {
                 </button>
               );})}
             </div>
-            <div style={{minHeight:"52px",marginBottom:"12px"}}>
-              {confirmed&&<div style={selected===q.answer?S.feedbackCorrect:S.feedbackWrong}>
-                {selected===q.answer?"✅ 정답!":`❌ 오답 — 정답: ${q.answer}`}
-                {(()=>{const w=words.find(x=>x.id===q.wordId);const st=w?STATUS_CONFIG[w.status]:null;return st?<span style={{marginLeft:8,fontSize:"0.78rem",opacity:0.8}}>{st.emoji} {st.label}</span>:null;})()}
+            <div style={{minHeight:"52px",marginBottom:"8px"}}>
+              {confirmed&&<div style={{...(selected===q.answer?S.feedbackCorrect:S.feedbackWrong),display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:"8px"}}>
+                <span>{selected===q.answer?"✅ 정답!":`❌ 오답 — 정답: ${q.answer}`}
+                {(()=>{const w=words.find(x=>x.id===q.wordId);const st=w?STATUS_CONFIG[w.status]:null;return st?<span style={{marginLeft:8,fontSize:"0.78rem",opacity:0.8}}>{st.emoji} {st.label}</span>:null;})()}</span>
+                {/* 퀴즈 중 어려움 표시 버튼 */}
+                {(()=>{ const w=words.find(x=>x.id===q.wordId); return w&&w.status!=="hard"?(
+                  <button onClick={()=>setManualStatus(q.wordId,"hard")}
+                    style={{padding:"4px 10px",borderRadius:"6px",background:"rgba(200,80,60,0.2)",border:"1px solid rgba(200,80,60,0.5)",color:"#f07050",fontSize:"0.75rem",cursor:"pointer",fontWeight:600,flexShrink:0}}>
+                    🔥 어려움으로 표시
+                  </button>
+                ):w&&w.status==="hard"?(
+                  <span style={{fontSize:"0.75rem",color:"#f07050",opacity:0.7}}>🔥 어려움으로 분류됨</span>
+                ):null; })()}
               </div>}
             </div>
             <div className="quiz-btn-row" style={S.quizBtnRow}>
