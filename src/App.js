@@ -91,7 +91,7 @@ function SpeakBtn({text,onSpeak,size="md",muted=false}) {
 }
 
 // 반복 재생 버튼 (1회/5회/10회)
-function RepeatSpeakBtn({text,onSpeak,muted=false,size="lg"}) {
+function RepeatSpeakBtn({text,onSpeak,muted=false,size="lg"}) { // size: lg | sm
   const [playing,setPlaying]=useState(false);
   const [count,setCount]=useState(0); // 진행 중인 카운트
   const [repeatMode,setRepeatMode]=useState(1); // 1, 5, 10
@@ -118,14 +118,14 @@ function RepeatSpeakBtn({text,onSpeak,muted=false,size="lg"}) {
       {/* 모드 선택 버튼 */}
       <div style={{display:"flex",gap:"3px"}}>
         {modes.map(m=>(
-          <button key={m} onClick={e=>{e.stopPropagation();if(!playing)setRepeatMode(m);}} style={{padding:"4px 8px",borderRadius:"6px",border:"1px solid",fontSize:"0.72rem",fontWeight:700,cursor:playing?"not-allowed":"pointer",background:repeatMode===m?"rgba(196,160,80,0.3)":"rgba(255,255,255,0.05)",borderColor:repeatMode===m?"rgba(196,160,80,0.6)":"rgba(255,255,255,0.1)",color:repeatMode===m?"#c4a050":"#5a5870",opacity:playing&&repeatMode!==m?0.4:1}}>
+          <button key={m} onClick={e=>{e.stopPropagation();if(!playing)setRepeatMode(m);}} style={{padding:size==="sm"?"3px 6px":"4px 8px",borderRadius:"6px",border:"1px solid",fontSize:size==="sm"?"0.65rem":"0.72rem",fontWeight:700,cursor:playing?"not-allowed":"pointer",background:repeatMode===m?"rgba(196,160,80,0.3)":"rgba(255,255,255,0.05)",borderColor:repeatMode===m?"rgba(196,160,80,0.6)":"rgba(255,255,255,0.1)",color:repeatMode===m?"#c4a050":"#5a5870",opacity:playing&&repeatMode!==m?0.4:1}}>
             {m}회
           </button>
         ))}
       </div>
       {/* 재생/정지 버튼 */}
       <button onClick={playing?handleStop:handleSpeak} title={muted?"음소거 중":playing?"정지":"발음 듣기"}
-        style={{background:muted?"rgba(100,100,100,0.1)":playing?"rgba(200,60,60,0.2)":"rgba(196,160,80,0.1)",border:muted?"1px solid rgba(150,150,150,0.2)":playing?"1px solid rgba(200,60,60,0.4)":"1px solid rgba(196,160,80,0.35)",borderRadius:"8px",cursor:muted?"default":"pointer",padding:"10px 16px",fontSize:"1.2rem",lineHeight:1,flexShrink:0,opacity:muted?0.4:1}}>
+        style={{background:muted?"rgba(100,100,100,0.1)":playing?"rgba(200,60,60,0.2)":"rgba(196,160,80,0.1)",border:muted?"1px solid rgba(150,150,150,0.2)":playing?"1px solid rgba(200,60,60,0.4)":"1px solid rgba(196,160,80,0.35)",borderRadius:"8px",cursor:muted?"default":"pointer",padding:size==="sm"?"5px 10px":"10px 16px",fontSize:size==="sm"?"0.9rem":"1.2rem",lineHeight:1,flexShrink:0,opacity:muted?0.4:1}}>
         {muted?"🔇":playing?`⏹ ${count}/${repeatMode}`:"🔈"}
       </button>
     </div>
@@ -161,6 +161,10 @@ export default function HebrewQuiz() {
   const [quizFilter,setQuizFilter]      =useState(QUIZ_FILTERS.ALL);
   const [quizCount,setQuizCount]        =useState(10);
   const [listFilter,setListFilter]      =useState("all");
+  const [searchQuery,setSearchQuery]    =useState("");
+  const [pageSize,setPageSize]          =useState(20);
+  const [page,setPage]                  =useState(0);
+  const [selectedIds,setSelectedIds]    =useState(new Set());
   const [questions,setQuestions]        =useState([]);
   const [current,setCurrent]            =useState(0);
   const [selected,setSelected]          =useState(null);
@@ -192,7 +196,7 @@ export default function HebrewQuiz() {
   const learningCount=words.filter(w=>w.status==="learning").length;
   const showToast=(msg,type="ok")=>{ setToast({msg,type}); setTimeout(()=>setToast(null),3000); };
 
-  useEffect(()=>{ if(mode!==MODES.QUIZ||!autoPlay||muted) return; const q=questions[current]; if(!q||q.questionType!==QUIZ_TYPES.HEB_TO_MEAN) return; const t=setTimeout(()=>speak(q.question),500); return()=>clearTimeout(t); },[current,animKey,mode,muted]);
+  useEffect(()=>{ if(mode!==MODES.QUIZ||!autoPlay||muted) return; const q=questions[current]; if(!q||q.questionType!==QUIZ_TYPES.HEB_TO_MEAN) return; const t=setTimeout(()=>speak(q.question),500); return()=>clearTimeout(t); },[current,animKey,mode,muted]); // eslint-disable-line
   useEffect(()=>{ if(mode===MODES.ESSAY&&essayInputRef.current) essayInputRef.current.focus(); },[essayCurrent,mode]);
 
   const updateWordStats=(wordId,correct)=>{ setWords(ws=>ws.map(w=>{ if(w.id!==wordId) return w; const ns=correct?w.streak+1:0; const nw=correct?w.wrongCount:w.wrongCount+1; let st=w.status; if(correct&&ns>=3) st="mastered"; else if(!correct&&nw>=2) st="hard"; return{...w,streak:ns,wrongCount:nw,status:st}; })); };
@@ -269,14 +273,24 @@ export default function HebrewQuiz() {
   };
   const handleEssayNext=()=>{ if(essayCurrent+1>=essayQuestions.length){setMode(MODES.ESSAY_RESULT);return;} setEssayCurrent(c=>c+1); setEssayInput(""); setEssayConfirmed(false); setAnimKey(k=>k+1); if(essayHebrewRef.current) essayHebrewRef.current.value=""; };
   const handleSelect=choice=>{ if(!confirmed) setSelected(choice); };
-  const handleConfirm=()=>{ if(!selected) return; const correct=selected===questions[current].answer; if(correct) setScore(s=>s+1); else setWrongWords(w=>[...w,questions[current]]); updateWordStats(questions[current].wordId,correct); setConfirmed(true); const q=questions[current]; if(!muted) setTimeout(()=>speak(q.questionType===QUIZ_TYPES.HEB_TO_MEAN?q.question:q.answer),300); };
+  const handleConfirm=()=>{ if(!selected) return; const correct=selected===questions[current].answer; if(correct) setScore(s=>s+1); else setWrongWords(w=>[...w,questions[current]]); updateWordStats(questions[current].wordId,correct); setConfirmed(true); const q=questions[current]; if(!muted) setTimeout(()=>speak(q.questionType===QUIZ_TYPES.HEB_TO_MEAN?q.question:q.answer),300); };  // eslint-disable-line
   const handleNext=()=>{ if(current+1>=questions.length){setMode(MODES.RESULT);return;} setCurrent(c=>c+1); setSelected(null); setConfirmed(false); setAnimKey(k=>k+1); };
   const addWord=()=>{ if(!newHebrew.trim()||!newMeaning.trim()) return; if(editId!==null){setWords(ws=>ws.map(w=>w.id===editId?{...w,hebrew:newHebrew.trim(),meaning:newMeaning.trim()}:w)); setEditId(null);}else{setWords(ws=>[...ws,{id:Date.now(),hebrew:newHebrew.trim(),meaning:newMeaning.trim(),status:"learning",streak:0,wrongCount:0}]);} setNewHebrew(""); setNewMeaning(""); };
   const deleteWord=id=>setWords(ws=>ws.filter(w=>w.id!==id));
   const startEdit=word=>{ setEditId(word.id); setNewHebrew(word.hebrew); setNewMeaning(word.meaning); };
   const cancelEdit=()=>{ setEditId(null); setNewHebrew(""); setNewMeaning(""); };
 
-  const filteredWords=listFilter==="all"?words:words.filter(w=>w.status===listFilter);
+  const searchedWords = words.filter(w => {
+    const matchFilter = listFilter === "all" || w.status === listFilter;
+    if (!matchFilter) return false;
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.toLowerCase();
+    return w.hebrew.includes(q) || w.meaning.toLowerCase().includes(q);
+  });
+  const totalPages = Math.ceil(searchedWords.length / pageSize);
+  const filteredWords = pageSize === 9999
+    ? searchedWords
+    : searchedWords.slice(page * pageSize, (page + 1) * pageSize);
   const q=questions[current]; const eq=essayQuestions[essayCurrent];
   const progress=questions.length>0?((current+(confirmed?1:0))/questions.length)*100:0;
   const essayProgress=essayQuestions.length>0?((essayCurrent+(essayConfirmed?1:0))/essayQuestions.length)*100:0;
@@ -386,19 +400,71 @@ export default function HebrewQuiz() {
               </div>
             </div>
 
+
+
+            {/* 검색 + 보기 수 */}
+            <div style={{display:"flex",gap:"8px",marginBottom:"10px",flexWrap:"wrap",alignItems:"center"}}>
+              <input
+                style={{...S.input,flex:1,minWidth:"160px",padding:"9px 14px",fontSize:"0.9rem"}}
+                placeholder="단어 검색..."
+                value={searchQuery}
+                onChange={e=>{setSearchQuery(e.target.value);setPage(0);}}
+              />
+              <div style={{display:"flex",gap:"4px"}}>
+                {[10,20,9999].map(n=>(
+                  <button key={n} style={{...S.optBtn,padding:"8px 10px",fontSize:"0.78rem",...(pageSize===n?S.optBtnActive:{})}}
+                    onClick={()=>{setPageSize(n);setPage(0);}}>
+                    {n===9999?"전체":n+"개"}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* 필터 탭 */}
             <div style={S.filterTabs}>
               {[["all","전체",words.length],["learning","📖 학습중",learningCount],["hard","🔥 어려움",hardCount],["mastered","✅ 완료",masteredCount]].map(([val,label,cnt])=>(
-                <button key={val} style={{...S.filterTab,...(listFilter===val?S.filterTabActive:{})}} onClick={()=>setListFilter(val)}>{label}<span style={S.filterCnt}>{cnt}</span></button>
+                <button key={val} style={{...S.filterTab,...(listFilter===val?S.filterTabActive:{})}} onClick={()=>{setListFilter(val);setPage(0);setSelectedIds(new Set());}}>
+                  {label}<span style={S.filterCnt}>{cnt}</span>
+                </button>
               ))}
             </div>
 
+            {/* 맨 위로 버튼 + 전체 선택 삭제 */}
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"6px",flexWrap:"wrap",gap:"6px"}}>
+              <div style={{display:"flex",alignItems:"center",gap:"8px"}}>
+                <span style={{fontSize:"0.78rem",color:"#5a5870"}}>{searchedWords.length}개 단어</span>
+                <button style={{...S.scrollBtn,fontSize:"0.75rem"}} onClick={()=>{
+                  if(selectedIds.size===filteredWords.length) setSelectedIds(new Set());
+                  else setSelectedIds(new Set(filteredWords.map(w=>w.id)));
+                }}>
+                  {selectedIds.size===filteredWords.length&&filteredWords.length>0?"선택 해제":"전체 선택"}
+                </button>
+                {selectedIds.size>0&&(
+                  <button style={{...S.scrollBtn,background:"rgba(200,60,60,0.15)",borderColor:"rgba(200,60,60,0.4)",color:"#f08080",fontSize:"0.75rem"}}
+                    onClick={()=>{ if(window.confirm(`선택한 ${selectedIds.size}개 단어를 삭제할까요?`)){setWords(ws=>ws.filter(w=>!selectedIds.has(w.id)));setSelectedIds(new Set());} }}>
+                    🗑️ {selectedIds.size}개 삭제
+                  </button>
+                )}
+              </div>
+              <div style={{display:"flex",gap:"6px"}}>
+                <button style={S.scrollBtn} onClick={()=>window.scrollTo({top:0,behavior:"smooth"})}>↑ 맨 위</button>
+                <button style={S.scrollBtn} onClick={()=>window.scrollTo({top:document.body.scrollHeight,behavior:"smooth"})}>↓ 맨 아래</button>
+              </div>
+            </div>
+
             <div style={S.wordList}>
-              {filteredWords.length===0&&<div style={S.emptyMsg}>해당 상태의 단어가 없어요</div>}
+              {filteredWords.length===0&&<div style={S.emptyMsg}>{searchQuery?"검색 결과가 없어요":"단어가 없어요"}</div>}
               {filteredWords.map((w,i)=>{ const st=STATUS_CONFIG[w.status]; return(
-                <div key={w.id} style={{...S.wordItem,borderColor:st.border}}>
+                <div key={w.id} style={{...S.wordItem,borderColor:selectedIds.has(w.id)?"rgba(200,60,60,0.5)":st.border,background:selectedIds.has(w.id)?"rgba(200,60,60,0.08)":undefined}}>
+                  <input type="checkbox" checked={selectedIds.has(w.id)}
+                    onChange={e=>{ const s=new Set(selectedIds); e.target.checked?s.add(w.id):s.delete(w.id); setSelectedIds(s); }}
+                    style={{width:"16px",height:"16px",cursor:"pointer",accentColor:"#f08080",flexShrink:0}}/>
                   <span style={S.wordIndex}>{i+1}</span>
                   <div style={S.wordCenter}>
-                    <div style={{display:"flex",alignItems:"center",gap:"8px"}}><span style={S.wordHeb}>{w.hebrew}</span><SpeakBtn text={w.hebrew} onSpeak={speak} muted={muted}/></div>
+                    <div style={{display:"flex",alignItems:"center",gap:"8px",flexWrap:"wrap"}}>
+                      <span style={S.wordHeb}>{w.hebrew}</span>
+                      <RepeatSpeakBtn text={w.hebrew} onSpeak={speak} muted={muted} size="sm"/>
+                    </div>
                     <span style={S.wordMean}>{w.meaning}</span>
                   </div>
                   <div style={S.wordRight}>
@@ -408,6 +474,17 @@ export default function HebrewQuiz() {
                 </div>
               );})}
             </div>
+
+            {/* 페이지네이션 */}
+            {pageSize!==9999&&totalPages>1&&(
+              <div style={{display:"flex",justifyContent:"center",gap:"6px",marginBottom:"14px",flexWrap:"wrap"}}>
+                <button style={{...S.scrollBtn,...(page===0?{opacity:0.3,cursor:"not-allowed"}:{})}} onClick={()=>page>0&&setPage(p=>p-1)} disabled={page===0}>← 이전</button>
+                {Array.from({length:totalPages},(_,i)=>(
+                  <button key={i} style={{...S.scrollBtn,...(page===i?{background:"rgba(196,160,80,0.3)",borderColor:"rgba(196,160,80,0.6)",color:"#c4a050"}:{})}} onClick={()=>setPage(i)}>{i+1}</button>
+                ))}
+                <button style={{...S.scrollBtn,...(page===totalPages-1?{opacity:0.3,cursor:"not-allowed"}:{})}} onClick={()=>page<totalPages-1&&setPage(p=>p+1)} disabled={page===totalPages-1}>다음 →</button>
+              </div>
+            )}
 
             {/* 객관식 */}
             <div style={S.card}>
@@ -478,7 +555,12 @@ export default function HebrewQuiz() {
                 </button>
               );})}
             </div>
-            {confirmed&&<div style={selected===q.answer?S.feedbackCorrect:S.feedbackWrong}>{selected===q.answer?"✅ 정답!":`❌ 오답 — 정답: ${q.answer}`}{(()=>{const w=words.find(x=>x.id===q.wordId);const st=w?STATUS_CONFIG[w.status]:null;return st?<span style={{marginLeft:8,fontSize:"0.78rem",opacity:0.8}}>{st.emoji} {st.label}로 업데이트됨</span>:null;})()}</div>}
+            <div style={{minHeight:"52px",marginBottom:"12px"}}>
+              {confirmed&&<div style={selected===q.answer?S.feedbackCorrect:S.feedbackWrong}>
+                {selected===q.answer?"✅ 정답!":`❌ 오답 — 정답: ${q.answer}`}
+                {(()=>{const w=words.find(x=>x.id===q.wordId);const st=w?STATUS_CONFIG[w.status]:null;return st?<span style={{marginLeft:8,fontSize:"0.78rem",opacity:0.8}}>{st.emoji} {st.label}</span>:null;})()}
+              </div>}
+            </div>
             <div className="quiz-btn-row" style={S.quizBtnRow}>
               {!confirmed?<button style={{...S.btnConfirm,...(!selected?S.btnDisabled:{})}} onClick={handleConfirm} disabled={!selected}>확인</button>:<button style={S.btnNext} onClick={handleNext}>{current+1>=questions.length?"결과 보기 🏁":"다음 문제 →"}</button>}
               <button style={S.btnQuit} onClick={()=>{window.speechSynthesis?.cancel();setMode(MODES.LIST);}}>그만하기</button>
@@ -591,7 +673,7 @@ export default function HebrewQuiz() {
 }
 
 const S={
-  root:{minHeight:"100vh",background:"#0f0e17",color:"#e8e6f0",fontFamily:"'Noto Sans KR','Segoe UI',sans-serif",position:"relative",overflow:"hidden",padding:"16px 0 80px"},
+  root:{minHeight:"100vh",background:"#0f0e17",color:"#e8e6f0",fontFamily:"Arial,'Noto Sans KR',sans-serif",position:"relative",overflow:"hidden",padding:"16px 0 80px"},
   bgDeco1:{position:"fixed",top:"-200px",right:"-200px",width:"500px",height:"500px",borderRadius:"50%",background:"radial-gradient(circle,rgba(196,160,80,0.12) 0%,transparent 70%)",pointerEvents:"none"},
   bgDeco2:{position:"fixed",bottom:"-150px",left:"-150px",width:"400px",height:"400px",borderRadius:"50%",background:"radial-gradient(circle,rgba(100,80,180,0.15) 0%,transparent 70%)",pointerEvents:"none"},
   container:{maxWidth:"700px",margin:"0 auto",padding:"0 12px",position:"relative",zIndex:1},
@@ -626,6 +708,7 @@ const S={
   input:{width:"100%",padding:"12px 14px",background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:"10px",color:"#e8e6f0",fontSize:"1rem",outline:"none",fontFamily:"inherit"},
   btnAdd:{padding:"12px 18px",borderRadius:"10px",background:"linear-gradient(135deg,#c4a050,#e8c875)",border:"none",color:"#1a1820",fontWeight:700,cursor:"pointer",fontSize:"0.95rem"},
   btnCancel:{padding:"12px 14px",borderRadius:"10px",background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.12)",color:"#a0a0b0",cursor:"pointer",fontSize:"0.9rem"},
+  scrollBtn:{padding:"6px 12px",borderRadius:"8px",background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.12)",color:"#a0a0c0",cursor:"pointer",fontSize:"0.78rem"},
   filterTabs:{display:"flex",gap:"6px",marginBottom:"12px",flexWrap:"wrap"},
   filterTab:{padding:"8px 12px",borderRadius:"8px",border:"1px solid rgba(255,255,255,0.1)",background:"transparent",color:"#7a7890",cursor:"pointer",fontSize:"0.8rem"},
   filterTabActive:{background:"rgba(196,160,80,0.15)",borderColor:"rgba(196,160,80,0.4)",color:"#c4a050"},
