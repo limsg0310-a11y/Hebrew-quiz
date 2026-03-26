@@ -216,7 +216,7 @@ const UI_TEXT = {
     mcqTitle:"🎯 객관식 퀴즈", direction:"문제 방향", wordRange:"단어 범위", questionCount:"문제 수",
     dirAtoB:(b)=>`${b.termA.ko} → ${b.termB.ko}`, dirBtoA:(b)=>`${b.termB.ko} → ${b.termA.ko}`, mixed:"랜덤 혼합",
     allRange:(n)=>`전체 (${n})`, excludeMastered:(n)=>`암기 제외 (${n})`, hardOnly:(n)=>`🔥 어려운 것만 (${n})`,
-    autoPlay:"🔊 퀴즈 자동 발음", autoPlaySub:"문제 시 자동 재생", mute:"🔇 음소거", muteSub:"모든 발음을 끕니다",
+    autoPlay:"🔊 퀴즈 자동 발음", autoPlaySub:"문제 시 자동 재생", mute:"🔇 음소거", muteSub:"모든 발음을 끕니다", soundLabel:"발음 설정",
     startMCQ:(n)=>`🚀 객관식 시작! (${n}문제)`, needMore:(n)=>`단어 최소 4개 필요 (현재 ${n}개)`,
     essayTitle:"✍️ 서술형 시험", essaySub:"직접 타이핑해서 답하는 서술형! 부분 정답도 인정됩니다.",
     dirAtoB_e:(b)=>`${b.termA.ko} → ${b.termB.ko} 입력`, dirBtoA_e:(b)=>`${b.termB.ko} → ${b.termA.ko} 입력`,
@@ -241,7 +241,7 @@ const UI_TEXT = {
     mcqTitle:"🎯 Multiple Choice", direction:"Direction", wordRange:"Word Range", questionCount:"Questions",
     dirAtoB:(b)=>`${b.termA.en} → ${b.termB.en}`, dirBtoA:(b)=>`${b.termB.en} → ${b.termA.en}`, mixed:"Random Mix",
     allRange:(n)=>`All (${n})`, excludeMastered:(n)=>`Excl. Mastered (${n})`, hardOnly:(n)=>`🔥 Hard Only (${n})`,
-    autoPlay:"🔊 Auto Pronunciation", autoPlaySub:"Auto play on question", mute:"🔇 Mute", muteSub:"Mute all sounds",
+    autoPlay:"🔊 Auto Pronunciation", autoPlaySub:"Auto play on question", mute:"🔇 Mute", muteSub:"Mute all sounds", soundLabel:"Sound",
     startMCQ:(n)=>`🚀 Start! (${n} questions)`, needMore:(n)=>`Need at least 4 words (now ${n})`,
     essayTitle:"✍️ Written Test", essaySub:"Type your answer directly! Partial answers accepted.",
     dirAtoB_e:(b)=>`${b.termA.en} → type ${b.termB.en}`, dirBtoA_e:(b)=>`${b.termB.en} → type ${b.termA.en}`,
@@ -515,11 +515,12 @@ export default function HebrewQuiz() {
   const bookInfo = BOOKS.find(b=>b.id===currentBook)||BOOKS[0];
   const speak=useCallback(async(text,forceMuted=false)=>{
     if(forceMuted) return;
+    if(soundMode==="mute") return; // 음소거 모드면 완전 차단
     const book = BOOKS.find(b=>b.id===currentBook)||BOOKS[0];
     const {ttsLang,ttsName,ttsRate} = book;
     if(apiKey){ try{ await googleTTS(text,apiKey,ttsLang,ttsName,ttsRate); return; }catch{} }
     browserTTS(text,ttsLang,ttsRate);
-  },[apiKey,currentBook]);
+  },[apiKey,currentBook,soundMode]);
   const [words,setWordsRaw]             =useState(()=>loadWords("hebrew"));
   const [mode,setMode]                  =useState(MODES.LIST);
   const [newHebrew,setNewHebrew]        =useState("");
@@ -543,8 +544,9 @@ export default function HebrewQuiz() {
   const [animKey,setAnimKey]            =useState(0);
   const [importPreview,setImportPreview]=useState(null);
   const [toast,setToast]                =useState(null);
-  const [autoPlay,setAutoPlay]          =useState(true);
-  const [muted,setMuted]                 =useState(false);
+  const [soundMode,setSoundMode]         =useState("auto"); // "auto" | "manual" | "mute"
+  const autoPlay = soundMode === "auto";
+  const muted    = soundMode === "mute";
   const [showPasteModal,setShowPasteModal]=useState(false);
   const [showBatchModal,setShowBatchModal]=useState(false);
   const [showPealimModal,setShowPealimModal]=useState(false);
@@ -748,7 +750,7 @@ export default function HebrewQuiz() {
     updateWordStats(q.wordId,correct);
     setVariantResults(r=>[...r,{...q,userInput:variantInput,correct}]);
     setVariantConfirmed(true);
-    if(!muted) speak(q.answer);
+    speak(q.answer);
   };
   const handleVariantNext=()=>{
     if(variantCur+1>=variantQuestions.length){setMode(MODES.VARIANT_RESULT);return;}
@@ -835,11 +837,11 @@ export default function HebrewQuiz() {
     updateWordStats(q.wordId,result!=="wrong");
     setEssayResults(r=>[...r,{...q,userInput:inputVal,result}]);
     setEssayConfirmed(true);
-    if(!muted) speak(q.hebrewWord||q.question);
+    speak(q.hebrewWord||q.question);
   };
   const handleEssayNext=()=>{ if(essayCurrent+1>=essayQuestions.length){setMode(MODES.ESSAY_RESULT);return;} setEssayCurrent(c=>c+1); setEssayInput(""); setEssayConfirmed(false); setAnimKey(k=>k+1); if(essayHebrewRef.current) essayHebrewRef.current.value=""; };
   const handleSelect=choice=>{ if(!confirmed) setSelected(choice); };
-  const handleConfirm=()=>{ if(!selected) return; const correct=selected===questions[current].answer; if(correct) setScore(s=>s+1); else setWrongWords(w=>[...w,questions[current]]); updateWordStats(questions[current].wordId,correct); setConfirmed(true); const q=questions[current]; if(!muted) setTimeout(()=>speak(q.questionType===QUIZ_TYPES.HEB_TO_MEAN?q.question:q.answer),300); };  // eslint-disable-line
+  const handleConfirm=()=>{ if(!selected) return; const correct=selected===questions[current].answer; if(correct) setScore(s=>s+1); else setWrongWords(w=>[...w,questions[current]]); updateWordStats(questions[current].wordId,correct); setConfirmed(true); const q=questions[current]; setTimeout(()=>speak(q.questionType===QUIZ_TYPES.HEB_TO_MEAN?q.question:q.answer),300); };  // eslint-disable-line
   const handleNext=()=>{ if(current+1>=questions.length){setMode(MODES.RESULT);return;} setCurrent(c=>c+1); setSelected(null); setConfirmed(false); setAnimKey(k=>k+1); };
   const addWord=()=>{
     if(!newHebrew.trim()||!newMeaning.trim()) return;
@@ -1427,14 +1429,23 @@ export default function HebrewQuiz() {
                   onChange={e=>{ const v=Math.max(1,Math.min(poolSize,Number(e.target.value)||1)); setQuizCount(v); }}
                   style={{width:"52px",padding:"4px 6px",background:"rgba(255,255,255,0.08)",border:"1px solid rgba(196,160,80,0.4)",borderRadius:"6px",color:"#c4a050",fontSize:"0.9rem",fontWeight:700,textAlign:"center",outline:"none"}}/>
               </div>
-              <div style={{display:"flex",flexDirection:"column",gap:"8px",marginBottom:"14px"}}>
-                <div style={S.autoPlayRow}>
-                  <div><div style={{fontSize:"0.85rem",color:"#c4a050",fontWeight:600}}>{T.autoPlay}</div><div style={{fontSize:"0.75rem",color:"#5a5870",marginTop:"2px"}}>{T.autoPlaySub}</div></div>
-                  <button onClick={()=>setAutoPlay(v=>!v)} style={{...S.toggleBtn,...(autoPlay?S.toggleOn:S.toggleOff)}}>{autoPlay?"ON":"OFF"}</button>
-                </div>
-                <div style={S.autoPlayRow}>
-                  <div><div style={{fontSize:"0.85rem",color:"#f07050",fontWeight:600}}>{T.mute}</div><div style={{fontSize:"0.75rem",color:"#5a5870",marginTop:"2px"}}>{T.muteSub}</div></div>
-                  <button onClick={()=>setMuted(v=>!v)} style={{...S.toggleBtn,...(muted?{background:"rgba(200,60,60,0.3)",color:"#f08080"}:S.toggleOff)}}>{muted?"ON":"OFF"}</button>
+              <div style={{...S.autoPlayRow,marginBottom:"14px",flexDirection:"column",alignItems:"flex-start",gap:"10px"}}>
+                <div style={{fontSize:"0.85rem",fontWeight:600,color:"#c4a050"}}>{uiLang==="en"?"Sound":"발음 설정"}</div>
+                <div style={{display:"flex",gap:"6px",width:"100%"}}>
+                  {[
+                    {mode:"auto",   icon:"🔊", label:uiLang==="en"?"Auto":"자동",   sub:uiLang==="en"?"Auto play":"문제마다 자동", color:"#c4a050", bg:"rgba(196,160,80,0.2)", border:"rgba(196,160,80,0.5)"},
+                    {mode:"manual", icon:"🔈", label:uiLang==="en"?"Manual":"수동", sub:uiLang==="en"?"Button only":"버튼 눌러야 재생", color:"#60c880", bg:"rgba(60,180,100,0.2)", border:"rgba(60,180,100,0.5)"},
+                    {mode:"mute",   icon:"🔇", label:uiLang==="en"?"Mute":"음소거",  sub:uiLang==="en"?"No sound":"발음 완전 끔", color:"#f07050", bg:"rgba(200,60,60,0.2)", border:"rgba(200,60,60,0.5)"},
+                  ].map(({mode,icon,label,sub,color,bg,border})=>(
+                    <button key={mode} onClick={()=>setSoundMode(mode)}
+                      style={{flex:1,padding:"10px 6px",borderRadius:"10px",border:`1px solid ${soundMode===mode?border:"rgba(255,255,255,0.1)"}`,
+                        background:soundMode===mode?bg:"rgba(255,255,255,0.04)",
+                        color:soundMode===mode?color:"#5a5870",cursor:"pointer",textAlign:"center"}}>
+                      <div style={{fontSize:"1.1rem",marginBottom:"3px"}}>{icon}</div>
+                      <div style={{fontSize:"0.78rem",fontWeight:700}}>{label}</div>
+                      <div style={{fontSize:"0.65rem",opacity:0.7,marginTop:"2px"}}>{sub}</div>
+                    </button>
+                  ))}
                 </div>
               </div>
               <button style={{...S.btnStart,...(poolSize<4?S.btnDisabled:{})}} onClick={startQuiz} disabled={poolSize<4}>{poolSize<4?T.needMore(poolSize):T.startMCQ(quizCount===9999?poolSize:Math.min(quizCount,poolSize))}</button>
@@ -1524,7 +1535,7 @@ export default function HebrewQuiz() {
                 <button key={idx} style={{...S.choiceBtn,...extra}} onClick={()=>handleSelect(choice)}>
                   <span style={S.choiceAlpha}>{"ABCD"[idx]}</span>
                   <span style={q.questionType===QUIZ_TYPES.MEAN_TO_HEB?{fontFamily:"Arial,sans-serif",fontSize:"1.2rem",direction:"rtl"}:{}}>{choice}</span>
-                  {q.questionType===QUIZ_TYPES.MEAN_TO_HEB&&<span style={{marginLeft:"auto"}} onClick={e=>{e.stopPropagation();if(!muted)speak(choice);}}>🔈</span>}
+                  {q.questionType===QUIZ_TYPES.MEAN_TO_HEB&&<span style={{marginLeft:"auto"}} onClick={e=>{e.stopPropagation();speak(choice);}}>🔈</span>}
                 </button>
               );})}
             </div>
