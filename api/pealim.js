@@ -1,4 +1,6 @@
 // api/pealim.js — Vercel Serverless Function
+// 🔊 이모티콘 기반 파싱 (pealim의 실제 HTML 구조)
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET');
@@ -17,6 +19,7 @@ export default async function handler(req, res) {
       const html = await fetchPage(searchUrl);
       const results = parseSearchResults(html);
       return res.status(200).json({ results: results.slice(0, 15) });
+
     } else if (mode === 'conjugation') {
       if (!url || !url.includes('pealim.com')) return res.status(400).json({ error: '올바른 pealim URL이 필요해요' });
       const html = await fetchPage(url);
@@ -42,22 +45,60 @@ async function fetchPage(url) {
   return res.text();
 }
 
+// 🔊 이모티콘 뒤 히브리어 추출 (핵심 파싱)
+function extractSpeakerForms(text) {
+  const forms = [];
+  // 🔊 바로 뒤에 오는 히브리어 (닉쿠드 포함)
+  const re = /\uD83D\uDD0A\s*([\u05D0-\u05EA\u05B0-\u05C7!‏\s]+)/g;
+  let m;
+  while ((m = re.exec(text)) !== null) {
+    // ! 및 공백 제거, 히브리어만 추출
+    const cleaned = m[1].replace(/[!\u200F\s]/g, '').trim();
+    if (cleaned.length > 0 && /[\u05D0-\u05EA]/.test(cleaned)) {
+      forms.push(cleaned);
+    }
+  }
+  return forms;
+}
+
+// 섹션 분리 — 텍스트에서 키워드 찾기
+function getSectionText(text, startKeyword, endKeywords) {
+  const startIdx = text.indexOf(startKeyword);
+  if (startIdx < 0) return '';
+  let endIdx = text.length;
+  for (const kw of endKeywords) {
+    const idx = text.indexOf(kw, startIdx + startKeyword.length);
+    if (idx > startIdx && idx < endIdx) endIdx = idx;
+  }
+  return text.slice(startIdx, endIdx);
+}
+
 // ── 검색 결과 파싱 ──
 function parseSearchResults(html) {
+  // HTML을 텍스트로 변환
+  const text = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
   const results = [];
-  const re = /href="(\/dict\/\d+[^"]+)"[\s\S]*?<span[^>]+class="[^"]*menukad[^"]*"[^>]*>([\u05D0-\u05EA\u05B0-\u05C7 ]+)<\/span>/g;
+  // 링크 패턴에서 path 추출
+  const linkRe = /href="(\/dict\/\d+[^"]+)"/g;
   let m;
-  while ((m = re.exec(html)) !== null) {
-    const path = m[1].split('"')[0];
-    const hebrew = m[2].trim();
+  while ((m = linkRe.exec(html)) !== null) {
+    const path = m[1];
     if (results.find(r => r.path === path)) continue;
-    const snippet = html.slice(Math.max(0, m.index - 50), m.index + 500).replace(/<[^>]+>/g, ' ').replace(/\s+/g,' ');
+    // 해당 링크 주변의 텍스트에서 히브리어와 뜻 추출
+    const around = html.slice(Math.max(0, m.index - 20), m.index + 400);
+    const forms = extractSpeakerForms(around);
+    const hebrew = forms[0] || '';
+    if (!hebrew) continue;
+    // 영어 뜻 추출
+    const plainAround = around.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
     let meaning = '';
-    const toMatch = snippet.match(/\bto\s+[a-z][a-z\s,\/]{1,50}/i);
+    const toMatch = plainAround.match(/\bto\s+[a-z][a-z\s,\/]{1,50}/i);
     if (toMatch) meaning = toMatch[0].trim();
     else {
-      const engMatch = snippet.match(/[a-zA-Z][a-zA-Z\s,\/\(\)]{3,50}/);
-      if (engMatch && !/pealim|hebrew|dict|conjugation/i.test(engMatch[0])) meaning = engMatch[0].trim();
+      const engMatch = plainAround.match(/[a-zA-Z][a-zA-Z\s,\/\(\)]{3,50}/);
+      if (engMatch && !/pealim|hebrew|dict|conjugation|learning/i.test(engMatch[0])) {
+        meaning = engMatch[0].trim();
+      }
     }
     results.push({ path, hebrew, meaning, url: `https://www.pealim.com${path}` });
   }
@@ -66,10 +107,25 @@ function parseSearchResults(html) {
 
 // ── 변형 파싱 ──
 function parseConjugation(html) {
-  let baseForm = '';
-  let meaning = '';
+  // HTML → 텍스트 (태그 제거, 공백 정리)
+  const text = html
+    .replace(/<script[\s\S]*?<\/script>/gi, '')
+    .replace(/<style[\s\S]*?<\/style>/gi, '')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/[ \t]+/g, ' ');
 
-  // title에서 뜻 추출
+  // 1. 사전 기본형 추출 — "Conjugation of לְדַבֵּר" 패턴
+  let baseForm = '';
+  const conjMatch = text.match(/Conjugation of\s+([\u05D0-\u05EA\u05B0-\u05C7]+)/);
+  if (conjMatch) baseForm = conjMatch[1].trim();
+  // 폴백: 첫 번째 🔊 형태
+  if (!baseForm) {
+    const firstForms = extractSpeakerForms(text);
+    if (firstForms[0]) baseForm = firstForms[0];
+  }
+
+  // 2. 뜻 추출 (title)
+  let meaning = '';
   const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/);
   if (titleMatch) {
     const dashParts = titleMatch[1].split(/\s*[\u2013\u2014\-]\s*/).map(p => p.trim()).filter(Boolean);
@@ -80,24 +136,10 @@ function parseConjugation(html) {
     if (candidates.length > 0) meaning = candidates[0].trim();
   }
 
-  // h2에서 사전 기본형 추출 ("Conjugation of לְדַבֵּר")
-  const h2Match = html.match(/<h2[^>]*>([\s\S]*?)<\/h2>/);
-  if (h2Match) {
-    const hs = h2Match[1].match(/<span[^>]+class="[^"]*menukad[^"]*"[^>]*>([\u05D0-\u05EA\u05B0-\u05C7]+)<\/span>/);
-    if (hs) baseForm = hs[1].trim();
-  }
-  if (!baseForm) {
-    const h1Match = html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/);
-    if (h1Match) {
-      const hs = h1Match[1].match(/<span[^>]+class="[^"]*menukad[^"]*"[^>]*>([\u05D0-\u05EA\u05B0-\u05C7]+)<\/span>/);
-      if (hs) baseForm = hs[1].trim();
-    }
-  }
-
-  // 품사 감지
+  // 3. 품사 감지
   let wordType = 'verb';
-  const posMatch = html.match(/Part of speech[:\s]*(verb|noun|adjective|adverb|preposition|pronoun)/i)
-    || html.match(/\b(Verb|Noun|Adjective)\s*[\u2013\u2014\-]/i);
+  const posMatch = text.match(/Part of speech[:\s]*(verb|noun|adjective|adverb|preposition|pronoun)/i)
+    || text.match(/\b(Verb|Noun|Adjective)\s*[\u2013\u2014\-]/i);
   if (posMatch) {
     const pos = (posMatch[1]||'').toLowerCase();
     if (pos === 'verb') wordType = 'verb';
@@ -106,112 +148,78 @@ function parseConjugation(html) {
     else wordType = 'other';
   }
 
-  // Active 섹션만 사용
-  const activeHtml = html.split(/Passive forms|Binyan Pu.al|Binyan Huf.al/i)[0];
+  // 4. Active 섹션만 사용 (Passive 제외)
+  const passiveIdx = text.search(/Passive forms|Binyan Pu.al|Binyan Huf.al/i);
+  const activeText = passiveIdx > 0 ? text.slice(0, passiveIdx) : text;
+
   const variants = {};
 
   if (wordType === 'verb') {
-    // 각 섹션 위치를 찾아서 정확히 분리
-    const sectionMap = findSections(activeHtml);
-
-    // 현재형 (4개: ms, fs, mp, fp)
-    if (sectionMap.present !== undefined) {
-      const sec = getSection(activeHtml, sectionMap, 'present');
-      const forms = unique4(getMenukad(sec));
-      ['pres_ms','pres_fs','pres_mp','pres_fp'].forEach((k,i) => { if (forms[i]) variants[k] = forms[i]; });
+    // 현재형
+    const presText = getSectionText(activeText, 'Present tense', ['Past tense','Future tense','Imperative','Infinitive']);
+    if (presText) {
+      const forms = extractSpeakerForms(presText);
+      const uniq = [...new Set(forms)];
+      ['pres_ms','pres_fs','pres_mp','pres_fp'].forEach((k,i) => { if (uniq[i]) variants[k] = uniq[i]; });
     }
 
     // 과거형 (중복 허용 — 같은 형태가 다른 인칭에 쓰임)
-    if (sectionMap.past !== undefined) {
-      const sec = getSection(activeHtml, sectionMap, 'past');
-      const forms = getMenukad(sec);
-      // pealim 과거 순서: 1s, 1p, 2ms, 2fs, 2mp, 2fp, 3ms, 3fs, 3mp (3fp는 3mp와 같은 경우 많음)
+    const pastText = getSectionText(activeText, 'Past tense', ['Future tense','Imperative','Infinitive']);
+    if (pastText) {
+      const forms = extractSpeakerForms(pastText);
+      // pealim 과거 순서: 1s, 1p, 2ms, 2fs, 2mp, 2fp, 3ms, 3fs, 3mp
       ['past_1s','past_1p','past_2ms','past_2fs','past_2mp','past_2fp','past_3ms','past_3fs','past_3mp','past_3fp']
         .forEach((k,i) => { if (forms[i]) variants[k] = forms[i]; });
     }
 
     // 미래형 (중복 허용)
-    if (sectionMap.future !== undefined) {
-      const sec = getSection(activeHtml, sectionMap, 'future');
-      const forms = getMenukad(sec);
+    const futText = getSectionText(activeText, 'Future tense', ['Imperative','Infinitive']);
+    if (futText) {
+      const forms = extractSpeakerForms(futText);
       ['fut_1s','fut_2ms','fut_2fs','fut_3ms','fut_3fs','fut_1p','fut_2mp','fut_2fp','fut_3mp','fut_3fp']
         .forEach((k,i) => { if (forms[i]) variants[k] = forms[i]; });
     }
 
-    // 명령형 (4개)
-    if (sectionMap.imperative !== undefined) {
-      const sec = getSection(activeHtml, sectionMap, 'imperative');
-      const forms = unique4(getMenukad(sec));
-      ['imp_2ms','imp_2fs','imp_2mp','imp_2fp'].forEach((k,i) => { if (forms[i]) variants[k] = forms[i]; });
+    // 명령형
+    const impText = getSectionText(activeText, 'Imperative', ['Infinitive','See also']);
+    if (impText) {
+      const forms = extractSpeakerForms(impText);
+      const uniq = [...new Set(forms)];
+      ['imp_2ms','imp_2fs','imp_2mp','imp_2fp'].forEach((k,i) => { if (uniq[i]) variants[k] = uniq[i]; });
     }
 
     // 인피니티브
-    if (sectionMap.infinitive !== undefined) {
-      const sec = getSection(activeHtml, sectionMap, 'infinitive');
-      const forms = getMenukad(sec);
+    const infText = getSectionText(activeText, 'Infinitive', ['See also','Passive']);
+    if (infText) {
+      const forms = extractSpeakerForms(infText);
       if (forms[0]) variants['infinitive'] = forms[0];
     }
     if (!variants['infinitive'] && baseForm) variants['infinitive'] = baseForm;
 
   } else if (wordType === 'noun') {
-    const singM = html.match(/Singular([\s\S]*?)(?=Plural|Dual|Construct|$)/i);
-    if (singM) { const f = unique4(getMenukad(singM[1])); if(f[0]) variants['gender_m']=f[0]; if(f[1]) variants['gender_f']=f[1]; }
-    const pl = html.match(/Plural([\s\S]*?)(?=Dual|Construct|$)/i);
-    if (pl) { const f = unique4(getMenukad(pl[1])); if(f[0]) variants['plural_m']=f[0]; if(f[1]) variants['plural_f']=f[1]; }
+    const singText = getSectionText(text, 'Singular', ['Plural','Dual','See also']);
+    if (singText) {
+      const forms = [...new Set(extractSpeakerForms(singText))];
+      if (forms[0]) variants['gender_m'] = forms[0];
+      if (forms[1]) variants['gender_f'] = forms[1];
+    }
+    const plText = getSectionText(text, 'Plural', ['Dual','Construct','See also']);
+    if (plText) {
+      const forms = [...new Set(extractSpeakerForms(plText))];
+      if (forms[0]) variants['plural_m'] = forms[0];
+      if (forms[1]) variants['plural_f'] = forms[1];
+    }
 
   } else if (wordType === 'adj') {
-    const f = unique4(getMenukad(html));
-    ['gender_m','gender_f','plural_m','plural_f'].forEach((k,i) => { if(f[i]) variants[k]=f[i]; });
+    const forms = [...new Set(extractSpeakerForms(activeText))];
+    ['gender_m','gender_f','plural_m','plural_f'].forEach((k,i) => { if (forms[i]) variants[k] = forms[i]; });
   }
 
-  return { infinitive: baseForm||'', meaning: meaning||'', wordType, variants, variantCount: Object.keys(variants).length };
-}
-
-// HTML에서 각 섹션의 시작 인덱스 찾기
-function findSections(html) {
-  const SECTION_PATTERNS = {
-    present:    /Present tense/i,
-    past:       /Past tense/i,
-    future:     /Future tense/i,
-    imperative: /\bImperative\b/i,
-    infinitive: /\bInfinitive\b/i,
+  return {
+    infinitive: baseForm || '',
+    meaning: meaning || '',
+    wordType,
+    variants,
+    variantCount: Object.keys(variants).length
   };
-  const map = {};
-  for (const [key, re] of Object.entries(SECTION_PATTERNS)) {
-    const m = html.search(re);
-    if (m >= 0) map[key] = m;
-  }
-  return map;
-}
-
-// 섹션 내용 추출 (다음 섹션 시작 전까지)
-function getSection(html, sectionMap, key) {
-  const start = sectionMap[key];
-  if (start === undefined) return '';
-  // 다음 섹션 찾기
-  const otherStarts = Object.entries(sectionMap)
-    .filter(([k]) => k !== key)
-    .map(([, v]) => v)
-    .filter(v => v > start);
-  const end = otherStarts.length > 0 ? Math.min(...otherStarts) : html.length;
-  return html.slice(start, end);
-}
-
-// menukad span 모두 추출
-function getMenukad(html) {
-  const forms = [];
-  const re = /<span[^>]+class="[^"]*menukad[^"]*"[^>]*>([\u05D0-\u05EA\u05B0-\u05C7]+)<\/span>/g;
-  let m;
-  while ((m = re.exec(html)) !== null) forms.push(m[1]);
-  return forms;
-}
-
-// 중복 제거 (순서 유지)
-function unique4(arr) {
-  const seen = new Set();
-  const result = [];
-  for (const x of arr) {
-    if (!seen.has(x)) { seen.add(x); result.push(x); }
-  }
-  return result;
 }
