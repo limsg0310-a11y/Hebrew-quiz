@@ -524,14 +524,6 @@ export default function HebrewQuiz() {
   const [uiLang,setUiLang]               =useState("ko");
   const T = UI_TEXT[uiLang] || UI_TEXT.ko;
   const bookInfo = BOOKS.find(b=>b.id===currentBook)||BOOKS[0];
-  const speak=useCallback(async(text,forceMuted=false)=>{
-    if(forceMuted) return;
-    if(soundMode==="mute") return; // 음소거 모드면 완전 차단
-    const book = BOOKS.find(b=>b.id===currentBook)||BOOKS[0];
-    const {ttsLang,ttsName,ttsRate} = book;
-    if(apiKey){ try{ await googleTTS(text,apiKey,ttsLang,ttsName,ttsRate); return; }catch{} }
-    browserTTS(text,ttsLang,ttsRate);
-  },[apiKey,currentBook,soundMode]);
   const [words,setWordsRaw]             =useState(()=>loadWords("hebrew"));
   const [mode,setMode]                  =useState(MODES.LIST);
   const [newHebrew,setNewHebrew]        =useState("");
@@ -558,6 +550,14 @@ export default function HebrewQuiz() {
   const [soundMode,setSoundMode]         =useState("auto"); // "auto" | "manual" | "mute"
   const autoPlay = soundMode === "auto";
   const muted    = soundMode === "mute";
+  const speak=useCallback(async(text,forceMuted=false)=>{
+    if(forceMuted) return;
+    if(soundMode==="mute") return; // 음소거 모드면 완전 차단
+    const book = BOOKS.find(b=>b.id===currentBook)||BOOKS[0];
+    const {ttsLang,ttsName,ttsRate} = book;
+    if(apiKey){ try{ await googleTTS(text,apiKey,ttsLang,ttsName,ttsRate); return; }catch{} }
+    browserTTS(text,ttsLang,ttsRate);
+  },[apiKey,currentBook,soundMode]);
   const [showPasteModal,setShowPasteModal]=useState(false);
   const [showBatchModal,setShowBatchModal]=useState(false);
   const [showPealimModal,setShowPealimModal]=useState(false);
