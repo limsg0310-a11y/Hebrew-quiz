@@ -181,6 +181,17 @@ function getAllowedCats(wordType) {
   return VARIANT_CATS.filter(c=>wt.cats.includes(c.id));
 }
 
+// 붙여넣기 순서 — 카테고리별 순서대로 펼친 배열
+const VARIANT_PASTE_ORDER = [
+  "gender_f","gender_m","plural_m","plural_f",
+  "past_1s","past_2ms","past_2fs","past_3ms","past_3fs","past_1p","past_2mp","past_2fp","past_3mp","past_3fp",
+  "pres_ms","pres_fs","pres_mp","pres_fp",
+  "fut_1s","fut_2ms","fut_2fs","fut_3ms","fut_3fs","fut_1p","fut_2mp","fut_2fp","fut_3mp","fut_3fp",
+  "imp_2ms","imp_2fs","imp_2mp","imp_2fp",
+  "poss_1s","poss_2ms","poss_2fs","poss_3ms","poss_3fs","poss_1p","poss_2mp","poss_2fp","poss_3mp","poss_3fp",
+  "infinitive"
+];
+
 // 품사에 따라 붙여넣기 순서 반환
 function getAllowedPasteOrder(wordType) {
   const allowed = new Set(getAllowedCats(wordType).flatMap(c=>c.types));
