@@ -1,4 +1,6 @@
 // api/pealim.js — Vercel Serverless Function
+// pealim.com의 실제 HTML 구조 기반 파서
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET');
@@ -6,223 +8,188 @@ export default async function handler(req, res) {
   const { mode, root, url } = req.query;
 
   try {
+    // ── 어근 검색 ──
     if (mode === 'search') {
       if (!root) return res.status(400).json({ error: '어근을 입력해주세요' });
 
-      // 어근에서 자음만 추출 (닉쿠드, 공백, 구분자 제거)
-      const clean = root.replace(/[\u0591-\u05C7\s\-–—]/g, '');
-      const parts = clean.split('').filter(c => /[\u05D0-\u05EA]/.test(c));
+      // 닉쿠드·공백·구분자 제거 후 자음만 추출
+      const clean  = root.replace(/[\u0591-\u05C7\s\-–—]/g, '');
+      const parts  = [...clean].filter(c => /[\u05D0-\u05EA]/.test(c));
 
       if (parts.length < 2) return res.status(400).json({ error: '히브리어 자음을 2자 이상 입력해주세요' });
 
-      // pealim 검색 URL
-      let searchUrl;
-      if (parts.length === 2) {
-        searchUrl = `https://www.pealim.com/dict/?num-radicals=2&r1=${encodeURIComponent(parts[0])}&rf=${encodeURIComponent(parts[1])}`;
-      } else if (parts.length === 3) {
-        searchUrl = `https://www.pealim.com/dict/?num-radicals=3&r1=${encodeURIComponent(parts[0])}&r2=${encodeURIComponent(parts[1])}&rf=${encodeURIComponent(parts[2])}`;
-      } else {
-        searchUrl = `https://www.pealim.com/dict/?num-radicals=4&r1=${encodeURIComponent(parts[0])}&r2=${encodeURIComponent(parts[1])}&r3=${encodeURIComponent(parts[2])}&rf=${encodeURIComponent(parts[3])}`;
-      }
+      const numR = Math.min(parts.length, 4);
+      const params = new URLSearchParams({ 'num-radicals': numR });
+      if (numR >= 1) params.set('r1', parts[0]);
+      if (numR >= 2 && numR < 4) params.set('r2', numR === 2 ? '' : parts[1]);
+      if (numR === 3) { params.set('r2', parts[1]); params.set('rf', parts[2]); }
+      if (numR === 4) { params.set('r2', parts[1]); params.set('r3', parts[2]); params.set('rf', parts[3]); }
+      if (numR === 2) { params.set('rf', parts[1]); params.delete('r2'); }
 
-      const response = await fetch(searchUrl, {
-        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
-      });
-      const html = await response.text();
+      const searchUrl = `https://www.pealim.com/dict/?${params.toString()}`;
+      const html = await fetchPage(searchUrl);
 
-      // 검색 결과 파싱
-      const results = [];
-      // pealim의 검색 결과 링크 패턴
-      const linkRegex = /href="(\/dict\/[\w-]+\/)"[^>]*>\s*<span[^>]*class="[^"]*menukad[^"]*"[^>]*>([\u05D0-\u05EA\u05B0-\u05C7 ]+)<\/span>/g;
-      let m;
-      while ((m = linkRegex.exec(html)) !== null) {
-        const path = m[1];
-        const hebrew = m[2].trim();
-        if (!results.find(r => r.path === path)) {
-          results.push({ path, hebrew, url: `https://www.pealim.com${path}` });
-        }
-      }
+      const results = parseSearchResults(html);
+      return res.status(200).json({ results: results.slice(0, 15) });
 
-      // 대안 패턴
-      if (results.length === 0) {
-        const alt = /href="(\/dict\/\d+-[^"\/]+\/)"[\s\S]*?<span[^>]*class="[^"]*menukad[^"]*"[^>]*>([\u05D0-\u05EA\u05B0-\u05C7 ]+)<\/span>/g;
-        while ((m = alt.exec(html)) !== null) {
-          const path = m[1];
-          const hebrew = m[2].trim();
-          if (!results.find(r => r.path === path)) {
-            results.push({ path, hebrew, url: `https://www.pealim.com${path}` });
-          }
-        }
-      }
-
-      return res.status(200).json({ results: results.slice(0, 12), searchUrl });
-
+    // ── 변형 가져오기 ──
     } else if (mode === 'conjugation') {
       if (!url || !url.includes('pealim.com')) {
         return res.status(400).json({ error: '올바른 pealim URL이 필요해요' });
       }
 
-      const response = await fetch(url, {
-        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
-      });
-      const html = await response.text();
-
-      // 인피니티브 추출 (h1 태그)
-      const h1Match = html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/);
-      const h1Text = h1Match ? h1Match[1].replace(/<[^>]+>/g, '').trim() : '';
-      // "לְדַבֵּר – to speak" 형태에서 히브리어 추출
-      const infHebrew = (h1Text.match(/^([\u05D0-\u05EA\u05B0-\u05C7 ]+)/) || [])[1]?.trim() || '';
-
-      // 의미 추출 (to speak, to talk 형태)
-      const meaningSection = html.match(/###\s*Meaning[\s\S]*?\n(.*?)\n/);
-      const meaningFromMeta = html.match(/<meta[^>]*property="og:description"[^>]*content="([^"]+)"/);
-      const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/);
-      let meaning = '';
-      if (meaningSection) meaning = meaningSection[1].trim();
-      else if (titleMatch) {
-        // "לדבר – to speak, to talk – Hebrew conjugation tables"
-        const m2 = titleMatch[1].match(/–\s*([^–]+)\s*–/);
-        if (m2) meaning = m2[1].trim();
-      }
-
-      // 변형 파싱 — pealim의 실제 HTML 구조 기반
-      const variants = {};
-
-      // 방법 1: data-* 속성 방식 (최신 pealim)
-      const dataFormRegex = /data-conjugation="([^"]+)"[\s\S]*?<span[^>]*class="[^"]*menukad[^"]*"[^>]*>([\u05D0-\u05EA\u05B0-\u05C7]+)<\/span>/g;
-      let dm;
-      while ((dm = dataFormRegex.exec(html)) !== null) {
-        const form = dm[1].toUpperCase();
-        const hebrew = dm[2];
-        const mapped = mapForm(form);
-        if (mapped) variants[mapped] = hebrew;
-      }
-
-      // 방법 2: 테이블 셀 기반 파싱 (pealim의 주요 방식)
-      if (Object.keys(variants).length < 5) {
-        parseTableBased(html, variants);
-      }
-
-      // 방법 3: 섹션 기반 파싱
-      if (Object.keys(variants).length < 5) {
-        parseSectionBased(html, variants);
-      }
-
-      return res.status(200).json({
-        infinitive: infHebrew,
-        meaning,
-        variants,
-        variantCount: Object.keys(variants).length
-      });
+      const html = await fetchPage(url);
+      const result = parseConjugation(html);
+      return res.status(200).json(result);
 
     } else {
       return res.status(400).json({ error: 'mode=search 또는 mode=conjugation 필요' });
     }
+
   } catch (e) {
-    return res.status(500).json({ error: e.message, stack: e.stack });
+    return res.status(500).json({ error: e.message });
   }
 }
 
-// pealim 변형 코드 → 앱 type 매핑
-function mapForm(form) {
-  const MAP = {
-    // 현재형
-    'PRES-M-S': 'pres_ms', 'PRES-F-S': 'pres_fs',
-    'PRES-M-P': 'pres_mp', 'PRES-F-P': 'pres_fp',
-    'PRESENT-M-S': 'pres_ms', 'PRESENT-F-S': 'pres_fs',
-    'PRESENT-M-P': 'pres_mp', 'PRESENT-F-P': 'pres_fp',
-    // 과거형
-    'PAST-1-S': 'past_1s', 'PAST-2-M-S': 'past_2ms', 'PAST-2-F-S': 'past_2fs',
-    'PAST-3-M-S': 'past_3ms', 'PAST-3-F-S': 'past_3fs',
-    'PAST-1-P': 'past_1p', 'PAST-2-M-P': 'past_2mp', 'PAST-2-F-P': 'past_2fp',
-    'PAST-3-P': 'past_3mp', 'PAST-3-M-P': 'past_3mp', 'PAST-3-F-P': 'past_3fp',
-    // 미래형
-    'FUTURE-1-S': 'fut_1s', 'FUT-1-S': 'fut_1s',
-    'FUTURE-2-M-S': 'fut_2ms', 'FUT-2-M-S': 'fut_2ms',
-    'FUTURE-2-F-S': 'fut_2fs', 'FUT-2-F-S': 'fut_2fs',
-    'FUTURE-3-M-S': 'fut_3ms', 'FUT-3-M-S': 'fut_3ms',
-    'FUTURE-3-F-S': 'fut_3fs', 'FUT-3-F-S': 'fut_3fs',
-    'FUTURE-1-P': 'fut_1p', 'FUT-1-P': 'fut_1p',
-    'FUTURE-2-M-P': 'fut_2mp', 'FUT-2-M-P': 'fut_2mp',
-    'FUTURE-2-F-P': 'fut_2fp', 'FUT-2-F-P': 'fut_2fp',
-    'FUTURE-3-M-P': 'fut_3mp', 'FUT-3-M-P': 'fut_3mp',
-    'FUTURE-3-F-P': 'fut_3fp', 'FUT-3-F-P': 'fut_3fp',
-    // 명령형
-    'IMPER-2-M-S': 'imp_2ms', 'IMP-2-M-S': 'imp_2ms',
-    'IMPER-2-F-S': 'imp_2fs', 'IMP-2-F-S': 'imp_2fs',
-    'IMPER-2-M-P': 'imp_2mp', 'IMP-2-M-P': 'imp_2mp',
-    'IMPER-2-F-P': 'imp_2fp', 'IMP-2-F-P': 'imp_2fp',
-    'IMPERATIVE-M-S': 'imp_2ms', 'IMPERATIVE-F-S': 'imp_2fs',
-    'IMPERATIVE-M-P': 'imp_2mp', 'IMPERATIVE-F-P': 'imp_2fp',
-    // 인피니티브
-    'INF': 'infinitive', 'INFINITIVE': 'infinitive',
-  };
-  return MAP[form] || null;
-}
-
-// 테이블 기반 파싱 — pealim의 실제 구조
-function parseTableBased(html, variants) {
-  // pealim 현재형 테이블 패턴
-  extractSection(html, 'Present tense', ['pres_ms','pres_fs','pres_mp','pres_fp'], variants);
-  // 과거형
-  extractSection(html, 'Past tense', [
-    'past_1s','past_2ms','past_2fs','past_3ms','past_3fs',
-    'past_1p','past_2mp','past_2fp','past_3mp','past_3fp'
-  ], variants);
-  // 미래형
-  extractSection(html, 'Future tense', [
-    'fut_1s','fut_2ms','fut_2fs','fut_3ms','fut_3fs',
-    'fut_1p','fut_2mp','fut_2fp','fut_3mp','fut_3fp'
-  ], variants);
-  // 명령형
-  extractSection(html, 'Imperative', ['imp_2ms','imp_2fs','imp_2mp','imp_2fp'], variants);
-  // 인피니티브
-  extractSection(html, 'Infinitive', ['infinitive'], variants);
-}
-
-function extractSection(html, sectionName, keys, variants) {
-  const escapedName = sectionName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const sectionRegex = new RegExp(escapedName + '[\\s\\S]*?(?=' +
-    ['Present tense','Past tense','Future tense','Imperative','Infinitive','Passive']
-      .filter(s=>s!==sectionName).map(s=>s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).join('|') +
-    '|<\\/table>|$)', 'i');
-  const section = html.match(sectionRegex);
-  if (!section) return;
-
-  const forms = extractHebrewForms(section[0]);
-  // 중복 제거 후 순서대로 매핑
-  const unique = [...new Set(forms)];
-  unique.forEach((form, i) => {
-    if (i < keys.length && form && !variants[keys[i]]) {
-      variants[keys[i]] = form;
+// ── HTTP 가져오기 ──
+async function fetchPage(url) {
+  const res = await fetch(url, {
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0',
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+      'Accept-Language': 'en-US,en;q=0.5',
     }
   });
+  if (!res.ok) throw new Error(`HTTP ${res.status}: ${url}`);
+  return res.text();
 }
 
-function extractHebrewForms(html) {
+// ── 검색 결과 파싱 ──
+function parseSearchResults(html) {
+  const results = [];
+  // pealim 검색 결과: /dict/숫자-이름/ 패턴
+  const re = /href="(\/dict\/\d+[^"]+)"[^>]*>[\s\S]*?<span[^>]+class="[^"]*menukad[^"]*"[^>]*>([\u05D0-\u05EA\u05B0-\u05C7 ]+)<\/span>/g;
+  let m;
+  while ((m = re.exec(html)) !== null) {
+    const path   = m[1];
+    const hebrew = m[2].trim();
+    if (!results.find(r => r.path === path)) {
+      results.push({ path, hebrew, url: `https://www.pealim.com${path}` });
+    }
+  }
+  return results;
+}
+
+// ── 변형 파싱 (pealim 실제 HTML 구조 기반) ──
+function parseConjugation(html) {
+  // 1. 제목에서 인피니티브 + 의미 추출
+  const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/);
+  let infinitive = '';
+  let meaning = '';
+  if (titleMatch) {
+    // "לדבר – to speak, to talk – Hebrew conjugation tables"
+    const parts = titleMatch[1].split('–').map(s => s.trim());
+    if (parts.length >= 2) {
+      // 히브리어 부분 (with nikud)
+      const h1 = html.match(/<h1[^>]*>[\s\S]*?<\/h1>/);
+      if (h1) {
+        const hebMatch = h1[0].match(/<span[^>]+class="[^"]*menukad[^"]*"[^>]*>([\u05D0-\u05EA\u05B0-\u05C7 ]+)<\/span>/);
+        if (hebMatch) infinitive = hebMatch[1].trim();
+        else infinitive = parts[0];
+      }
+      meaning = parts.slice(1, -1).join('–').trim();
+    }
+  }
+
+  // 2. 모든 <table> 에서 변형 추출
+  const variants = {};
+
+  // Active/Passive 섹션 분리
+  const activeSection  = html.split(/Passive forms|Binyan Pu.al|Binyan Huf.al|Binyan Nif.al/i)[0];
+
+  // 섹션별 추출
+  extractPresent (activeSection, variants);
+  extractPast    (activeSection, variants);
+  extractFuture  (activeSection, variants);
+  extractImperative(activeSection, variants);
+  extractInfinitive(activeSection, variants, infinitive);
+
+  return { infinitive, meaning, variants, variantCount: Object.keys(variants).length };
+}
+
+// 모든 menukad span에서 히브리어 추출
+function getMenukad(html) {
   const forms = [];
-  // menukad span에서 추출
-  const re = /<span[^>]*class="[^"]*menukad[^"]*"[^>]*>([\u05D0-\u05EA\u05B0-\u05C7]+)<\/span>/g;
+  const re = /<span[^>]+class="[^"]*menukad[^"]*"[^>]*>([\u05D0-\u05EA\u05B0-\u05C7]+)<\/span>/g;
   let m;
   while ((m = re.exec(html)) !== null) forms.push(m[1]);
-  // ~ 로 구분된 두 번째 형태(without nikud) 제거
   return forms;
 }
 
-function parseSectionBased(html, variants) {
-  // 전체 HTML에서 모든 menukad span 순서대로 추출
-  const allForms = extractHebrewForms(html);
-  // pealim의 일반적인 순서: 현재(4) → 과거(10~14) → 미래(10) → 명령(4) → 인피(1)
-  const ORDER = [
-    'pres_ms','pres_fs','pres_mp','pres_fp',
-    'past_1s','past_2ms','past_2fs','past_3ms','past_3fs','past_1p','past_2mp','past_2fp','past_3mp','past_3fp',
-    'fut_1s','fut_2ms','fut_2fs','fut_3ms','fut_3fs','fut_1p','fut_2mp','fut_2fp','fut_3mp','fut_3fp',
-    'imp_2ms','imp_2fs','imp_2mp','imp_2fp',
-    'infinitive'
-  ];
-  allForms.forEach((form, i) => {
-    if (i < ORDER.length && !variants[ORDER[i]]) {
-      variants[ORDER[i]] = form;
-    }
-  });
+// 현재형 파싱
+// pealim 구조: Present tense 테이블 — M-sg, F-sg, M-pl, F-pl (4개)
+function extractPresent(html, variants) {
+  const sectionRe = /Present tense[^<]*<\/[^>]+>([\s\S]*?)(?=Past tense|<\/table>)/i;
+  const sec = html.match(sectionRe);
+  if (!sec) return;
+  const forms = getMenukad(sec[1]);
+  const keys = ['pres_ms','pres_fs','pres_mp','pres_fp'];
+  // 중복 없애기
+  const unique = [...new Set(forms)];
+  unique.slice(0,4).forEach((f,i) => { if(f) variants[keys[i]] = f; });
+}
+
+// 과거형 파싱
+// pealim 구조 (행 순서): 1sg | 1pl, 2msg | 2fsg | 2mpl | 2fpl, 3msg | 3fsg | 3pl
+// 실제 순서: 1sg, 2msg, 2fsg, 3msg, 3fsg, 1pl, 2mpl, 2fpl, 3pl
+function extractPast(html, variants) {
+  const sectionRe = /Past tense([\s\S]*?)(?=Future tense|Infinitive|<\/section>)/i;
+  const sec = html.match(sectionRe);
+  if (!sec) return;
+  const forms = getMenukad(sec[1]);
+  // pealim 과거형 테이블 셀 순서 (실제 HTML 기준)
+  // Row 1st: [sg], [pl]
+  // Row 2nd: [m-sg], [f-sg], [m-pl], [f-pl]
+  // Row 3rd: [m-sg], [f-sg], [pl] (또는 [m-pl, f-pl])
+  const unique = [...new Set(forms)];
+  const keys = ['past_1s','past_2ms','past_2fs','past_3ms','past_3fs','past_1p','past_2mp','past_2fp','past_3mp','past_3fp'];
+  // pealim의 실제 출력 순서 맞추기
+  // 1s, 1p, 2ms, 2fs, 2mp, 2fp, 3ms, 3fs, 3p (pealim 테이블 순서)
+  const pealimOrder = ['past_1s','past_1p','past_2ms','past_2fs','past_2mp','past_2fp','past_3ms','past_3fs','past_3mp','past_3fp'];
+  unique.slice(0, pealimOrder.length).forEach((f,i) => { if(f) variants[pealimOrder[i]] = f; });
+}
+
+// 미래형 파싱 — 과거형과 유사 구조
+function extractFuture(html, variants) {
+  const sectionRe = /Future tense([\s\S]*?)(?=Imperative|Infinitive|<\/section>)/i;
+  const sec = html.match(sectionRe);
+  if (!sec) return;
+  const forms = getMenukad(sec[1]);
+  const unique = [...new Set(forms)];
+  // pealim 미래형 순서: 1s, 2ms, 2fs, 3ms, 3fs, 1p, 2mp, 2fp, 3mp, 3fp
+  const pealimOrder = ['fut_1s','fut_2ms','fut_2fs','fut_3ms','fut_3fs','fut_1p','fut_2mp','fut_2fp','fut_3mp','fut_3fp'];
+  unique.slice(0, pealimOrder.length).forEach((f,i) => { if(f) variants[pealimOrder[i]] = f; });
+}
+
+// 명령형 파싱
+function extractImperative(html, variants) {
+  const sectionRe = /Imperative([\s\S]*?)(?=Infinitive|<\/section>|<\/table>)/i;
+  const sec = html.match(sectionRe);
+  if (!sec) return;
+  const forms = getMenukad(sec[1]);
+  const unique = [...new Set(forms)];
+  // pealim 명령형 순서: m-sg, f-sg, m-pl, f-pl
+  const keys = ['imp_2ms','imp_2fs','imp_2mp','imp_2fp'];
+  unique.slice(0,4).forEach((f,i) => { if(f) variants[keys[i]] = f; });
+}
+
+// 인피니티브 파싱
+function extractInfinitive(html, variants, fallback) {
+  const sectionRe = /Infinitive([\s\S]*?)(?=###|<\/section>|<\/table>|Active forms|Passive)/i;
+  const sec = html.match(sectionRe);
+  if (sec) {
+    const forms = getMenukad(sec[1]);
+    if (forms[0]) { variants['infinitive'] = forms[0]; return; }
+  }
+  if (fallback) variants['infinitive'] = fallback;
 }
