@@ -769,12 +769,6 @@ export default function HebrewQuiz() {
     if(variantInputRef.current) variantInputRef.current.focus();
   };
 
-  const variantPoolSize=(()=>{
-    const selectedTypes=new Set(VARIANT_CATS.filter(c=>variantCats.includes(c.id)).flatMap(c=>c.types));
-    const pairs=getPool(variantFilter).flatMap(w=>(w.variants||[]).filter(v=>selectedTypes.has(v.type)));
-    return pairs.length;
-  })();
-
   useEffect(()=>{ if(mode!==MODES.QUIZ||!autoPlay||muted) return; const q=questions[current]; if(!q||q.questionType!==QUIZ_TYPES.HEB_TO_MEAN) return; const t=setTimeout(()=>speak(q.question),500); return()=>clearTimeout(t); },[current,animKey,mode,muted]); // eslint-disable-line
   useEffect(()=>{ if(mode===MODES.ESSAY&&essayInputRef.current) essayInputRef.current.focus(); },[essayCurrent,mode]);
 
@@ -819,6 +813,11 @@ export default function HebrewQuiz() {
   const confirmImport=(merge)=>{ if(!importPreview) return; if(merge){const ex=new Set(words.map(w=>w.hebrew)); const newOnes=importPreview.words.filter(w=>!ex.has(w.hebrew)); setWords(ws=>[...ws,...newOnes]); showToast(`📥 ${newOnes.length}개 추가! (중복 ${importPreview.words.length-newOnes.length}개 제외)`);}else{setWords(importPreview.words); showToast(`📥 ${importPreview.words.length}개 단어로 교체했어요!`);} setImportPreview(null); setListFilter("all"); };
 
   const getPool=(filter)=>{ const f=filter||quizFilter; if(f===QUIZ_FILTERS.EXCLUDE_MASTERED) return words.filter(w=>w.status!=="mastered"); if(f===QUIZ_FILTERS.HARD_ONLY) return words.filter(w=>w.status==="hard"); return words; };
+  const variantPoolSize=(()=>{
+    const selectedTypes=new Set(VARIANT_CATS.filter(c=>variantCats.includes(c.id)).flatMap(c=>c.types));
+    const pairs=getPool(variantFilter).flatMap(w=>(w.variants||[]).filter(v=>selectedTypes.has(v.type)));
+    return pairs.length;
+  })();
   const startQuiz=()=>{ const pool=getPool(); if(pool.length<4) return; const count=Math.min(quizCount===9999?pool.length:quizCount,pool.length); const qs=shuffle(pool).slice(0,count).map(w=>generateQuestion(w,words,quizType)); setQuestions(qs); setCurrent(0); setSelected(null); setConfirmed(false); setScore(0); setWrongWords([]); setMode(MODES.QUIZ); setAnimKey(k=>k+1); };
   const startEssay=()=>{
     const pool=getPool(essayFilter); if(!pool.length) return;
