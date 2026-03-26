@@ -617,8 +617,18 @@ export default function HebrewQuiz() {
   const [variantCats,setVariantCats]         =useState(["gender","plural"]); // 선택된 카테고리
   const [expandedVariantWord,setExpandedVariantWord]=useState(null);
   // 섹션 접기/펼치기
-  const [openSections,setOpenSections]    =useState({add:true, io:false, quiz_mcq:false, quiz_essay:false, quiz_variant:false});
-  const toggleSection=(key)=>setOpenSections(s=>({...s,[key]:!s[key]}));
+  const [openSections,setOpenSections]    =useState(()=>{
+    try{
+      const saved=localStorage.getItem("openSections");
+      if(saved) return JSON.parse(saved);
+    }catch{}
+    return {add:false, io:false, quiz_mcq:false, quiz_essay:false, quiz_variant:false};
+  });
+  const toggleSection=(key)=>setOpenSections(s=>{
+    const next={...s,[key]:!s[key]};
+    try{ localStorage.setItem("openSections",JSON.stringify(next)); }catch{}
+    return next;
+  });
   const SectionHeader=({sectionKey,title,color="#c4a050",badge=null})=>(
     <button onClick={()=>toggleSection(sectionKey)}
       style={{width:"100%",display:"flex",alignItems:"center",justifyContent:"space-between",
@@ -753,13 +763,14 @@ export default function HebrewQuiz() {
       return;
     }
 
-    // 단어장에 한 번에 저장
+    // 단어장에 한 번에 저장 (맨 앞에 추가)
     setWordsRaw(prev=>{
-      const next = [...prev, ...newWords];
+      const next = [...newWords, ...prev];
       saveWords(next, currentBook);
       syncToCloud(next);
       return next;
     });
+    setPage(0); // 첫 페이지로 이동
 
     setPealimLoading(false);
     setPealimSelected(new Set());
@@ -814,7 +825,8 @@ export default function HebrewQuiz() {
         wordType:"verb", variants,
         root: pealimPreview.root||""
       };
-      setWords(ws=>[...ws,newWord]);
+      setWords(ws=>[newWord,...ws]);
+      setPage(0);
       showToast(`✅ "${pealimPreview.infinitive}" 단어와 변형 ${variants.length}개가 추가됐어요!`);
     }
     setShowPealimModal(false); setPealimPreview(null); setPealimRoot(""); setPealimResults([]);
@@ -1007,7 +1019,9 @@ export default function HebrewQuiz() {
       setWords(ws=>ws.map(w=>w.id===editId?{...w,hebrew:newHebrew.trim(),meaning:newMeaning.trim(),...(newWordType?{wordType:newWordType}:{})}:w));
       setEditId(null);
     }else{
-      setWords(ws=>[...ws,{id:Date.now(),hebrew:newHebrew.trim(),meaning:newMeaning.trim(),status:"learning",streak:0,wrongCount:0,...(newWordType?{wordType:newWordType}:{})}]);
+      // 새 단어는 맨 앞에 추가
+      setWords(ws=>[{id:Date.now(),hebrew:newHebrew.trim(),meaning:newMeaning.trim(),status:"learning",streak:0,wrongCount:0,...(newWordType?{wordType:newWordType}:{})}, ...ws]);
+      setPage(0); // 첫 페이지로 이동
     }
     setNewHebrew(""); setNewMeaning(""); setNewWordType(null);
   };
