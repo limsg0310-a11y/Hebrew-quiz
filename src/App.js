@@ -794,8 +794,12 @@ export default function HebrewQuiz() {
       const res=await fetch(`/api/pealim?mode=conjugation&url=${encodeURIComponent(url)}`);
       const data=await res.json();
       if(data.error){setPealimError(data.error);return;}
-      if(!data.infinitive){setPealimError("변형 데이터를 찾을 수 없어요. 다른 단어를 시도해보세요.");return;}
-      // 어근 정보 저장
+      // 변형이 없으면 디버그 정보 표시
+      if(!data.variantCount && data.debug){
+        const d=data.debug;
+        setPealimError(`변형을 찾지 못했어요. 섹션감지: 현재형${d.present?'✓':'✗'} 과거형${d.past?'✓':'✗'} 미래형${d.future?'✓':'✗'}, 🔊형태: ${d.speakerCount}개`);
+        return;
+      }
       setPealimPreview({...data, root: root||pealimRoot});
     }catch(e){setPealimError("변형 데이터를 가져오는 중 오류: "+e.message);}
     finally{setPealimLoading(false);}
