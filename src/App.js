@@ -1084,10 +1084,7 @@ export default function HebrewQuiz() {
                   </div>
                   <textarea
                     style={{width:"100%",minHeight:"140px",background:"rgba(255,255,255,0.06)",border:"1px solid rgba(80,160,120,0.3)",borderRadius:"10px",color:"#e8e6f0",padding:"12px",fontSize:"1rem",direction:"rtl",fontFamily:"Arial",resize:"vertical",outline:"none",lineHeight:1.8}}
-                    placeholder={"여성형
-남성형
-복수(남)
-...(순서대로 입력)"}
+                    placeholder={"여성형\n남성형\n복수(남)\n...(순서대로 입력)"}
                     lang="he" spellCheck={false} autoCorrect="off"
                     value={variantPasteText}
                     onChange={e=>setVariantPasteText(e.target.value)}
