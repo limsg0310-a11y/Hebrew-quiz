@@ -769,7 +769,7 @@ export default function HebrewQuiz() {
     if(variantInputRef.current) variantInputRef.current.focus();
   };
 
-  useEffect(()=>{ if(mode!==MODES.QUIZ||!autoPlay||muted) return; const q=questions[current]; if(!q||q.questionType!==QUIZ_TYPES.HEB_TO_MEAN) return; const t=setTimeout(()=>speak(q.question),500); return()=>clearTimeout(t); },[current,animKey,mode,muted]); // eslint-disable-line
+  useEffect(()=>{ if(mode!==MODES.QUIZ||soundMode!=="auto") return; const q=questions[current]; if(!q||q.questionType!==QUIZ_TYPES.HEB_TO_MEAN) return; const t=setTimeout(()=>speak(q.question),500); return()=>clearTimeout(t); },[current,animKey,mode,soundMode]); // eslint-disable-line
   useEffect(()=>{ if(mode===MODES.ESSAY&&essayInputRef.current) essayInputRef.current.focus(); },[essayCurrent,mode]);
 
   const updateWordStats=(wordId,correct)=>{ setWords(ws=>ws.map(w=>{ if(w.id!==wordId) return w; const ns=correct?w.streak+1:0; const nw=correct?w.wrongCount:w.wrongCount+1; let st=w.status; if(correct&&ns>=3) st="mastered"; else if(!correct&&nw>=2) st="hard"; return{...w,streak:ns,wrongCount:nw,status:st}; })); };
@@ -851,7 +851,7 @@ export default function HebrewQuiz() {
   };
   const handleEssayNext=()=>{ if(essayCurrent+1>=essayQuestions.length){setMode(MODES.ESSAY_RESULT);return;} setEssayCurrent(c=>c+1); setEssayInput(""); setEssayConfirmed(false); setAnimKey(k=>k+1); if(essayHebrewRef.current) essayHebrewRef.current.value=""; };
   const handleSelect=choice=>{ if(!confirmed) setSelected(choice); };
-  const handleConfirm=()=>{ if(!selected) return; const correct=selected===questions[current].answer; if(correct) setScore(s=>s+1); else setWrongWords(w=>[...w,questions[current]]); updateWordStats(questions[current].wordId,correct); setConfirmed(true); const q=questions[current]; setTimeout(()=>speak(q.questionType===QUIZ_TYPES.HEB_TO_MEAN?q.question:q.answer),300); };  // eslint-disable-line
+  const handleConfirm=()=>{ if(!selected) return; const correct=selected===questions[current].answer; if(correct) setScore(s=>s+1); else setWrongWords(w=>[...w,questions[current]]); updateWordStats(questions[current].wordId,correct); setConfirmed(true); const q=questions[current]; if(soundMode!=="mute") setTimeout(()=>speak(q.questionType===QUIZ_TYPES.HEB_TO_MEAN?q.question:q.answer),300); };  // eslint-disable-line
   const handleNext=()=>{ if(current+1>=questions.length){setMode(MODES.RESULT);return;} setCurrent(c=>c+1); setSelected(null); setConfirmed(false); setAnimKey(k=>k+1); };
   const addWord=()=>{
     if(!newHebrew.trim()||!newMeaning.trim()) return;
@@ -977,34 +977,45 @@ export default function HebrewQuiz() {
             {/* 변형 미리보기 */}
             {pealimPreview&&(
               <div>
-                <div style={{background:"rgba(80,160,120,0.08)",border:"1px solid rgba(80,160,120,0.2)",borderRadius:"10px",padding:"12px",marginBottom:"12px"}}>
-                  <div style={{display:"flex",alignItems:"center",gap:"12px",marginBottom:"10px"}}>
-                    <span style={{fontFamily:"Arial",direction:"rtl",fontSize:"1.4rem",color:"#50c898"}}>{pealimPreview.infinitive}</span>
-                    <span style={{color:"#a0a0c0",fontSize:"0.9rem"}}>{pealimPreview.meaning}</span>
-                    <span style={{fontSize:"0.72rem",background:"rgba(80,160,120,0.15)",padding:"2px 8px",borderRadius:"4px",color:"#50c898"}}>{Object.keys(pealimPreview.variants||{}).length}개 변형</span>
+                {/* 헤더 정보 — 직접 편집 가능 */}
+                <div style={{background:"rgba(80,160,120,0.08)",border:"1px solid rgba(80,160,120,0.2)",borderRadius:"10px",padding:"12px",marginBottom:"10px"}}>
+                  <div style={{display:"flex",alignItems:"center",gap:"8px",marginBottom:"8px",flexWrap:"wrap"}}>
+                    <input value={pealimPreview.infinitive||""}
+                      onChange={e=>setPealimPreview(p=>({...p,infinitive:e.target.value}))}
+                      style={{...S.input,width:"140px",padding:"5px 10px",fontSize:"1.1rem",direction:"rtl",fontFamily:"Arial",color:"#50c898",borderColor:"rgba(80,160,120,0.4)"}}
+                      lang="he" spellCheck={false} placeholder="인피니티브"/>
+                    <input value={pealimPreview.meaning||""}
+                      onChange={e=>setPealimPreview(p=>({...p,meaning:e.target.value}))}
+                      style={{...S.input,flex:1,padding:"5px 10px",fontSize:"0.9rem",minWidth:"100px"}}
+                      placeholder="뜻 (한국어/영어)"/>
+                    <span style={{fontSize:"0.72rem",background:"rgba(80,160,120,0.15)",padding:"2px 8px",borderRadius:"4px",color:"#50c898",flexShrink:0}}>
+                      {Object.values(pealimPreview.variants||{}).filter(v=>v).length}개 변형
+                    </span>
                   </div>
-                  {/* 변형 미리보기 그리드 */}
-                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"4px",maxHeight:"180px",overflowY:"auto"}}>
-                    {Object.entries(pealimPreview.variants||{}).slice(0,20).map(([type,form])=>{
-                      const vt=VARIANT_TYPES.find(t=>t.id===type);
-                      return(
-                        <div key={type} style={{display:"flex",justifyContent:"space-between",padding:"3px 6px",background:"rgba(255,255,255,0.03)",borderRadius:"4px",fontSize:"0.78rem"}}>
-                          <span style={{color:"#5a5870"}}>{vt?vt.label.ko:type}</span>
-                          <span style={{fontFamily:"Arial",direction:"rtl",color:"#e8e6f0"}}>{form}</span>
-                        </div>
-                      );
-                    })}
+                  {/* 변형 직접 편집 그리드 */}
+                  <div style={{fontSize:"0.72rem",color:"#5a5870",marginBottom:"6px"}}>변형을 직접 수정할 수 있어요</div>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"5px",maxHeight:"220px",overflowY:"auto"}}>
+                    {VARIANT_TYPES.filter(vt=>vt.id!=="gender_f"&&vt.id!=="gender_m"&&vt.id!=="plural_m"&&vt.id!=="plural_f").map(vt=>(
+                      <div key={vt.id} style={{display:"flex",alignItems:"center",gap:"4px"}}>
+                        <span style={{fontSize:"0.65rem",color:"#5a5870",minWidth:"60px",flexShrink:0}}>{vt.label.ko}</span>
+                        <input
+                          value={(pealimPreview.variants||{})[vt.id]||""}
+                          onChange={e=>setPealimPreview(p=>({...p,variants:{...(p.variants||{}),[vt.id]:e.target.value}}))}
+                          style={{...S.input,flex:1,padding:"4px 8px",fontSize:"0.9rem",direction:"rtl",fontFamily:"Arial",
+                            borderColor:(pealimPreview.variants||{})[vt.id]?"rgba(80,160,120,0.5)":"rgba(255,255,255,0.08)"}}
+                          lang="he" spellCheck={false} placeholder="—"
+                        />
+                      </div>
+                    ))}
                   </div>
                 </div>
 
-                {/* 저장 방법 선택 */}
-                <div style={{fontSize:"0.78rem",color:"#7a7890",marginBottom:"8px"}}>어디에 저장할까요?</div>
+                {/* 저장 */}
                 <div style={{display:"flex",gap:"8px",flexDirection:"column"}}>
                   <button onClick={addNewWordFromPealim}
-                    style={{...S.btnMerge,background:"linear-gradient(135deg,#50c898,#70e8b8)",color:"#0f1a14"}}>
-                    ➕ 새 단어로 추가 ({pealimPreview.infinitive})
+                    style={{...S.btnMerge,background:"linear-gradient(135deg,#50c898,#70e8b8)",color:"#0f1a14",padding:"12px"}}>
+                    ➕ 새 단어로 추가
                   </button>
-                  {/* 기존 단어에 매핑 */}
                   {words.filter(w=>w.wordType==="verb"||!w.wordType).length>0&&(
                     <div>
                       <div style={{fontSize:"0.72rem",color:"#5a5870",marginBottom:"6px"}}>또는 기존 단어에 변형 추가:</div>
@@ -1146,6 +1157,7 @@ export default function HebrewQuiz() {
                           <input
                             value={variantDraft[tid]||""}
                             onChange={e=>setVariantDraft(d=>({...d,[tid]:e.target.value}))}
+                            onKeyDown={e=>{ if(e.key==="Enter"){ e.preventDefault(); const next=e.target.closest("div").parentElement.nextElementSibling?.querySelector("input"); if(next) next.focus(); }}}
                             placeholder="히브리어 입력..."
                             lang="he" spellCheck={false} autoCorrect="off"
                             style={{...S.input,padding:"7px 10px",fontSize:"1rem",direction:"rtl",fontFamily:"Arial",
