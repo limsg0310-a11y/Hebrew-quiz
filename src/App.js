@@ -616,6 +616,22 @@ export default function HebrewQuiz() {
   const [variantCount,setVariantCount]       =useState(10);
   const [variantCats,setVariantCats]         =useState(["gender","plural"]); // 선택된 카테고리
   const [expandedVariantWord,setExpandedVariantWord]=useState(null);
+  // 섹션 접기/펼치기
+  const [openSections,setOpenSections]    =useState({add:true, io:false, quiz_mcq:false, quiz_essay:false, quiz_variant:false});
+  const toggleSection=(key)=>setOpenSections(s=>({...s,[key]:!s[key]}));
+  const SectionHeader=({sectionKey,title,color="#c4a050",badge=null})=>(
+    <button onClick={()=>toggleSection(sectionKey)}
+      style={{width:"100%",display:"flex",alignItems:"center",justifyContent:"space-between",
+        background:"none",border:"none",cursor:"pointer",padding:"0",textAlign:"left"}}>
+      <div style={{display:"flex",alignItems:"center",gap:"8px"}}>
+        <span style={{fontSize:"0.9rem",fontWeight:600,color}}>{title}</span>
+        {badge&&<span style={{fontSize:"0.7rem",background:"rgba(255,255,255,0.08)",padding:"2px 7px",borderRadius:"10px",color:"#7a7890"}}>{badge}</span>}
+      </div>
+      <span style={{fontSize:"0.75rem",color:"#5a5870",transition:"transform 0.2s",
+        display:"inline-block",transform:openSections[sectionKey]?"rotate(180deg)":"rotate(0deg)"}}>▼</span>
+    </button>
+  );
+
   const [rootGroupView,setRootGroupView]   =useState(false);  // 어근 그룹 뷰 ON/OFF
   const [selectedRoot,setSelectedRoot]     =useState(null);   // 선택된 어근
   const [rootQuizType,setRootQuizType]     =useState("variant"); // "mcq"|"essay"|"variant" // 변형 편집 모달 열린 단어 id
@@ -996,7 +1012,7 @@ export default function HebrewQuiz() {
     setNewHebrew(""); setNewMeaning(""); setNewWordType(null);
   };
   const deleteWord=id=>setWords(ws=>ws.filter(w=>w.id!==id));
-  const startEdit=word=>{ setEditId(word.id); setNewHebrew(word.hebrew); setNewMeaning(word.meaning); setNewWordType(word.wordType||null); };
+  const startEdit=word=>{ setEditId(word.id); setNewHebrew(word.hebrew); setNewMeaning(word.meaning); setNewWordType(word.wordType||null); setOpenSections(s=>({...s,add:true})); window.scrollTo({top:0,behavior:'smooth'}); };
   const cancelEdit=()=>{ setEditId(null); setNewHebrew(""); setNewMeaning(""); setNewWordType(null); };
 
   const searchedWords = words.filter(w => {
@@ -1452,8 +1468,8 @@ export default function HebrewQuiz() {
         {mode===MODES.LIST&&(
           <div>
             <div style={S.card}>
-              <h2 style={S.cardTitle}>{editId!==null?T.editWord:T.addWord}</h2>
-              <div className="form-row" style={S.formRow}>
+              <SectionHeader sectionKey="add" title={editId!==null?T.editWord:T.addWord} badge={editId!==null?"수정 중":null}/>
+              {openSections.add&&<div className="form-row" style={{...S.formRow,marginTop:"12px"}}>
                 <input style={{...S.input,direction:bookInfo.dir,fontFamily:"Arial,sans-serif",fontSize:"1.1rem"}}
                   placeholder={bookInfo.placeholderA[uiLang]||bookInfo.placeholderA.ko}
                   value={newHebrew} onChange={e=>setNewHebrew(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addWord()}/>
@@ -1479,12 +1495,13 @@ export default function HebrewQuiz() {
                   {newHebrew&&<SpeakBtn text={newHebrew} onSpeak={speakOnDemand} muted={muted}/>}
                   {editId!==null&&<button style={S.btnCancel} onClick={cancelEdit}>{T.cancelBtn}</button>}
                 </div>
-              </div>
+              </div>}
             </div>
 
             <div style={S.ioCard}>
-              <div style={S.ioTitle}>{T.saveLoad}</div>
-              <div style={{...S.ioSub,marginBottom:"10px"}}>{T.telegramTip}</div>
+              <SectionHeader sectionKey="io" title={T.saveLoad} color="#a0a0c0"/>
+              {openSections.io&&<>
+              <div style={{...S.ioSub,margin:"10px 0 8px"}}>{T.telegramTip}</div>
               <div className="io-btns" style={{display:"flex",gap:"8px",flexWrap:"wrap"}}>
                 <button style={S.btnIO("#c4a050","rgba(196,160,80,0.15)","rgba(196,160,80,0.4)")} onClick={exportWords}>⬇️ 파일 저장</button>
                 <button style={S.btnIO("#c4a050","rgba(196,160,80,0.1)","rgba(196,160,80,0.3)")} onClick={copyToClipboard}>📋 복사</button>
@@ -1495,6 +1512,7 @@ export default function HebrewQuiz() {
                 <input ref={fileInputRef} type="file" accept=".json" style={{display:"none"}} onChange={handleFileChange}/>
                 <input ref={csvInputRef} type="file" accept=".xlsx,.xls,.csv,.tsv,.txt" style={{display:"none"}} onChange={handleCSVChange}/>
               </div>
+              </>}
             </div>
 
 
@@ -1678,7 +1696,9 @@ export default function HebrewQuiz() {
 
             {/* 객관식 */}
             <div style={S.card}>
-              <h2 style={S.cardTitle}>{T.mcqTitle}</h2>
+              <SectionHeader sectionKey="quiz_mcq" title={T.mcqTitle}
+                badge={poolSize>0?`${poolSize}개 가능`:uiLang==="en"?"No words":"단어 없음"}/>
+              {openSections.quiz_mcq&&<div style={{marginTop:"12px"}}>
               <p style={S.settingLabel}>{T.direction}</p>
               <div style={S.optionRow}>{[[QUIZ_TYPES.HEB_TO_MEAN,T.dirAtoB(bookInfo)],[QUIZ_TYPES.MEAN_TO_HEB,T.dirBtoA(bookInfo)],[QUIZ_TYPES.MIXED,T.mixed]].map(([val,label])=><button key={val} style={{...S.optBtn,...(quizType===val?S.optBtnActive:{})}} onClick={()=>setQuizType(val)}>{label}</button>)}</div>
               <p style={S.settingLabel}>{T.wordRange}</p>
@@ -1712,11 +1732,14 @@ export default function HebrewQuiz() {
                 </div>
               </div>
               <button style={{...S.btnStart,...(poolSize<4?S.btnDisabled:{})}} onClick={startQuiz} disabled={poolSize<4}>{poolSize<4?T.needMore(poolSize):T.startMCQ(quizCount===9999?poolSize:Math.min(quizCount,poolSize))}</button>
+              </div>}
             </div>
 
             {/* 서술형 */}
             <div style={{...S.card,border:"1px solid rgba(100,80,200,0.3)"}}>
-              <h2 style={{...S.cardTitle,color:"#9060f0"}}>{T.essayTitle}</h2>
+              <SectionHeader sectionKey="quiz_essay" title={T.essayTitle} color="#9060f0"
+                badge={essayPoolSize>0?`${essayPoolSize}개 가능`:uiLang==="en"?"No words":"단어 없음"}/>
+              {openSections.quiz_essay&&<div style={{marginTop:"12px"}}>
               <p style={{fontSize:"0.82rem",color:"#7a7890",marginBottom:"12px"}}>{T.essaySub}</p>
               <p style={S.settingLabel}>문제 방향</p>
               <div style={S.optionRow}>
@@ -1736,10 +1759,13 @@ export default function HebrewQuiz() {
                   style={{width:"52px",padding:"4px 6px",background:"rgba(255,255,255,0.08)",border:"1px solid rgba(100,80,200,0.4)",borderRadius:"6px",color:"#c0b0ff",fontSize:"0.9rem",fontWeight:700,textAlign:"center",outline:"none"}}/>
               </div>
               <button style={{...S.btnEssayStart,...(!essayPoolSize?S.btnDisabled:{})}} onClick={startEssay} disabled={!essayPoolSize}>✍️ 서술형 시작! ({essayCount===9999?essayPoolSize:Math.min(essayCount,essayPoolSize)} {uiLang==="en"?"questions":"문제"})</button>
+              </div>}
             </div>
             {/* 변형 퀴즈 */}
             <div style={{...S.card,border:"1px solid rgba(80,160,120,0.3)"}}>
-              <h2 style={{...S.cardTitle,color:"#50c898"}}>🔀 변형 퀴즈</h2>
+              <SectionHeader sectionKey="quiz_variant" title="🔀 변형 퀴즈" color="#50c898"
+                badge={variantPoolSize>0?`${variantPoolSize}개 가능`:"변형 없음"}/>
+              {openSections.quiz_variant&&<div style={{marginTop:"12px"}}>
               <p style={{fontSize:"0.82rem",color:"#7a7890",marginBottom:"8px"}}>성별·복수·동사 활용·소유격 변형을 직접 타이핑! 단어장의 🔀 버튼으로 추가하거나 엑셀 파일로 일괄 추가하세요.</p>
               <div style={{display:"flex",gap:"8px",marginBottom:"12px",flexWrap:"wrap"}}>
                 <button style={S.btnIO("#50c898","rgba(80,160,120,0.15)","rgba(80,160,120,0.4)")} onClick={()=>setShowPealimModal(true)}>🔍 Pealim 자동 가져오기</button>
@@ -1771,6 +1797,7 @@ export default function HebrewQuiz() {
                 onClick={startVariantQuiz} disabled={!variantPoolSize||!variantCats.length}>
                 🔀 변형 퀴즈 시작! ({variantCount===9999?variantPoolSize:Math.min(variantCount,variantPoolSize)}문제)
               </button>
+              </div>}
             </div>
           </div>
         )}
