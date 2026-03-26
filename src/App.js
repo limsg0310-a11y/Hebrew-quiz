@@ -743,7 +743,7 @@ export default function HebrewQuiz() {
           hebrew: data.infinitive||r.hebrew,
           meaning: data.meaning||r.meaning||"",
           status:"learning", streak:0, wrongCount:0,
-          wordType:"verb", variants, root:pealimRoot
+          wordType: data.wordType||"verb", variants, root:pealimRoot
         });
       }catch(e){
         // API 실패해도 단어 자체는 추가
@@ -752,7 +752,7 @@ export default function HebrewQuiz() {
           hebrew: r.hebrew,
           meaning: r.meaning||"",
           status:"learning", streak:0, wrongCount:0,
-          wordType:"verb", variants:[], root:pealimRoot
+          wordType:"other", variants:[], root:pealimRoot
         });
       }
     }
@@ -805,6 +805,36 @@ export default function HebrewQuiz() {
     showToast(`✅ ${variants.length}개 변형을 단어장에 저장했어요!`);
   };
 
+  // root가 있는 단어들 변형 일괄 재로딩
+  const [refreshingVariants,setRefreshingVariants]=useState(false);
+  const refreshAllVariants=async()=>{
+    const rootWords=words.filter(w=>w.root&&w.wordType==="verb");
+    if(!rootWords.length){ showToast("어근 정보가 있는 동사가 없어요","err"); return; }
+    setRefreshingVariants(true);
+    let updated=0;
+    const done=new Set();
+    for(const w of rootWords){
+      if(done.has(w.hebrew)) continue;
+      done.add(w.hebrew);
+      try{
+        const searchRes=await fetch(`/api/pealim?mode=search&root=${encodeURIComponent(w.root)}`);
+        const sd=await searchRes.json();
+        if(sd.error||!sd.results?.length) continue;
+        const match=sd.results.find(r=>stripNikkud(r.hebrew)===stripNikkud(w.hebrew)||r.hebrew===w.hebrew);
+        if(!match) continue;
+        const cr=await fetch(`/api/pealim?mode=conjugation&url=${encodeURIComponent(match.url)}`);
+        const cd=await cr.json();
+        if(cd.error||!cd.variants) continue;
+        const variants=Object.entries(cd.variants).filter(([,f])=>f).map(([type,form])=>({type,form}));
+        if(!variants.length) continue;
+        setWords(ws=>ws.map(ww=>stripNikkud(ww.hebrew)===stripNikkud(w.hebrew)?{...ww,variants,meaning:ww.meaning||cd.meaning||"",wordType:ww.wordType||cd.wordType||"verb"}:ww));
+        updated++;
+      }catch(e){ console.error(e); }
+    }
+    setRefreshingVariants(false);
+    showToast(`✅ ${updated}개 단어의 변형을 업데이트했어요!`);
+  };
+
   const addNewWordFromPealim=()=>{
     if(!pealimPreview||!pealimPreview.infinitive) return;
     const variants=Object.entries(pealimPreview.variants)
@@ -822,7 +852,7 @@ export default function HebrewQuiz() {
         hebrew:pealimPreview.infinitive,
         meaning:pealimPreview.meaning||"",
         status:"learning",streak:0,wrongCount:0,
-        wordType:"verb", variants,
+        wordType: pealimPreview.wordType||"verb", variants,
         root: pealimPreview.root||""
       };
       setWords(ws=>[newWord,...ws]);
@@ -1581,6 +1611,31 @@ export default function HebrewQuiz() {
                         </div>
                         {/* 퀴즈 버튼 */}
                         <div style={{display:"flex",gap:"6px",flexWrap:"wrap"}}>
+                          <button onClick={async()=>{
+                            // 해당 어근 단어들만 변형 새로고침
+                            setRefreshingVariants(true);
+                            try{
+                              const searchRes=await fetch(`/api/pealim?mode=search&root=${encodeURIComponent(root)}`);
+                              const sd=await searchRes.json();
+                              if(!sd.error&&sd.results){
+                                for(const r of sd.results){
+                                  const match=ws.find(w=>stripNikkud(w.hebrew)===stripNikkud(r.hebrew));
+                                  if(!match) continue;
+                                  const cr=await fetch(`/api/pealim?mode=conjugation&url=${encodeURIComponent(r.url)}`);
+                                  const cd=await cr.json();
+                                  if(!cd.error&&cd.variants){
+                                    const variants=Object.entries(cd.variants).filter(([,f])=>f).map(([type,form])=>({type,form}));
+                                    setWords(prev=>prev.map(w=>w.id===match.id?{...w,variants,meaning:w.meaning||cd.meaning||""}:w));
+                                  }
+                                }
+                              }
+                            }catch(e){console.error(e);}
+                            setRefreshingVariants(false);
+                            showToast(`✅ ${root} 어근 변형 업데이트 완료!`);
+                          }} disabled={refreshingVariants}
+                            style={{padding:"5px 10px",borderRadius:"7px",background:"rgba(80,160,120,0.1)",border:"1px solid rgba(80,160,120,0.3)",color:"#50c898",cursor:"pointer",fontSize:"0.72rem",opacity:refreshingVariants?0.5:1}}>
+                            🔄
+                          </button>
                           {ws.length>=2&&<button onClick={()=>startRootQuiz(root,"mcq")}
                             style={{padding:"5px 10px",borderRadius:"7px",background:"rgba(196,160,80,0.2)",border:"1px solid rgba(196,160,80,0.4)",color:"#c4a050",cursor:"pointer",fontSize:"0.72rem",fontWeight:600}}>
                             🎯 객관식
@@ -1781,6 +1836,12 @@ export default function HebrewQuiz() {
                 badge={variantPoolSize>0?`${variantPoolSize}개 가능`:"변형 없음"}/>
               {openSections.quiz_variant&&<div style={{marginTop:"12px"}}>
               <p style={{fontSize:"0.82rem",color:"#7a7890",marginBottom:"8px"}}>성별·복수·동사 활용·소유격 변형을 직접 타이핑! 단어장의 🔀 버튼으로 추가하거나 엑셀 파일로 일괄 추가하세요.</p>
+              {words.filter(w=>w.root&&w.wordType==="verb").length>0&&(
+                <button onClick={refreshAllVariants} disabled={refreshingVariants}
+                  style={{...S.btnIO("#50c898","rgba(80,160,120,0.15)","rgba(80,160,120,0.4)"),marginBottom:"10px",opacity:refreshingVariants?0.6:1}}>
+                  {refreshingVariants?"🔄 변형 업데이트 중...":"🔄 기존 단어 변형 다시 불러오기"}
+                </button>
+              )}
               <div style={{display:"flex",gap:"8px",marginBottom:"12px",flexWrap:"wrap"}}>
                 <button style={S.btnIO("#50c898","rgba(80,160,120,0.15)","rgba(80,160,120,0.4)")} onClick={()=>setShowPealimModal(true)}>🔍 Pealim 자동 가져오기</button>
                 <button style={S.btnIO("#9060f0","rgba(100,80,200,0.15)","rgba(100,80,200,0.4)")} onClick={()=>variantFileRef.current.click()}>📥 변형 엑셀 불러오기</button>
