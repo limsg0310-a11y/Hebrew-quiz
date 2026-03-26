@@ -713,7 +713,13 @@ export default function HebrewQuiz() {
       const res=await fetch(`/api/pealim?mode=search&root=${encodeURIComponent(pealimRoot)}`);
       const data=await res.json();
       if(data.error){setPealimError(data.error);return;}
-      if(!data.results||!data.results.length){setPealimError("검색 결과가 없어요. 어근을 확인해주세요.");return;}
+      if(!data.results||!data.results.length){
+        const dbg = data.debug;
+        const msg = dbg
+          ? `검색 결과가 없어요. (링크:${dbg.dictLinks}개, menukad:${dbg.menukadCount}개, HTML:${dbg.htmlLength}자)`
+          : "검색 결과가 없어요. 어근을 확인해주세요.";
+        setPealimError(msg);return;
+      }
       setPealimResults(data.results);
     }catch(e){setPealimError("검색 중 오류가 발생했어요: "+e.message);}
     finally{setPealimLoading(false);}
