@@ -615,7 +615,10 @@ export default function HebrewQuiz() {
   const [variantFilter,setVariantFilter]     =useState(QUIZ_FILTERS.ALL);
   const [variantCount,setVariantCount]       =useState(10);
   const [variantCats,setVariantCats]         =useState(["gender","plural"]); // 선택된 카테고리
-  const [expandedVariantWord,setExpandedVariantWord]=useState(null); // 변형 편집 모달 열린 단어 id
+  const [expandedVariantWord,setExpandedVariantWord]=useState(null);
+  const [rootGroupView,setRootGroupView]   =useState(false);  // 어근 그룹 뷰 ON/OFF
+  const [selectedRoot,setSelectedRoot]     =useState(null);   // 선택된 어근
+  const [rootQuizType,setRootQuizType]     =useState("variant"); // "mcq"|"essay"|"variant" // 변형 편집 모달 열린 단어 id
   const [variantDraft,setVariantDraft]       =useState({}); // {type_id: form_string}
   const [variantPasteMode,setVariantPasteMode]=useState(false); // 붙여넣기 모드
   const [variantPasteText,setVariantPasteText]=useState(""); // 붙여넣기 텍스트
@@ -919,6 +922,34 @@ export default function HebrewQuiz() {
     const pairs=getPool(variantFilter).flatMap(w=>(w.variants||[]).filter(v=>selectedTypes.has(v.type)));
     return pairs.length;
   })();
+  // 어근별 퀴즈 시작
+  const startRootQuiz=(root, type)=>{
+    const rootWords = words.filter(w=>w.root===root);
+    if(!rootWords.length) return;
+    if(type==="mcq"){
+      if(rootWords.length<2){showToast("객관식은 단어 2개 이상 필요해요","err");return;}
+      const qs = rootWords.map(w=>generateQuestion(w, rootWords.length>=4?rootWords:words, quizType));
+      setQuestions(qs); setCurrent(0); setSelected(null); setConfirmed(false); setScore(0); setWrongWords([]);
+      setMode(MODES.QUIZ); setAnimKey(k=>k+1);
+    } else if(type==="essay"){
+      const qs = shuffle(rootWords).map(w=>({
+        wordId:w.id, question:essayType==="heb_to_mean"?w.hebrew:w.meaning,
+        answer:essayType==="heb_to_mean"?w.meaning:w.hebrew,
+        hebrewWord:w.hebrew, questionType:essayType
+      }));
+      setEssayQuestions(qs); setEssayCurrent(0); setEssayInput(""); setEssayConfirmed(false); setEssayResults([]);
+      setMode(MODES.ESSAY); setAnimKey(k=>k+1);
+    } else if(type==="variant"){
+      const selectedTypes=new Set(VARIANT_CATS.filter(c=>variantCats.includes(c.id)).flatMap(c=>c.types));
+      const pairs=rootWords.flatMap(w=>(w.variants||[]).filter(v=>selectedTypes.has(v.type))
+        .map(v=>({wordId:w.id,base:w.hebrew,meaning:w.meaning,variantType:v.type,answer:v.form})));
+      if(!pairs.length){showToast("선택된 변형 유형의 데이터가 없어요","err");return;}
+      setVariantQuestions(shuffle(pairs)); setVariantCur(0); setVariantInput(""); setVariantConfirmed(false); setVariantResults([]);
+      setMode(MODES.VARIANT); setAnimKey(k=>k+1);
+    }
+    setRootGroupView(false);
+  };
+
   const startQuiz=()=>{ const pool=getPool(); if(pool.length<4) return; const count=Math.min(quizCount===9999?pool.length:quizCount,pool.length); const qs=shuffle(pool).slice(0,count).map(w=>generateQuestion(w,words,quizType)); setQuestions(qs); setCurrent(0); setSelected(null); setConfirmed(false); setScore(0); setWrongWords([]); setMode(MODES.QUIZ); setAnimKey(k=>k+1); };
   const startEssay=()=>{
     const pool=getPool(essayFilter); if(!pool.length) return;
@@ -1485,6 +1516,79 @@ export default function HebrewQuiz() {
                 ))}
               </div>
             </div>
+
+            {/* 어근 그룹 뷰 토글 */}
+            {currentBook==="hebrew"&&words.some(w=>w.root)&&(
+              <button onClick={()=>setRootGroupView(v=>!v)}
+                style={{...S.scrollBtn,marginBottom:"10px",width:"100%",padding:"9px",fontSize:"0.82rem",
+                  ...(rootGroupView?{background:"rgba(80,160,120,0.2)",borderColor:"rgba(80,160,120,0.5)",color:"#50c898"}:{})}}>
+                🌿 {rootGroupView?"어근 그룹 보기 끄기":"어근별로 단어 묶어보기"}
+              </button>
+            )}
+
+            {/* 어근 그룹 뷰 */}
+            {rootGroupView&&(()=>{
+              // root 있는 단어들만 그룹핑
+              const grouped = {};
+              words.filter(w=>w.root).forEach(w=>{
+                const r = w.root;
+                if(!grouped[r]) grouped[r]=[];
+                grouped[r].push(w);
+              });
+              const roots = Object.entries(grouped).sort((a,b)=>b[1].length-a[1].length);
+              if(!roots.length) return <div style={S.emptyMsg}>어근 정보가 있는 단어가 없어요. Pealim에서 단어를 추가하면 어근이 자동으로 저장돼요.</div>;
+              return(
+                <div style={{marginBottom:"14px"}}>
+                  {roots.map(([root, ws])=>(
+                    <div key={root} style={{marginBottom:"10px",background:"rgba(255,255,255,0.03)",borderRadius:"14px",border:"1px solid rgba(80,160,120,0.2)",overflow:"hidden"}}>
+                      {/* 어근 헤더 */}
+                      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 14px",background:"rgba(80,160,120,0.08)",flexWrap:"wrap",gap:"8px"}}>
+                        <div style={{display:"flex",alignItems:"center",gap:"10px"}}>
+                          <span style={{fontFamily:"Arial",direction:"rtl",fontSize:"1.2rem",color:"#50c898",fontWeight:700}}>{root}</span>
+                          <span style={{fontSize:"0.75rem",color:"#5a5870"}}>{ws.length}개 단어</span>
+                        </div>
+                        {/* 퀴즈 버튼 */}
+                        <div style={{display:"flex",gap:"6px",flexWrap:"wrap"}}>
+                          {ws.length>=2&&<button onClick={()=>startRootQuiz(root,"mcq")}
+                            style={{padding:"5px 10px",borderRadius:"7px",background:"rgba(196,160,80,0.2)",border:"1px solid rgba(196,160,80,0.4)",color:"#c4a050",cursor:"pointer",fontSize:"0.72rem",fontWeight:600}}>
+                            🎯 객관식
+                          </button>}
+                          <button onClick={()=>startRootQuiz(root,"essay")}
+                            style={{padding:"5px 10px",borderRadius:"7px",background:"rgba(100,80,200,0.2)",border:"1px solid rgba(100,80,200,0.4)",color:"#c0b0ff",cursor:"pointer",fontSize:"0.72rem",fontWeight:600}}>
+                            ✍️ 서술형
+                          </button>
+                          {ws.some(w=>(w.variants||[]).length>0)&&<button onClick={()=>startRootQuiz(root,"variant")}
+                            style={{padding:"5px 10px",borderRadius:"7px",background:"rgba(80,160,120,0.2)",border:"1px solid rgba(80,160,120,0.4)",color:"#50c898",cursor:"pointer",fontSize:"0.72rem",fontWeight:600}}>
+                            🔀 변형
+                          </button>}
+                        </div>
+                      </div>
+                      {/* 단어 목록 */}
+                      <div style={{padding:"10px 14px",display:"flex",flexWrap:"wrap",gap:"8px"}}>
+                        {ws.map(w=>{
+                          const st=STATUS_CONFIG[w.status];
+                          return(
+                            <div key={w.id} style={{display:"flex",alignItems:"center",gap:"6px",padding:"6px 10px",background:"rgba(255,255,255,0.04)",borderRadius:"9px",border:`1px solid ${st.border}`}}>
+                              <span style={{fontFamily:"Arial",direction:"rtl",color:"#c4a050",fontSize:"1rem"}}>{w.hebrew}</span>
+                              <span style={{color:"#7a7890",fontSize:"0.78rem"}}>{w.meaning||<span style={{color:"#3a3848",fontStyle:"italic"}}>뜻 없음</span>}</span>
+                              <span style={{fontSize:"0.7rem"}}>{st.emoji}</span>
+                              {(w.variants||[]).length>0&&<span style={{fontSize:"0.65rem",color:"#50c898",background:"rgba(80,160,120,0.1)",padding:"1px 5px",borderRadius:"4px"}}>변형 {w.variants.length}개</span>}
+                              <button onClick={()=>startEdit(w)} style={{...S.btnEdit,padding:"2px 5px",fontSize:"0.75rem"}}>✏️</button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                  {/* 어근 없는 단어 수 표시 */}
+                  {words.filter(w=>!w.root).length>0&&(
+                    <div style={{fontSize:"0.72rem",color:"#5a5870",textAlign:"center",padding:"8px"}}>
+                      어근 정보 없는 단어: {words.filter(w=>!w.root).length}개 (일반 단어장에서 확인)
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* 필터 탭 */}
             <div style={S.filterTabs}>
