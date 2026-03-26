@@ -692,50 +692,64 @@ export default function HebrewQuiz() {
 
   // 선택된 결과들 일괄 단어장 추가
   const addSelectedPealimWords=async()=>{
-    if(!pealimSelected.size) return;
-    setPealimLoading(true);
-    // 먼저 모든 단어 데이터를 병렬로 가져오기
-    const toFetch = [...pealimSelected]
-      .map(idx=>pealimResults[idx])
-      .filter(r=>r && !words.find(w=>stripNikkud(w.hebrew)===stripNikkud(r.hebrew)));
+    if(!pealimSelected.size){ setPealimError("단어를 먼저 선택해주세요"); return; }
+    setPealimLoading(true); setPealimError("");
 
-    if(!toFetch.length){
-      setPealimLoading(false);
-      showToast("선택한 단어가 이미 모두 단어장에 있어요.","err");
-      return;
-    }
+    const selectedList = [...pealimSelected].map(idx=>pealimResults[idx]).filter(Boolean);
+    if(!selectedList.length){ setPealimLoading(false); setPealimError("선택된 항목이 없어요"); return; }
 
-    // 병렬 fetch
-    const results = await Promise.allSettled(
-      toFetch.map(async r=>{
+    const newWords = [];
+    for(let i=0; i<selectedList.length; i++){
+      const r = selectedList[i];
+      try{
         const res = await fetch(`/api/pealim?mode=conjugation&url=${encodeURIComponent(r.url)}`);
+        if(!res.ok) throw new Error("서버 오류 "+res.status);
         const data = await res.json();
-        if(data.error||!data.infinitive) throw new Error(data.error||"파싱 실패");
-        const variants = Object.entries(data.variants||{}).filter(([,f])=>f).map(([type,form])=>({type,form}));
-        return {
-          id: Date.now()+Math.random(),
-          hebrew: data.infinitive,
+        if(data.error) throw new Error(data.error);
+        const variants = Object.entries(data.variants||{})
+          .filter(([,f])=>f)
+          .map(([type,form])=>({type,form}));
+        newWords.push({
+          id: Date.now()+Math.random()+i,
+          hebrew: data.infinitive||r.hebrew,
           meaning: data.meaning||r.meaning||"",
           status:"learning", streak:0, wrongCount:0,
           wordType:"verb", variants, root:pealimRoot
-        };
-      })
-    );
-
-    // 성공한 것만 한 번에 단어장에 추가
-    const newWords = results
-      .filter(r=>r.status==="fulfilled")
-      .map(r=>r.value);
-
-    if(newWords.length>0){
-      // setWords 한 번만 호출 — 루프 대신 한번에
-      setWords(ws=>[...ws,...newWords]);
+        });
+      }catch(e){
+        // API 실패해도 단어 자체는 추가
+        newWords.push({
+          id: Date.now()+Math.random()+i,
+          hebrew: r.hebrew,
+          meaning: r.meaning||"",
+          status:"learning", streak:0, wrongCount:0,
+          wordType:"verb", variants:[], root:pealimRoot
+        });
+      }
     }
+
+    if(newWords.length===0){
+      setPealimLoading(false);
+      setPealimError("단어 추가에 실패했어요. 다시 시도해주세요.");
+      return;
+    }
+
+    // 단어장에 한 번에 저장
+    setWordsRaw(prev=>{
+      const next = [...prev, ...newWords];
+      saveWords(next, currentBook);
+      syncToCloud(next);
+      return next;
+    });
 
     setPealimLoading(false);
     setPealimSelected(new Set());
-    showToast(`✅ ${newWords.length}개 단어와 변형을 추가했어요!`);
-    if(newWords.length>0){ setShowPealimModal(false); setPealimResults([]); setPealimRoot(""); }
+    const withVariants = newWords.filter(w=>w.variants.length>0).length;
+    showToast(`✅ ${newWords.length}개 단어 추가! (변형 ${withVariants}개 포함)`);
+    setShowPealimModal(false);
+    setPealimResults([]);
+    setPealimRoot("");
+    setPealimPreview(null);
   };
 
   const fetchPealimConjugation=async(url, root)=>{
