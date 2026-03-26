@@ -1233,15 +1233,34 @@ export default function HebrewQuiz() {
                       style={{...S.input,padding:"7px 12px",fontSize:"0.9rem",marginBottom:"10px"}}
                       placeholder="뜻 입력 (한국어/영어)"/>
                   )}
-                  {/* 변형 목록 */}
-                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"3px",maxHeight:"200px",overflowY:"auto"}}>
-                    {Object.entries(pealimPreview.variants||{}).map(([type,form])=>{
-                      const vt=VARIANT_TYPES.find(t=>t.id===type);
-                      const cat=VARIANT_CATS.find(c=>c.types&&c.types.includes(type));
+                  {/* 변형 목록 — 카테고리별 그룹 */}
+                  <div style={{maxHeight:"260px",overflowY:"auto"}}>
+                    {VARIANT_CATS.map(cat=>{
+                      const catVariants=cat.types.filter(tid=>(pealimPreview.variants||{})[tid]);
+                      if(!catVariants.length) return null;
                       return(
-                        <div key={type} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"3px 8px",background:"rgba(255,255,255,0.03)",borderRadius:"4px",fontSize:"0.78rem",gap:"6px"}}>
-                          <span style={{color:cat?cat.color:"#5a5870",fontSize:"0.68rem",flexShrink:0}}>{vt?vt.label.ko:type}</span>
-                          <span style={{fontFamily:"Arial",direction:"rtl",color:"#e8e6f0"}}>{form}</span>
+                        <div key={cat.id} style={{marginBottom:"8px"}}>
+                          <div style={{fontSize:"0.68rem",fontWeight:700,color:cat.color,marginBottom:"4px",
+                            textTransform:"uppercase",letterSpacing:"0.6px",borderBottom:`1px solid ${cat.color}30`,paddingBottom:"2px"}}>
+                            {cat.label.ko}
+                          </div>
+                          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"3px"}}>
+                            {catVariants.map(tid=>{
+                              const vt=VARIANT_TYPES.find(t=>t.id===tid);
+                              const form=(pealimPreview.variants||{})[tid];
+                              return(
+                                <div key={tid} style={{display:"flex",justifyContent:"space-between",alignItems:"center",
+                                  padding:"4px 8px",background:"rgba(255,255,255,0.03)",borderRadius:"5px",gap:"6px"}}>
+                                  <span style={{color:"#7a7890",fontSize:"0.68rem",flexShrink:0,lineHeight:1.3}}>
+                                    {vt?vt.label.ko:tid}
+                                  </span>
+                                  <span style={{fontFamily:"Arial",direction:"rtl",color:"#e8e6f0",fontSize:"0.95rem"}}>
+                                    {form}
+                                  </span>
+                                </div>
+                              );
+                            })}
+                          </div>
                         </div>
                       );
                     })}
