@@ -592,6 +592,7 @@ export default function HebrewQuiz() {
   const [pealimLoading,setPealimLoading]  =useState(false);
   const [pealimError,setPealimError]      =useState("");
   const [pealimPreview,setPealimPreview]  =useState(null); // {meaning, infinitive, variants}
+  const [pealimSelected,setPealimSelected]=useState(new Set()); // 선택된 검색 결과 인덱스
   const [pasteText,setPasteText]        =useState("");
   const batchTextRef                    =useRef(null); // uncontrolled — fixes Hebrew IME input issue
   const [essayQuestions,setEssayQuestions]=useState([]);
@@ -678,6 +679,7 @@ export default function HebrewQuiz() {
   const searchPealim=async()=>{
     if(!pealimRoot.trim()){setPealimError("어근을 입력해주세요");return;}
     setPealimLoading(true); setPealimError(""); setPealimResults([]); setPealimPreview(null);
+    setPealimSelected(new Set());
     try{
       const res=await fetch(`/api/pealim?mode=search&root=${encodeURIComponent(pealimRoot)}`);
       const data=await res.json();
@@ -686,6 +688,39 @@ export default function HebrewQuiz() {
       setPealimResults(data.results);
     }catch(e){setPealimError("검색 중 오류가 발생했어요: "+e.message);}
     finally{setPealimLoading(false);}
+  };
+
+  // 선택된 결과들 일괄 단어장 추가
+  const addSelectedPealimWords=async()=>{
+    if(!pealimSelected.size) return;
+    setPealimLoading(true);
+    let added=0;
+    for(const idx of pealimSelected){
+      const r=pealimResults[idx];
+      if(!r) continue;
+      const exists=words.find(w=>stripNikkud(w.hebrew)===stripNikkud(r.hebrew));
+      if(exists) continue;
+      // 변형 + 뜻 가져오기
+      try{
+        const res=await fetch(`/api/pealim?mode=conjugation&url=${encodeURIComponent(r.url)}`);
+        const data=await res.json();
+        if(!data.error&&data.infinitive){
+          const variants=Object.entries(data.variants||{}).filter(([,f])=>f).map(([type,form])=>({type,form}));
+          setWords(ws=>[...ws,{
+            id:Date.now()+Math.random()+added,
+            hebrew:data.infinitive,
+            meaning:data.meaning||"",
+            status:"learning",streak:0,wrongCount:0,
+            wordType:"verb",variants,root:pealimRoot
+          }]);
+          added++;
+        }
+      }catch(e){ console.error(e); }
+    }
+    setPealimLoading(false);
+    setPealimSelected(new Set());
+    showToast(`✅ ${added}개 단어와 변형을 추가했어요!`);
+    if(added>0){ setShowPealimModal(false); setPealimResults([]); setPealimRoot(""); }
   };
 
   const fetchPealimConjugation=async(url, root)=>{
@@ -999,28 +1034,62 @@ export default function HebrewQuiz() {
             {/* 검색 결과 목록 */}
             {pealimResults.length>0&&!pealimPreview&&(
               <div>
-                <div style={{fontSize:"0.78rem",color:"#7a7890",marginBottom:"8px"}}>검색 결과 — 변형 가져오기 또는 단어만 추가</div>
-                <div style={{display:"flex",flexDirection:"column",gap:"6px",maxHeight:"260px",overflowY:"auto"}}>
-                  {pealimResults.map((r,i)=>(
-                    <div key={i} style={{display:"flex",gap:"6px",alignItems:"center"}}>
-                      {/* 변형 전체 가져오기 */}
-                      <button onClick={()=>fetchPealimConjugation(r.url,pealimRoot)}
-                        style={{flex:1,padding:"10px 14px",borderRadius:"10px",background:"rgba(255,255,255,0.04)",border:"1px solid rgba(255,255,255,0.1)",color:"#e8e6f0",cursor:"pointer",textAlign:"left",display:"flex",alignItems:"center",gap:"10px"}}>
-                        <span style={{fontFamily:"Arial",direction:"rtl",fontSize:"1.1rem",color:"#c4a050"}}>{r.hebrew}</span>
-                        <span style={{fontSize:"0.72rem",color:"#5a5870",flex:1}}>{r.url.replace("https://www.pealim.com","")}</span>
-                        <span style={{fontSize:"0.7rem",color:"#50c898",flexShrink:0}}>변형 가져오기</span>
-                      </button>
-                      {/* 단어만 바로 추가 */}
-                      <button onClick={()=>{
-                        const exists=words.find(w=>stripNikkud(w.hebrew)===stripNikkud(r.hebrew));
-                        if(exists){ showToast("이미 단어장에 있어요!","err"); return; }
-                        setWords(ws=>[...ws,{id:Date.now()+Math.random(),hebrew:r.hebrew,meaning:"",status:"learning",streak:0,wrongCount:0,wordType:"verb",root:pealimRoot}]);
-                        showToast(`✅ "${r.hebrew}" 단어를 추가했어요! 뜻은 단어장에서 입력하세요.`);
-                      }} style={{padding:"10px 12px",borderRadius:"10px",background:"rgba(196,160,80,0.15)",border:"1px solid rgba(196,160,80,0.3)",color:"#c4a050",cursor:"pointer",fontSize:"0.78rem",flexShrink:0,fontWeight:600}}>
-                        ➕ 추가
-                      </button>
-                    </div>
-                  ))}
+                {/* 상단 툴바 */}
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"8px",flexWrap:"wrap",gap:"6px"}}>
+                  <div style={{display:"flex",gap:"6px",alignItems:"center"}}>
+                    <span style={{fontSize:"0.78rem",color:"#7a7890"}}>{pealimResults.length}개 결과</span>
+                    <button onClick={()=>setPealimSelected(s=>s.size===pealimResults.length?new Set():new Set(pealimResults.map((_,i)=>i)))}
+                      style={{...S.scrollBtn,fontSize:"0.72rem",padding:"3px 8px"}}>
+                      {pealimSelected.size===pealimResults.length?"전체 해제":"전체 선택"}
+                    </button>
+                  </div>
+                  {pealimSelected.size>0&&(
+                    <button onClick={addSelectedPealimWords} disabled={pealimLoading}
+                      style={{padding:"7px 14px",borderRadius:"9px",background:"linear-gradient(135deg,#50c898,#70e8b8)",border:"none",color:"#0f1a14",fontWeight:700,cursor:"pointer",fontSize:"0.82rem",opacity:pealimLoading?0.6:1}}>
+                      {pealimLoading?"불러오는 중...":` ✅ ${pealimSelected.size}개 단어장에 추가`}
+                    </button>
+                  )}
+                </div>
+                {pealimSelected.size>0&&(
+                  <div style={{fontSize:"0.72rem",color:"#50c898",marginBottom:"8px",padding:"6px 10px",background:"rgba(80,160,120,0.08)",borderRadius:"6px"}}>
+                    뜻과 변형을 자동으로 불러와서 저장해요 (시간이 조금 걸릴 수 있어요)
+                  </div>
+                )}
+                {/* 결과 목록 */}
+                <div style={{display:"flex",flexDirection:"column",gap:"5px",maxHeight:"280px",overflowY:"auto"}}>
+                  {pealimResults.map((r,i)=>{
+                    const isSelected=pealimSelected.has(i);
+                    const alreadyAdded=!!words.find(w=>stripNikkud(w.hebrew)===stripNikkud(r.hebrew));
+                    return(
+                      <div key={i} style={{display:"flex",gap:"8px",alignItems:"center",padding:"8px 12px",borderRadius:"10px",
+                        background:isSelected?"rgba(80,160,120,0.12)":"rgba(255,255,255,0.03)",
+                        border:`1px solid ${isSelected?"rgba(80,160,120,0.4)":alreadyAdded?"rgba(196,160,80,0.2)":"rgba(255,255,255,0.08)"}`,
+                        cursor:alreadyAdded?"default":"pointer",
+                        opacity:alreadyAdded?0.5:1}}
+                        onClick={()=>{
+                          if(alreadyAdded) return;
+                          setPealimSelected(s=>{const n=new Set(s); n.has(i)?n.delete(i):n.add(i); return n;});
+                        }}>
+                        {/* 체크박스 */}
+                        <div style={{width:"18px",height:"18px",borderRadius:"4px",border:`2px solid ${isSelected?"#50c898":"rgba(255,255,255,0.2)"}`,
+                          background:isSelected?"#50c898":"transparent",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
+                          {isSelected&&<span style={{color:"#0f1a14",fontSize:"0.7rem",fontWeight:700}}>✓</span>}
+                        </div>
+                        {/* 히브리어 */}
+                        <span style={{fontFamily:"Arial",direction:"rtl",fontSize:"1.1rem",color:"#c4a050",minWidth:"80px"}}>{r.hebrew}</span>
+                        {/* 뜻 (있으면 표시) */}
+                        <span style={{fontSize:"0.8rem",color:"#7a7890",flex:1}}>{r.meaning||r.url.replace("https://www.pealim.com","")}</span>
+                        {/* 이미 추가됨 */}
+                        {alreadyAdded&&<span style={{fontSize:"0.68rem",color:"#c4a050",flexShrink:0}}>✓ 추가됨</span>}
+                        {/* 변형만 보기 버튼 */}
+                        {!alreadyAdded&&<button onClick={e=>{e.stopPropagation();fetchPealimConjugation(r.url,pealimRoot);}}
+                          style={{padding:"4px 8px",borderRadius:"6px",background:"rgba(80,160,120,0.15)",border:"1px solid rgba(80,160,120,0.3)",color:"#50c898",cursor:"pointer",fontSize:"0.68rem",flexShrink:0}}
+                          title="변형 미리보기">
+                          미리보기
+                        </button>}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}
