@@ -694,33 +694,48 @@ export default function HebrewQuiz() {
   const addSelectedPealimWords=async()=>{
     if(!pealimSelected.size) return;
     setPealimLoading(true);
-    let added=0;
-    for(const idx of pealimSelected){
-      const r=pealimResults[idx];
-      if(!r) continue;
-      const exists=words.find(w=>stripNikkud(w.hebrew)===stripNikkud(r.hebrew));
-      if(exists) continue;
-      // 변형 + 뜻 가져오기
-      try{
-        const res=await fetch(`/api/pealim?mode=conjugation&url=${encodeURIComponent(r.url)}`);
-        const data=await res.json();
-        if(!data.error&&data.infinitive){
-          const variants=Object.entries(data.variants||{}).filter(([,f])=>f).map(([type,form])=>({type,form}));
-          setWords(ws=>[...ws,{
-            id:Date.now()+Math.random()+added,
-            hebrew:data.infinitive,
-            meaning:data.meaning||"",
-            status:"learning",streak:0,wrongCount:0,
-            wordType:"verb",variants,root:pealimRoot
-          }]);
-          added++;
-        }
-      }catch(e){ console.error(e); }
+    // 먼저 모든 단어 데이터를 병렬로 가져오기
+    const toFetch = [...pealimSelected]
+      .map(idx=>pealimResults[idx])
+      .filter(r=>r && !words.find(w=>stripNikkud(w.hebrew)===stripNikkud(r.hebrew)));
+
+    if(!toFetch.length){
+      setPealimLoading(false);
+      showToast("선택한 단어가 이미 모두 단어장에 있어요.","err");
+      return;
     }
+
+    // 병렬 fetch
+    const results = await Promise.allSettled(
+      toFetch.map(async r=>{
+        const res = await fetch(`/api/pealim?mode=conjugation&url=${encodeURIComponent(r.url)}`);
+        const data = await res.json();
+        if(data.error||!data.infinitive) throw new Error(data.error||"파싱 실패");
+        const variants = Object.entries(data.variants||{}).filter(([,f])=>f).map(([type,form])=>({type,form}));
+        return {
+          id: Date.now()+Math.random(),
+          hebrew: data.infinitive,
+          meaning: data.meaning||r.meaning||"",
+          status:"learning", streak:0, wrongCount:0,
+          wordType:"verb", variants, root:pealimRoot
+        };
+      })
+    );
+
+    // 성공한 것만 한 번에 단어장에 추가
+    const newWords = results
+      .filter(r=>r.status==="fulfilled")
+      .map(r=>r.value);
+
+    if(newWords.length>0){
+      // setWords 한 번만 호출 — 루프 대신 한번에
+      setWords(ws=>[...ws,...newWords]);
+    }
+
     setPealimLoading(false);
     setPealimSelected(new Set());
-    showToast(`✅ ${added}개 단어와 변형을 추가했어요!`);
-    if(added>0){ setShowPealimModal(false); setPealimResults([]); setPealimRoot(""); }
+    showToast(`✅ ${newWords.length}개 단어와 변형을 추가했어요!`);
+    if(newWords.length>0){ setShowPealimModal(false); setPealimResults([]); setPealimRoot(""); }
   };
 
   const fetchPealimConjugation=async(url, root)=>{
