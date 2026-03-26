@@ -130,7 +130,7 @@ function parseSearchResults(html) {
     if (toM) meaning = toM[0].trim();
     else {
       const engM = plain.match(/[a-zA-Z][a-zA-Z\s,\/\(\)]{3,50}/);
-      if (engM && !/pealim|hebrew|dict|conjugation|learning|language|menu/i.test(engM[0])) {
+      if (engM && !/pealim|hebrew|dict|conjugation|learning|language|menu|class|style|nav|div|span|href|src/i.test(engM[0])) {
         meaning = engM[0].trim();
       }
     }
@@ -151,8 +151,17 @@ function parseConjugation(html) {
 
   // 기본형 추출 — "Conjugation of לְדַבֵּר"
   let baseForm = '';
-  const conjMatch = text.match(/Conjugation of\s+([\u05D0-\u05EA\u05B0-\u05C7]+)/);
+  // "Conjugation of לְדַבֵּר" 또는 "Inflection of בַּיִת" 패턴
+  const conjMatch = text.match(/(?:Conjugation|Inflection|Forms) of\s+([\u05D0-\u05EA\u05B0-\u05C7]+)/);
   if (conjMatch) baseForm = conjMatch[1].trim();
+  // h2 태그에서 직접 추출
+  if (!baseForm) {
+    const h2Match = html.match(/<h2[^>]*>([\s\S]*?)<\/h2>/i);
+    if (h2Match) {
+      const hebM = h2Match[1].match(/[\u05D0-\u05EA\u05B0-\u05C7]{2,}/);
+      if (hebM) baseForm = hebM[0].trim();
+    }
+  }
   if (!baseForm) {
     const firstForms = extractSpeakerForms(text);
     if (firstForms[0]) baseForm = firstForms[0];
@@ -188,7 +197,9 @@ function parseConjugation(html) {
   const variants = {};
 
   if (wordType === 'verb') {
-    const presText = getSectionText(activeText, 'Present tense', ['Past tense','Future tense','Imperative','Infinitive']);
+    // "Present tense / Participle" 또는 "Present tense" 둘 다 처리
+    const presStart = ['Present tense / Participle', 'Present tense'].find(k => activeText.includes(k)) || 'Present tense';
+    const presText = getSectionText(activeText, presStart, ['Past tense','Future tense','Imperative','Infinitive']);
     if (presText) {
       const f = [...new Set(extractSpeakerForms(presText))];
       ['pres_ms','pres_fs','pres_mp','pres_fp'].forEach((k,i) => { if (f[i]) variants[k] = f[i]; });
@@ -240,5 +251,23 @@ function parseConjugation(html) {
     ['gender_m','gender_f','plural_m','plural_f'].forEach((k,i) => { if (f[i]) variants[k] = f[i]; });
   }
 
-  return { infinitive: baseForm||'', meaning: meaning||'', wordType, variants, variantCount: Object.keys(variants).length };
+  // 디버그: 섹션 감지 여부
+  const sectionDebug = {
+    present: activeText.includes('Present tense'),
+    past: activeText.includes('Past tense'),
+    future: activeText.includes('Future tense'),
+    imperative: activeText.includes('Imperative'),
+    infinitive: activeText.includes('Infinitive'),
+    speakerCount: extractSpeakerForms(activeText).length,
+    activeLen: activeText.length,
+  };
+
+  return {
+    infinitive: baseForm||'',
+    meaning: meaning||'',
+    wordType,
+    variants,
+    variantCount: Object.keys(variants).length,
+    debug: sectionDebug
+  };
 }
