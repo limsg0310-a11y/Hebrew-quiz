@@ -670,6 +670,7 @@ export default function HebrewQuiz() {
   const [essayType,setEssayType]         =useState("heb_to_mean"); // heb_to_mean | mean_to_heb | mixed
   const essayInputRef=useRef(null); const essayHebrewRef=useRef(null); const fileInputRef=useRef(null); const csvInputRef=useRef(null); const variantFileRef=useRef(null);
   const variantInputRef=useRef(null);
+  const verbFormFileRef=useRef(null);
 
   // 변형 퀴즈 state
   const [variantQuestions,setVariantQuestions]=useState([]);
@@ -1026,6 +1027,89 @@ export default function HebrewQuiz() {
   const importFromText=()=>{ try{ const parsed=JSON.parse(pasteText); const raw=Array.isArray(parsed)?parsed:(parsed.words||[]); const imported=raw.map(w=>({id:Date.now()+Math.random(),hebrew:(w.hebrew||"").trim(),meaning:(w.meaning||"").trim(),status:["learning","mastered","hard"].includes(w.status)?w.status:"learning",streak:w.streak||0,wrongCount:w.wrongCount||0})).filter(w=>w.hebrew&&w.meaning); if(!imported.length){showToast("불러올 단어가 없어요.","err");return;} setImportPreview({words:imported,fileName:"클립보드에서 붙여넣기"}); setShowPasteModal(false); setPasteText(""); }catch{showToast("올바른 형식이 아니에요.","err");} };
   const importFromBatchText=()=>{ const raw=batchTextRef.current?batchTextRef.current.value:""; const parsed=parseTextFormat(raw); if(!parsed.length){showToast("인식된 단어가 없어요. שלום=평화 형식으로 입력해주세요.","err");return;} setImportPreview({words:parsed.map(w=>({...w,id:Date.now()+Math.random(),status:"learning",streak:0,wrongCount:0})),fileName:`텍스트 형식 (${parsed.length}개)`}); setShowBatchModal(false); if(batchTextRef.current) batchTextRef.current.value=""; };
   const handleFileChange=(e)=>{ const file=e.target.files[0]; if(!file) return; const reader=new FileReader(); reader.onload=(ev)=>{ try{ const parsed=JSON.parse(ev.target.result); const raw=Array.isArray(parsed)?parsed:(parsed.words||[]); const imported=raw.map(w=>({id:Date.now()+Math.random(),hebrew:(w.hebrew||"").trim(),meaning:(w.meaning||"").trim(),status:["learning","mastered","hard"].includes(w.status)?w.status:"learning",streak:w.streak||0,wrongCount:w.wrongCount||0})).filter(w=>w.hebrew&&w.meaning); if(!imported.length){showToast("불러올 단어가 없어요.","err");return;} setImportPreview({words:imported,fileName:file.name}); }catch{showToast("파일을 읽을 수 없어요.","err");} }; reader.readAsText(file); e.target.value=""; };
+  // ── 히브리어 동사변형 엑셀 양식 파싱 ──
+  const parseVerbFormExcel=(rows)=>{
+    // 양식 구조: 헤더 행들 + 데이터 행들 (빈 행 = 데이터 행)
+    // B3: infinitive
+    // B5/C5/D5/E5: pres_ms/pres_fs/pres_mp/pres_fp
+    // B7/D7: past_1s/past_1p
+    // B9/C9/D9/E9: past_2ms/past_2fs/past_2mp/past_2fp
+    // B11/C11/D11/E11: past_3ms/past_3fs/past_3mp/past_3fp
+    // B13/D13: fut_1s/fut_1p
+    // B15/C15/D15/E15: fut_2ms/fut_2fs/fut_2mp/fut_2fp
+    // B17/C17/D17/E17: fut_3ms/fut_3fs/fut_3mp/fut_3fp
+    // B19~E22: imperative
+    const r=(row,col)=>{ const ro=rows[row]; return ro&&ro[col]!=null&&String(ro[col]).trim()?String(ro[col]).trim():null; };
+    const v={};
+    // infinitive (row 2, col 1 = B3)
+    if(r(2,1)) v['infinitive']=r(2,1);
+    // present (row 4, cols 1-4 = B5-E5)
+    if(r(4,1)) v['pres_ms']=r(4,1);
+    if(r(4,2)) v['pres_fs']=r(4,2);
+    if(r(4,3)) v['pres_mp']=r(4,3);
+    if(r(4,4)) v['pres_fp']=r(4,4);
+    // past 1st (row 6: B7/D7)
+    if(r(6,1)) v['past_1s']=r(6,1);
+    if(r(6,3)) v['past_1p']=r(6,3);
+    // past 2nd (row 8: B9-E9)
+    if(r(8,1)) v['past_2ms']=r(8,1);
+    if(r(8,2)) v['past_2fs']=r(8,2);
+    if(r(8,3)) v['past_2mp']=r(8,3);
+    if(r(8,4)) v['past_2fp']=r(8,4);
+    // past 3rd (row 10: B11-E11)
+    if(r(10,1)) v['past_3ms']=r(10,1);
+    if(r(10,2)) v['past_3fs']=r(10,2);
+    if(r(10,3)) v['past_3mp']=r(10,3);
+    if(r(10,4)) v['past_3fp']=r(10,4);
+    // future 1st (row 12: B13/D13)
+    if(r(12,1)) v['fut_1s']=r(12,1);
+    if(r(12,3)) v['fut_1p']=r(12,3);
+    // future 2nd (row 14: B15-E15)
+    if(r(14,1)) v['fut_2ms']=r(14,1);
+    if(r(14,2)) v['fut_2fs']=r(14,2);
+    if(r(14,3)) v['fut_2mp']=r(14,3);
+    if(r(14,4)) v['fut_2fp']=r(14,4);
+    // future 3rd (row 16: B17-E17)
+    if(r(16,1)) v['fut_3ms']=r(16,1);
+    if(r(16,2)) v['fut_3fs']=r(16,2);
+    if(r(16,3)) v['fut_3mp']=r(16,3);
+    if(r(16,4)) v['fut_3fp']=r(16,4);
+    // imperative — row 18 이후 빈 행들
+    const impRows=[19,20,21,22];
+    const impKeys=['imp_2ms','imp_2fs','imp_2mp','imp_2fp'];
+    let impIdx=0;
+    for(const ri of impRows){
+      for(let ci=1;ci<=4&&impIdx<4;ci++){
+        if(r(ri,ci)){ v[impKeys[impIdx]]=r(ri,ci); impIdx++; }
+      }
+    }
+    return v;
+  };
+
+  const handleVerbFormExcel=(e)=>{
+    const file=e.target.files[0]; if(!file) return;
+    const reader=new FileReader();
+    reader.onload=(ev)=>{
+      try{
+        const XLSX=window.XLSX;
+        const wb=XLSX.read(ev.target.result,{type:'binary'});
+        const ws=wb.Sheets[wb.SheetNames[0]];
+        const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:null});
+        const variants_obj=parseVerbFormExcel(rows);
+        const variantCount=Object.keys(variants_obj).length;
+        if(variantCount===0){showToast("변형 데이터가 없어요. 엑셀 양식을 확인해주세요.","err");return;}
+        const infinitive=variants_obj['infinitive']||'';
+        const variants=Object.entries(variants_obj).filter(([k,v])=>v&&k!=='infinitive').map(([type,form])=>({type,form}));
+        // 미리보기로 표시
+        setPealimPreview({infinitive, meaning:'', wordType:'verb', variants:variants_obj, variantCount, root:''});
+        setShowPealimModal(true);
+        showToast(`✅ ${variantCount}개 변형 불러옴! 뜻을 입력하고 추가해주세요.`);
+      }catch(err){showToast("파일을 읽을 수 없어요: "+err.message,"err");}
+    };
+    reader.readAsBinaryString(file);
+    e.target.value='';
+  };
+
   const handleCSVChange=async(e)=>{
     const file=e.target.files[0]; if(!file) return;
     const isXlsx = /\.xlsx?$/i.test(file.name);
@@ -1963,6 +2047,8 @@ export default function HebrewQuiz() {
               <div style={{display:"flex",gap:"8px",marginBottom:"12px",flexWrap:"wrap"}}>
                 <button style={S.btnIO("#50c898","rgba(80,160,120,0.15)","rgba(80,160,120,0.4)")} onClick={()=>setShowPealimModal(true)}>🔍 Reverso에서 변형 가져오기</button>
                 <button style={S.btnIO("#9060f0","rgba(100,80,200,0.15)","rgba(100,80,200,0.4)")} onClick={()=>variantFileRef.current.click()}>📥 변형 엑셀 불러오기</button>
+                <button style={S.btnIO("#50c898","rgba(80,160,120,0.15)","rgba(80,160,120,0.4)")} onClick={()=>verbFormFileRef.current?.click()}>📋 동사변형 양식 불러오기</button>
+                <input ref={verbFormFileRef} type="file" accept=".xlsx,.xls" style={{display:"none"}} onChange={handleVerbFormExcel}/>
                 <a href="/hebrew_variant_template.xlsx" download style={{...S.btnIO("#c4a050","rgba(196,160,80,0.1)","rgba(196,160,80,0.3)"),textDecoration:"none",display:"flex",alignItems:"center"}}>⬇️ 양식 다운로드</a>
                 <input ref={variantFileRef} type="file" accept=".xlsx,.xls" style={{display:"none"}} onChange={handleVariantExcel}/>
               </div>
