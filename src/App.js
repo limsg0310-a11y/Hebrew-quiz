@@ -655,6 +655,8 @@ export default function HebrewQuiz() {
   const [showBatchModal,setShowBatchModal]=useState(false);
   const [showPealimModal,setShowPealimModal]=useState(false);
   const [showRootModal,setShowRootModal]    =useState(false);
+  const [importTargetWallets,setImportTargetWallets]=useState(new Set()); // 가져오기 대상 단어장
+  const [importExcludeDefault,setImportExcludeDefault]=useState(false);  // 기본 단어장 제외
   // ── 단어 지갑 ──
   const [showWalletModal,setShowWalletModal]=useState(false);
   const [walletPickWord,setWalletPickWord]=useState(null); // 단어장 선택 팝업용 wordId
@@ -728,7 +730,7 @@ export default function HebrewQuiz() {
       const saved=localStorage.getItem("openSections");
       if(saved) return JSON.parse(saved);
     }catch{}
-    return {add:false, io:false, quiz_mcq:false, quiz_essay:false, quiz_variant:false};
+    return {add:false, io:false, import:false, quiz_mcq:false, quiz_essay:false, quiz_variant:false};
   });
   const toggleSection=(key)=>setOpenSections(s=>{
     const next={...s,[key]:!s[key]};
@@ -840,11 +842,22 @@ export default function HebrewQuiz() {
       status:"learning",streak:0,wrongCount:0,
       wordType:r.pos||null,
       root:rootGroupName,
-      rootGroup:rootGroupName,  // 어근 그룹 태그
+      rootGroup:rootGroupName,
       variants:[]
     }));
-    setWords(ws=>[...newWords,...ws]);
-    setPage(0);
+    // 기본 단어장에 추가 (제외 옵션 없으면)
+    if(!importExcludeDefault){
+      setWords(ws=>[...newWords,...ws]);
+      setPage(0);
+    } else if(newWords.length>0) {
+      // 기본 제외해도 words에는 넣어야 함 (데이터 저장)
+      setWords(ws=>[...newWords,...ws]);
+    }
+    // 커스텀 단어장에 추가
+    if(importTargetWallets.size>0){
+      const ids=newWords.map(w=>w.id);
+      saveWallets(wallets.map(wl=>importTargetWallets.has(wl.id)?{...wl,wordIds:[...wl.wordIds,...ids]}:wl));
+    }
     showToast(`✅ ${newWords.length}개 단어를 추가했어요!`);
     setRootSelected(new Set());
     setShowRootModal(false); setRootSearchResults([]); setRootSearchInput("");
@@ -917,14 +930,19 @@ export default function HebrewQuiz() {
       return;
     }
 
-    // 단어장에 한 번에 저장 (맨 앞에 추가)
-    setWordsRaw(prev=>{
-      const next = [...newWords, ...prev];
-      saveWords(next, currentBook);
-      syncToCloud(next);
-      return next;
-    });
-    setPage(0); // 첫 페이지로 이동
+    // 기본 단어장에 저장
+    if(!importExcludeDefault){
+      setWordsRaw(prev=>{ const next=[...newWords,...prev]; saveWords(next,currentBook); syncToCloud(next); return next; });
+      setPage(0);
+    } else {
+      // 기본 제외해도 words에 넣어야 함
+      setWordsRaw(prev=>{ const next=[...newWords,...prev]; saveWords(next,currentBook); syncToCloud(next); return next; });
+    }
+    // 커스텀 단어장에 추가
+    if(importTargetWallets.size>0){
+      const ids=newWords.map(w=>w.id);
+      saveWallets(wallets.map(wl=>importTargetWallets.has(wl.id)?{...wl,wordIds:[...wl.wordIds,...ids]}:wl));
+    }
 
     setPealimLoading(false);
     setPealimSelected(new Set());
@@ -2186,7 +2204,72 @@ export default function HebrewQuiz() {
               </>}
             </div>
 
-
+            {/* 단어 가져오기 섹션 */}
+            <div style={{...S.ioCard,borderColor:"rgba(80,160,120,0.2)"}}>
+              <SectionHeader sectionKey="import" title="📥 단어 가져오기" color="#50c898"/>
+              {openSections.import&&<div style={{marginTop:"10px"}}>
+                <div style={{display:"flex",gap:"8px",flexWrap:"wrap",marginBottom:"10px"}}>
+                  <button style={S.btnIO("#50c898","rgba(80,160,120,0.15)","rgba(80,160,120,0.4)")} onClick={()=>setShowPealimModal(true)}>🔍 Reverso 동사 변형 가져오기</button>
+                  <button style={S.btnIO("#c4a050","rgba(196,160,80,0.15)","rgba(196,160,80,0.4)")} onClick={()=>setShowRootModal(true)}>🌿 어근으로 단어 검색 (Pealim)</button>
+                  <button style={S.btnIO("#9060f0","rgba(100,80,200,0.15)","rgba(100,80,200,0.4)")} onClick={()=>variantFileRef.current.click()}>📥 변형 엑셀 불러오기</button>
+                  <button style={S.btnIO("#50c898","rgba(80,160,120,0.15)","rgba(80,160,120,0.4)")} onClick={()=>verbFormFileRef.current?.click()}>📋 동사변형 양식 불러오기</button>
+                  <button onClick={downloadTemplate} style={S.btnIO("#c4a050","rgba(196,160,80,0.1)","rgba(196,160,80,0.3)")}>⬇️ 동사변형 양식 다운로드</button>
+                  <button onClick={refreshAllVariants} disabled={refreshingVariants}
+                    style={{...S.btnIO("#50c898","rgba(80,160,120,0.15)","rgba(80,160,120,0.4)"),opacity:refreshingVariants?0.6:1}}>
+                    {refreshingVariants?"🔄 업데이트 중...":"🔄 기존 단어 변형 다시 불러오기"}
+                  </button>
+                </div>
+                {/* 변형 불러오기 결과 로그 */}
+                {refreshLog.length>0&&<div style={{marginBottom:"8px"}}>
+                  <button onClick={()=>setShowRefreshLog(v=>!v)}
+                    style={{...S.scrollBtn,width:"100%",marginBottom:"4px",fontSize:"0.78rem"}}>
+                    {showRefreshLog?"▲ 결과 숨기기":"▼ 불러오기 결과"} ({refreshLog.filter(l=>l.status==="ok").length}개 성공 / {refreshLog.filter(l=>l.status==="fail").length}개 실패)
+                  </button>
+                  {showRefreshLog&&<div style={{maxHeight:"180px",overflowY:"auto",display:"flex",flexDirection:"column",gap:"3px"}}>
+                    {refreshLog.map((l,i)=>(
+                      <div key={i} style={{display:"flex",alignItems:"center",gap:"8px",padding:"5px 10px",borderRadius:"7px",
+                        background:l.status==="ok"?"rgba(80,160,120,0.08)":"rgba(200,60,60,0.06)",
+                        border:"1px solid "+(l.status==="ok"?"rgba(80,160,120,0.2)":"rgba(200,60,60,0.2)")}}>
+                        <span>{l.status==="ok"?"✅":"❌"}</span>
+                        <span style={{fontFamily:"Arial",direction:"rtl",color:"#c4a050",fontSize:"0.9rem",minWidth:"70px"}}>{l.hebrew}</span>
+                        <span style={{color:"#7a7890",fontSize:"0.78rem",flex:1}}>{l.meaning}</span>
+                        {l.status==="ok"
+                          ?<span style={{fontSize:"0.7rem",color:"#50c898",flexShrink:0}}>변형 {l.variantCount}개</span>
+                          :<span style={{fontSize:"0.7rem",color:"#f07050",flexShrink:0}}>{l.error}</span>}
+                      </div>
+                    ))}
+                  </div>}
+                </div>}
+                {/* 가져올 단어장 선택 */}
+                {wallets.length>0&&(
+                  <div style={{padding:"10px 12px",borderRadius:"10px",background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.08)"}}>
+                    <div style={{fontSize:"0.72rem",color:"#7a7890",marginBottom:"6px"}}>📚 가져올 단어장</div>
+                    <div style={{display:"flex",gap:"5px",flexWrap:"wrap",marginBottom:"6px"}}>
+                      {wallets.map(wl=>{
+                        const sel=importTargetWallets.has(wl.id);
+                        return(
+                          <button key={wl.id} onClick={()=>setImportTargetWallets(s=>{const n=new Set(s);sel?n.delete(wl.id):n.add(wl.id);return n;})}
+                            style={{padding:"4px 10px",borderRadius:"7px",fontSize:"0.75rem",cursor:"pointer",border:"1px solid",
+                              background:sel?wl.color+"25":"rgba(255,255,255,0.04)",
+                              borderColor:sel?wl.color+"60":"rgba(255,255,255,0.1)",
+                              color:sel?wl.color:"#5a5870",display:"flex",alignItems:"center",gap:"5px"}}>
+                            <span style={{width:"8px",height:"8px",borderRadius:"50%",background:wl.color,display:"inline-block",flexShrink:0}}/>
+                            {wl.name}{sel?" ✓":""}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <button onClick={()=>setImportExcludeDefault(v=>!v)}
+                      style={{padding:"3px 10px",borderRadius:"7px",fontSize:"0.72rem",cursor:"pointer",border:"1px solid",
+                        background:importExcludeDefault?"rgba(200,60,60,0.1)":"rgba(255,255,255,0.04)",
+                        borderColor:importExcludeDefault?"rgba(200,60,60,0.4)":"rgba(255,255,255,0.1)",
+                        color:importExcludeDefault?"#f07050":"#5a5870"}}>
+                      {importExcludeDefault?"🚫 기본 단어장 제외 중":"+ 기본 단어장에도 추가"}
+                    </button>
+                  </div>
+                )}
+              </div>}
+            </div>
 
             {/* 검색 + 보기 수 */}
             <div style={{display:"flex",gap:"8px",marginBottom:"10px",flexWrap:"wrap",alignItems:"center"}}>
@@ -2482,42 +2565,10 @@ export default function HebrewQuiz() {
               <SectionHeader sectionKey="quiz_variant" title="🔀 변형 퀴즈" color="#50c898"
                 badge={variantPoolSize>0?`${variantPoolSize}개 가능`:"변형 없음"}/>
               {openSections.quiz_variant&&<div style={{marginTop:"12px"}}>
-              <p style={{fontSize:"0.82rem",color:"#7a7890",marginBottom:"8px"}}>성별·복수·동사 활용·소유격 변형을 직접 타이핑! 단어장의 🔀 버튼으로 추가하거나 엑셀 파일로 일괄 추가하세요.</p>
-              <div style={{marginBottom:"6px"}}>
-                <button onClick={refreshAllVariants} disabled={refreshingVariants}
-                  style={{...S.btnIO("#50c898","rgba(80,160,120,0.15)","rgba(80,160,120,0.4)"),marginBottom:"6px",opacity:refreshingVariants?0.6:1,width:"100%"}}>
-                  {refreshingVariants?"🔄 변형 업데이트 중...":"🔄 기존 단어 변형 다시 불러오기"}
-                </button>
-                {refreshLog.length>0&&<div style={{marginBottom:"4px"}}>
-                  <button onClick={()=>setShowRefreshLog(v=>!v)}
-                    style={{...S.scrollBtn,width:"100%",marginBottom:"4px",fontSize:"0.78rem"}}>
-                    {showRefreshLog?"▲ 결과 숨기기":"▼ 불러오기 결과 보기"} ({refreshLog.filter(l=>l.status==="ok").length}개 성공 / {refreshLog.filter(l=>l.status==="fail").length}개 실패)
-                  </button>
-                  {showRefreshLog&&<div style={{maxHeight:"200px",overflowY:"auto",display:"flex",flexDirection:"column",gap:"3px"}}>
-                    {refreshLog.map((l,i)=>(
-                      <div key={i} style={{display:"flex",alignItems:"center",gap:"8px",padding:"5px 10px",borderRadius:"7px",
-                        background:l.status==="ok"?"rgba(80,160,120,0.08)":"rgba(200,60,60,0.06)",
-                        border:"1px solid "+(l.status==="ok"?"rgba(80,160,120,0.2)":"rgba(200,60,60,0.2)")}}>
-                        <span style={{fontSize:"0.8rem"}}>{l.status==="ok"?"✅":"❌"}</span>
-                        <span style={{fontFamily:"Arial",direction:"rtl",color:"#c4a050",fontSize:"0.95rem",minWidth:"70px"}}>{l.hebrew}</span>
-                        <span style={{color:"#7a7890",fontSize:"0.78rem",flex:1}}>{l.meaning}</span>
-                        {l.status==="ok"
-                          ?<span style={{fontSize:"0.7rem",color:"#50c898",flexShrink:0}}>변형 {l.variantCount}개</span>
-                          :<span style={{fontSize:"0.7rem",color:"#f07050",flexShrink:0}}>{l.error}</span>}
-                      </div>
-                    ))}
-                  </div>}
-                </div>}
-              </div>
-              <div style={{display:"flex",gap:"8px",marginBottom:"12px",flexWrap:"wrap"}}>
-                <button style={S.btnIO("#50c898","rgba(80,160,120,0.15)","rgba(80,160,120,0.4)")} onClick={()=>setShowPealimModal(true)}>🔍 Reverso에서 변형 가져오기</button>
-                <button style={S.btnIO("#c4a050","rgba(196,160,80,0.15)","rgba(196,160,80,0.4)")} onClick={()=>setShowRootModal(true)}>🌿 어근으로 단어 검색 (Pealim)</button>
-                <button style={S.btnIO("#9060f0","rgba(100,80,200,0.15)","rgba(100,80,200,0.4)")} onClick={()=>variantFileRef.current.click()}>📥 변형 엑셀 불러오기</button>
-                <button style={S.btnIO("#50c898","rgba(80,160,120,0.15)","rgba(80,160,120,0.4)")} onClick={()=>verbFormFileRef.current?.click()}>📋 동사변형 양식 불러오기</button>
-                <input ref={verbFormFileRef} type="file" accept=".xlsx,.xls" style={{display:"none"}} onChange={handleVerbFormExcel}/>
-                <button onClick={downloadTemplate} style={S.btnIO("#c4a050","rgba(196,160,80,0.1)","rgba(196,160,80,0.3)")}>⬇️ 양식 다운로드</button>
-                <input ref={variantFileRef} type="file" accept=".xlsx,.xls" style={{display:"none"}} onChange={handleVariantExcel}/>
-              </div>
+              <p style={{fontSize:"0.82rem",color:"#7a7890",marginBottom:"8px"}}>변형 유형과 단어 범위를 선택하고 퀴즈를 시작해요. 변형 추가는 위 📥 단어 가져오기 섹션을 이용하세요.</p>
+
+              <input ref={verbFormFileRef} type="file" accept=".xlsx,.xls" style={{display:"none"}} onChange={handleVerbFormExcel}/>
+              <input ref={variantFileRef} type="file" accept=".xlsx,.xls" style={{display:"none"}} onChange={handleVariantExcel}/>
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"6px"}}>
                 <p style={{...S.settingLabel,margin:0}}>변형 유형 선택</p>
                 <button onClick={()=>setVariantCatsSave(variantCats.length===VARIANT_CATS.length?[]:VARIANT_CATS.map(c=>c.id))}
