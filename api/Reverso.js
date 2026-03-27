@@ -5,6 +5,11 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   const { mode, verb, url } = req.query;
   try {
+    if (mode === 'root_search') {
+      if (!req.query.root) return res.status(400).json({ error: '어근을 입력해주세요' });
+      const result = await searchPealimByRoot(req.query.root);
+      return res.status(200).json(result);
+    }
     if (mode !== 'conjugation') return res.status(400).json({ error: 'mode=conjugation 필요' });
     let targetUrl = url;
     if (!targetUrl && verb) {
@@ -184,4 +189,62 @@ function parseReverso(html, verbInput) {
       hasInfinitive: !!infinitiveUl,
     }
   };
+}
+
+
+// ── Pealim 어근 검색 ──
+async function searchPealimByRoot(root) {
+  try {
+    // 닉쿠드·공백·구분자 제거 후 자음만 추출
+    const clean = root.replace(/[֑-ׇ\s\-–—]/g, '');
+    const parts = [...clean].filter(c => /[א-ת]/.test(c));
+    if (parts.length < 2) return { error: '히브리어 자음 2자 이상 입력해주세요', results: [] };
+
+    const numR = Math.min(parts.length, 4);
+    let searchUrl;
+    if (numR === 2) searchUrl = `https://www.pealim.com/dict/?num-radicals=2&r1=${enc(parts[0])}&rf=${enc(parts[1])}`;
+    else if (numR === 3) searchUrl = `https://www.pealim.com/dict/?num-radicals=3&r1=${enc(parts[0])}&r2=${enc(parts[1])}&rf=${enc(parts[2])}`;
+    else searchUrl = `https://www.pealim.com/dict/?num-radicals=4&r1=${enc(parts[0])}&r2=${enc(parts[1])}&r3=${enc(parts[2])}&rf=${enc(parts[3])}`;
+
+    const html = await fetchPage(searchUrl);
+    const results = parsePealimResults(html);
+    return { results };
+  } catch(e) {
+    return { error: e.message, results: [] };
+  }
+}
+
+function parsePealimResults(html) {
+  const results = [];
+  // pealim 검색결과: /dict/숫자-이름/ 패턴 링크
+  const re = /href="(\/dict\/\d+[^"]+)"[\s\S]*?<span[^>]+class="[^"]*menukad[^"]*"[^>]*>([א-תְ-ׇ ]+)<\/span>/g;
+  let m;
+  while ((m = re.exec(html)) !== null) {
+    const path = m[1].split('?')[0];
+    const hebrew = m[2].trim();
+    if (results.find(r => r.path === path)) continue;
+
+    // 뜻 추출 — 링크 주변 텍스트
+    const snippet = html.slice(Math.max(0, m.index - 100), m.index + 500).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+    let meaning = '';
+    const toMatch = snippet.match(/\bto\s+[a-z][a-z\s,\/]{1,50}/i);
+    if (toMatch) meaning = toMatch[0].trim();
+    else {
+      const engMatch = snippet.match(/[a-zA-Z][a-zA-Z\s,\/\(\)]{3,50}/);
+      if (engMatch && !/pealim|hebrew|dict|conjugation|learning/i.test(engMatch[0])) {
+        meaning = engMatch[0].trim();
+      }
+    }
+
+    // 품사 감지
+    let pos = null;
+    if (/\bverb\b/i.test(snippet)) pos = 'verb';
+    else if (/\bnoun\b/i.test(snippet)) pos = 'noun';
+    else if (/\badjective\b/i.test(snippet)) pos = 'adj';
+    // URL에서도 힌트
+    if (!pos && path.match(/verb/i)) pos = 'verb';
+
+    results.push({ path, hebrew, meaning, pos, url: `https://www.pealim.com${path}` });
+  }
+  return results.slice(0, 20);
 }
