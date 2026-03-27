@@ -1119,7 +1119,7 @@ export default function HebrewQuiz() {
       {showPealimModal&&(
         <div style={S.modalOverlay}>
           <div style={{...S.modal,maxWidth:"500px",maxHeight:"88vh",overflowY:"auto"}}>
-            <h3 style={S.modalTitle}>🔍 동사 변형 자동 불러오기</h3>
+            <h3 style={S.modalTitle}>🔍 Reverso 동사 변형 불러오기</h3>
             <p style={S.modalSub}>히브리어 동사 원형(to부정사)을 입력하면 변형표를 자동으로 가져와요. 예: לָשִׁיר, לְדַבֵּר, לֶאֱכֹל</p>
 
             {/* 어근 입력 */}
@@ -1852,8 +1852,8 @@ export default function HebrewQuiz() {
               <button style={{...S.btnEssayStart,...(!essayPoolSize?S.btnDisabled:{})}} onClick={startEssay} disabled={!essayPoolSize}>✍️ 서술형 시작! ({essayCount===9999?essayPoolSize:Math.min(essayCount,essayPoolSize)} {uiLang==="en"?"questions":"문제"})</button>
               </div>}
             </div>
-            {/* 변형 퀴즈 */}
-            <div style={{...S.card,border:"1px solid rgba(80,160,120,0.3)"}}>
+            {/* 변형 퀴즈 — 히브리어 단어장만 */}
+            {currentBook==="hebrew"&&<div style={{...S.card,border:"1px solid rgba(80,160,120,0.3)"}}>
               <SectionHeader sectionKey="quiz_variant" title="🔀 변형 퀴즈" color="#50c898"
                 badge={variantPoolSize>0?`${variantPoolSize}개 가능`:"변형 없음"}/>
               {openSections.quiz_variant&&<div style={{marginTop:"12px"}}>
@@ -1865,7 +1865,7 @@ export default function HebrewQuiz() {
                 </button>
               )}
               <div style={{display:"flex",gap:"8px",marginBottom:"12px",flexWrap:"wrap"}}>
-                <button style={S.btnIO("#50c898","rgba(80,160,120,0.15)","rgba(80,160,120,0.4)")} onClick={()=>setShowPealimModal(true)}>🔍 Pealim 자동 가져오기</button>
+                <button style={S.btnIO("#50c898","rgba(80,160,120,0.15)","rgba(80,160,120,0.4)")} onClick={()=>setShowPealimModal(true)}>🔍 Reverso에서 변형 가져오기</button>
                 <button style={S.btnIO("#9060f0","rgba(100,80,200,0.15)","rgba(100,80,200,0.4)")} onClick={()=>variantFileRef.current.click()}>📥 변형 엑셀 불러오기</button>
                 <a href="/hebrew_variant_template.xlsx" download style={{...S.btnIO("#c4a050","rgba(196,160,80,0.1)","rgba(196,160,80,0.3)"),textDecoration:"none",display:"flex",alignItems:"center"}}>⬇️ 양식 다운로드</a>
                 <input ref={variantFileRef} type="file" accept=".xlsx,.xls" style={{display:"none"}} onChange={handleVariantExcel}/>
@@ -1895,7 +1895,7 @@ export default function HebrewQuiz() {
                 🔀 변형 퀴즈 시작! ({variantCount===9999?variantPoolSize:Math.min(variantCount,variantPoolSize)}문제)
               </button>
               </div>}
-            </div>
+            </div>}
           </div>
         )}
 
