@@ -2384,8 +2384,8 @@ export default function HebrewQuiz() {
                 badge={variantPoolSize>0?`${variantPoolSize}개 가능`:"변형 없음"}/>
               {openSections.quiz_variant&&<div style={{marginTop:"12px"}}>
               <p style={{fontSize:"0.82rem",color:"#7a7890",marginBottom:"8px"}}>성별·복수·동사 활용·소유격 변형을 직접 타이핑! 단어장의 🔀 버튼으로 추가하거나 엑셀 파일로 일괄 추가하세요.</p>
-              {words.filter(w=>w.root&&w.wordType==="verb").length>0&&(
-                <button onClick={refreshAllVariants} disabled={refreshingVariants}
+              {words.filter(w=>w.wordType==="verb"||(w.variants||[]).length>0).length>0&&(
+                <><button onClick={refreshAllVariants} disabled={refreshingVariants}
                   style={{...S.btnIO("#50c898","rgba(80,160,120,0.15)","rgba(80,160,120,0.4)"),marginBottom:"6px",opacity:refreshingVariants?0.6:1}}>
                   {refreshingVariants?`🔄 변형 업데이트 중...`:"🔄 기존 단어 변형 다시 불러오기"}
                 </button>
@@ -2413,6 +2413,7 @@ export default function HebrewQuiz() {
                     )}
                   </div>
                 )}
+                </>
               )}
               <div style={{display:"flex",gap:"8px",marginBottom:"12px",flexWrap:"wrap"}}>
                 <button style={S.btnIO("#50c898","rgba(80,160,120,0.15)","rgba(80,160,120,0.4)")} onClick={()=>setShowPealimModal(true)}>🔍 Reverso에서 변형 가져오기</button>
