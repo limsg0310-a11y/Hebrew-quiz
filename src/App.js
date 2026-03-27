@@ -1337,12 +1337,18 @@ export default function HebrewQuiz() {
                               const fontSize = formLen>8?"0.72rem":formLen>6?"0.82rem":"0.95rem";
                               return(
                                 <div key={tid} style={{display:"flex",justifyContent:"space-between",alignItems:"center",
-                                  padding:"4px 6px",background:"rgba(255,255,255,0.03)",borderRadius:"5px",gap:"4px",minWidth:0}}>
-                                  <span style={{color:"#7a7890",fontSize:"0.63rem",flexShrink:0,lineHeight:1.3,maxWidth:"55%"}}>
-                                    {vt?vt.label.ko:tid}
+                                  padding:"4px 6px",background:"rgba(255,255,255,0.03)",borderRadius:"5px",gap:"4px",minWidth:0,overflow:"hidden"}}>
+                                  <span style={{color:"#7a7890",fontSize:"0.6rem",flexShrink:1,lineHeight:1.2,minWidth:0,
+                                    overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                                    {vt?(()=>{
+                                      const lbl=vt.label.ko;
+                                      const m=lbl.match(/^(.*?)(\s*\([א-תְ-ׇ\/\s]+\))$/);
+                                      if(m) return <>{m[1]}<span style={{fontFamily:"Arial",direction:"rtl",whiteSpace:"nowrap"}}>{m[2]}</span></>;
+                                      return lbl;
+                                    })():tid}
                                   </span>
                                   <span style={{fontFamily:"Arial",direction:"rtl",color:"#e8e6f0",fontSize,
-                                    flexShrink:1,minWidth:0,textAlign:"right",wordBreak:"keep-all",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>
+                                    flexShrink:0,whiteSpace:"nowrap",textAlign:"right",marginLeft:"4px"}}>
                                     {form}
                                   </span>
                                 </div>
