@@ -1,4 +1,6 @@
 // api/Reverso.js — Reverso Conjugator 기반 히브리어 동사 변형
+const enc = s => encodeURIComponent(s);
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
