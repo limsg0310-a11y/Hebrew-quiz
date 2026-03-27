@@ -785,7 +785,10 @@ export default function HebrewQuiz() {
         setPealimError(`변형 없음. 섹션:${(dbg.sections||[]).join(',')||"없음"} / h4레이블:${(dbg.h4labels||[]).join('|')||"없음"}`);
         return;
       }
-      setPealimPreview({...data, root:pealimRoot.trim()});
+      // 단어장에 같은 히브리어가 있으면 뜻 자동 채우기
+      const existingWord = words.find(w=>stripNikkud(w.hebrew)===stripNikkud(data.infinitive)||w.hebrew===data.infinitive);
+      const autoMeaning = existingWord?.meaning || data.meaning || "";
+      setPealimPreview({...data, meaning:autoMeaning, root:pealimRoot.trim()});
     }catch(e){setPealimError("불러오는 중 오류: "+e.message);}
     finally{setPealimLoading(false);}
   };
@@ -865,7 +868,9 @@ export default function HebrewQuiz() {
         setPealimError(`변형 없음. 섹션:${(dbg.sections||[]).join(',')||"없음"} h4:${(dbg.h4labels||[]).join('|')||"없음"}`);
         return;
       }
-      setPealimPreview({...data, root: root||pealimRoot});
+      const existingW = words.find(w=>stripNikkud(w.hebrew)===stripNikkud(data.infinitive)||w.hebrew===data.infinitive);
+      const autoM = existingW?.meaning || data.meaning || "";
+      setPealimPreview({...data, meaning:autoM, root: root||pealimRoot});
     }catch(e){setPealimError("변형 데이터를 가져오는 중 오류: "+e.message);}
     finally{setPealimLoading(false);}
   };
@@ -1145,7 +1150,9 @@ export default function HebrewQuiz() {
   const getPool=(filter)=>{ const f=filter||quizFilter; if(f===QUIZ_FILTERS.LEARNING_ONLY) return words.filter(w=>w.status==="learning"); if(f===QUIZ_FILTERS.EXCLUDE_MASTERED) return words.filter(w=>w.status!=="mastered"); if(f===QUIZ_FILTERS.HARD_ONLY) return words.filter(w=>w.status==="hard"); return words; };
   const variantPoolSize=(()=>{
     const selectedTypes=new Set(VARIANT_CATS.filter(c=>variantCats.includes(c.id)).flatMap(c=>c.types));
-    const pairs=getPool(variantFilter).flatMap(w=>(w.variants||[]).filter(v=>selectedTypes.has(v.type)));
+    // 변형 있는 단어만 pool에서 필터
+    const pool=getPool(variantFilter).filter(w=>(w.variants||[]).some(v=>selectedTypes.has(v.type)));
+    const pairs=pool.flatMap(w=>(w.variants||[]).filter(v=>selectedTypes.has(v.type)));
     return pairs.length;
   })();
   // 어근별 퀴즈 시작
@@ -2062,8 +2069,22 @@ export default function HebrewQuiz() {
                   </button>
                 ))}
               </div>
-              <p style={S.settingLabel}>단어 범위</p>
-              <div style={S.optionRow}>{[[QUIZ_FILTERS.ALL,T.allRange(words.length)],[QUIZ_FILTERS.EXCLUDE_MASTERED,T.excludeMastered(words.filter(w=>w.status!=="mastered").length)],[QUIZ_FILTERS.HARD_ONLY,T.hardOnly(hardCount)]].map(([val,label])=><button key={val} style={{...S.optBtn,...(variantFilter===val?{background:"rgba(80,160,120,0.2)",borderColor:"rgba(80,160,120,0.5)",color:"#50c898"}:{})}} onClick={()=>setVariantFilter(val)}>{label}</button>)}</div>
+              <p style={S.settingLabel}>단어 범위 <span style={{color:"#5a5870",fontWeight:400,fontSize:"0.8rem"}}>(변형 있는 단어만 표시)</span></p>
+              {(()=>{
+                // 선택된 변형 유형에 해당하는 단어만 카운트
+                const selectedTypes=new Set(VARIANT_CATS.filter(c=>variantCats.includes(c.id)).flatMap(c=>c.types));
+                const hasVariant=w=>(w.variants||[]).some(v=>selectedTypes.has(v.type));
+                const vAll=words.filter(hasVariant).length;
+                const vExclude=words.filter(w=>w.status!=="mastered"&&hasVariant(w)).length;
+                const vHard=words.filter(w=>w.status==="hard"&&hasVariant(w)).length;
+                return(
+                  <div style={S.optionRow}>{[
+                    [QUIZ_FILTERS.ALL, `전체 (${vAll})`],
+                    [QUIZ_FILTERS.EXCLUDE_MASTERED, `암기 제외 (${vExclude})`],
+                    [QUIZ_FILTERS.HARD_ONLY, `🔥 어려운 것만 (${vHard})`]
+                  ].map(([val,label])=><button key={val} style={{...S.optBtn,...(variantFilter===val?{background:"rgba(80,160,120,0.2)",borderColor:"rgba(80,160,120,0.5)",color:"#50c898"}:{})}} onClick={()=>setVariantFilter(val)}>{label}</button>)}</div>
+                );
+              })()}
               <p style={S.settingLabel}>{T.questionCount} <span style={{color:"#5a5870",fontWeight:400,textTransform:"none"}}>(가능: {variantPoolSize}개)</span></p>
               <div style={S.sliderWrap}>
                 <span style={S.sliderLabel}>{T.directInput}</span>
