@@ -799,9 +799,13 @@ export default function HebrewQuiz() {
     const variants = Object.entries(variantDraft)
       .filter(([,form])=>form.trim())
       .map(([type,form])=>({type,form:form.trim()}));
+    // 이전 변형 수 체크
+    const prevCount=(words.find(w=>w.id===wordId)?.variants||[]).length;
     setWords(ws=>ws.map(w=>w.id===wordId?{...w,variants}:w));
     setExpandedVariantWord(null);
-    showToast(`✅ 변형 ${variants.length}개 저장됐어요!`);
+    const diff=variants.length-prevCount;
+    if(diff<0) showToast(`✅ ${variants.length}개 저장! (${Math.abs(diff)}개 삭제됨)`);
+    else showToast(`✅ 변형 ${variants.length}개 저장됐어요!`);
   };
   const deleteVariant=(wordId,vIdx)=>{
     setWords(ws=>ws.map(w=>w.id===wordId?{...w,variants:(w.variants||[]).filter((_,i)=>i!==vIdx)}:w));
@@ -1909,7 +1913,12 @@ export default function HebrewQuiz() {
                       const label=vt?(vt.label[uiLang]||vt.label.ko):tid;
                       return(
                         <div key={tid} style={{display:"flex",flexDirection:"column",gap:"3px"}}>
-                          <label style={{fontSize:"0.68rem",color:"#7a7890"}}>{label}</label>
+                          <label style={{fontSize:"0.68rem",color:"#7a7890",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                            <span>{label}</span>
+                            {variantDraft[tid]&&<button onClick={()=>setVariantDraft(d=>({...d,[tid]:""}))}
+                              style={{fontSize:"0.6rem",padding:"1px 5px",borderRadius:"4px",background:"rgba(200,60,60,0.1)",
+                                border:"1px solid rgba(200,60,60,0.3)",color:"#f07050",cursor:"pointer",lineHeight:1.4}}>삭제</button>}
+                          </label>
                           <input
                             value={variantDraft[tid]||""}
                             onChange={e=>setVariantDraft(d=>({...d,[tid]:e.target.value}))}
@@ -2384,37 +2393,32 @@ export default function HebrewQuiz() {
                 badge={variantPoolSize>0?`${variantPoolSize}개 가능`:"변형 없음"}/>
               {openSections.quiz_variant&&<div style={{marginTop:"12px"}}>
               <p style={{fontSize:"0.82rem",color:"#7a7890",marginBottom:"8px"}}>성별·복수·동사 활용·소유격 변형을 직접 타이핑! 단어장의 🔀 버튼으로 추가하거나 엑셀 파일로 일괄 추가하세요.</p>
-              {words.filter(w=>w.wordType==="verb"||(w.variants||[]).length>0).length>0&&(
-                <><button onClick={refreshAllVariants} disabled={refreshingVariants}
-                  style={{...S.btnIO("#50c898","rgba(80,160,120,0.15)","rgba(80,160,120,0.4)"),marginBottom:"6px",opacity:refreshingVariants?0.6:1}}>
-                  {refreshingVariants?`🔄 변형 업데이트 중...`:"🔄 기존 단어 변형 다시 불러오기"}
+              <div style={{marginBottom:"6px"}}>
+                <button onClick={refreshAllVariants} disabled={refreshingVariants}
+                  style={{...S.btnIO("#50c898","rgba(80,160,120,0.15)","rgba(80,160,120,0.4)"),marginBottom:"6px",opacity:refreshingVariants?0.6:1,width:"100%"}}>
+                  {refreshingVariants?"🔄 변형 업데이트 중...":"🔄 기존 단어 변형 다시 불러오기"}
                 </button>
-                {refreshLog.length>0&&(
-                  <div style={{marginBottom:"10px"}}>
-                    <button onClick={()=>setShowRefreshLog(v=>!v)}
-                      style={{...S.scrollBtn,width:"100%",marginBottom:"4px",fontSize:"0.78rem"}}>
-                      {showRefreshLog?"▲ 결과 숨기기":"▼ 불러오기 결과 보기"} ({refreshLog.filter(l=>l.status==="ok").length}개 성공 / {refreshLog.filter(l=>l.status==="fail").length}개 실패)
-                    </button>
-                    {showRefreshLog&&(
-                      <div style={{maxHeight:"200px",overflowY:"auto",display:"flex",flexDirection:"column",gap:"3px"}}>
-                        {refreshLog.map((l,i)=>(
-                          <div key={i} style={{display:"flex",alignItems:"center",gap:"8px",padding:"5px 10px",borderRadius:"7px",
-                            background:l.status==="ok"?"rgba(80,160,120,0.08)":"rgba(200,60,60,0.06)",
-                            border:`1px solid ${l.status==="ok"?"rgba(80,160,120,0.2)":"rgba(200,60,60,0.2)"}`}}>
-                            <span style={{fontSize:"0.8rem"}}>{l.status==="ok"?"✅":"❌"}</span>
-                            <span style={{fontFamily:"Arial",direction:"rtl",color:"#c4a050",fontSize:"0.95rem",minWidth:"70px"}}>{l.hebrew}</span>
-                            <span style={{color:"#7a7890",fontSize:"0.78rem",flex:1}}>{l.meaning}</span>
-                            {l.status==="ok"
-                              ?<span style={{fontSize:"0.7rem",color:"#50c898",flexShrink:0}}>변형 {l.variantCount}개</span>
-                              :<span style={{fontSize:"0.7rem",color:"#f07050",flexShrink:0}}>{l.error}</span>}
-                          </div>
-                        ))}
+                {refreshLog.length>0&&<div style={{marginBottom:"4px"}}>
+                  <button onClick={()=>setShowRefreshLog(v=>!v)}
+                    style={{...S.scrollBtn,width:"100%",marginBottom:"4px",fontSize:"0.78rem"}}>
+                    {showRefreshLog?"▲ 결과 숨기기":"▼ 불러오기 결과 보기"} ({refreshLog.filter(l=>l.status==="ok").length}개 성공 / {refreshLog.filter(l=>l.status==="fail").length}개 실패)
+                  </button>
+                  {showRefreshLog&&<div style={{maxHeight:"200px",overflowY:"auto",display:"flex",flexDirection:"column",gap:"3px"}}>
+                    {refreshLog.map((l,i)=>(
+                      <div key={i} style={{display:"flex",alignItems:"center",gap:"8px",padding:"5px 10px",borderRadius:"7px",
+                        background:l.status==="ok"?"rgba(80,160,120,0.08)":"rgba(200,60,60,0.06)",
+                        border:"1px solid "+(l.status==="ok"?"rgba(80,160,120,0.2)":"rgba(200,60,60,0.2)")}}>
+                        <span style={{fontSize:"0.8rem"}}>{l.status==="ok"?"✅":"❌"}</span>
+                        <span style={{fontFamily:"Arial",direction:"rtl",color:"#c4a050",fontSize:"0.95rem",minWidth:"70px"}}>{l.hebrew}</span>
+                        <span style={{color:"#7a7890",fontSize:"0.78rem",flex:1}}>{l.meaning}</span>
+                        {l.status==="ok"
+                          ?<span style={{fontSize:"0.7rem",color:"#50c898",flexShrink:0}}>변형 {l.variantCount}개</span>
+                          :<span style={{fontSize:"0.7rem",color:"#f07050",flexShrink:0}}>{l.error}</span>}
                       </div>
-                    )}
-                  </div>
-                )}
-                </>
-              )}
+                    ))}
+                  </div>}
+                </div>}
+              </div>
               <div style={{display:"flex",gap:"8px",marginBottom:"12px",flexWrap:"wrap"}}>
                 <button style={S.btnIO("#50c898","rgba(80,160,120,0.15)","rgba(80,160,120,0.4)")} onClick={()=>setShowPealimModal(true)}>🔍 Reverso에서 변형 가져오기</button>
                 <button style={S.btnIO("#c4a050","rgba(196,160,80,0.15)","rgba(196,160,80,0.4)")} onClick={()=>setShowRootModal(true)}>🌿 어근으로 단어 검색 (Pealim)</button>
