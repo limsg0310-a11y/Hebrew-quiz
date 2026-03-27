@@ -682,6 +682,8 @@ export default function HebrewQuiz() {
   // 변형 퀴즈 state
   const [variantQuestions,setVariantQuestions]=useState([]);
   const [variantCur,setVariantCur]           =useState(0);
+  const [variantQuizType,setVariantQuizType] =useState("essay"); // "essay" | "mcq"
+  const [variantSelected,setVariantSelected] =useState(null);    // 객관식 선택
   const [variantInput,setVariantInput]       =useState("");
   const [variantConfirmed,setVariantConfirmed]=useState(false);
   const [variantResults,setVariantResults]   =useState([]);
@@ -1024,37 +1026,51 @@ export default function HebrewQuiz() {
 
   // 변형 퀴즈 시작
   const startVariantQuiz=()=>{
-    // 선택된 카테고리의 타입들
     const selectedTypes=new Set(VARIANT_CATS.filter(c=>variantCats.includes(c.id)).flatMap(c=>c.types));
-    // 해당 변형이 있는 단어들만 추출
     const pool=getPool(variantFilter).filter(w=>(w.variants||[]).some(v=>selectedTypes.has(v.type)));
-    if(!pool.length){showToast("선택한 변형 유형의 단어가 없어요. 단어장에서 변형을 먼저 추가해주세요!","err");return;}
-    // (단어, 변형) 쌍 생성
+    if(!pool.length){showToast("선택한 변형 유형의 단어가 없어요.","err");return;}
+    // 모든 가능한 변형 form 목록 (객관식 보기용)
+    const allForms=[...new Set(pool.flatMap(w=>(w.variants||[]).filter(v=>selectedTypes.has(v.type)).map(v=>v.form)))];
     const pairs=[];
     for(const w of pool){
       for(const v of (w.variants||[])){
-        if(selectedTypes.has(v.type)) pairs.push({wordId:w.id,base:w.hebrew,meaning:w.meaning,variantType:v.type,answer:v.form});
+        if(!selectedTypes.has(v.type)) continue;
+        // 객관식 보기: 정답 + 다른 형태 3개
+        const distractors=shuffle(allForms.filter(f=>f!==v.form)).slice(0,3);
+        while(distractors.length<3) distractors.push("—");
+        const choices=shuffle([v.form,...distractors]);
+        pairs.push({wordId:w.id,base:w.hebrew,meaning:w.meaning,variantType:v.type,answer:v.form,choices});
       }
     }
     const count=Math.min(variantCount===9999?pairs.length:variantCount,pairs.length);
     const qs=shuffle(pairs).slice(0,count);
     setVariantQuestions(qs); setVariantCur(0); setVariantInput(""); setVariantConfirmed(false); setVariantResults([]);
-    setMode(MODES.VARIANT);
+    setVariantSelected(null);
+    setMode(MODES.VARIANT); setAnimKey(k=>k+1);
   };
 
   const handleVariantConfirm=()=>{
-    if(!variantInput.trim()) return;
     const q=variantQuestions[variantCur];
-    const correct=stripNikkud(variantInput.trim())===stripNikkud(q.answer)||variantInput.trim()===q.answer;
-    updateWordStats(q.wordId,correct);
-    setVariantResults(r=>[...r,{...q,userInput:variantInput,correct}]);
-    setVariantConfirmed(true);
-    speak(q.answer);
+    if(variantQuizType==="mcq"){
+      if(!variantSelected) return;
+      const correct=variantSelected===q.answer;
+      updateWordStats(q.wordId,correct);
+      setVariantResults(r=>[...r,{...q,userInput:variantSelected,correct}]);
+      setVariantConfirmed(true);
+      speak(q.answer);
+    } else {
+      if(!variantInput.trim()) return;
+      const correct=stripNikkud(variantInput.trim())===stripNikkud(q.answer)||variantInput.trim()===q.answer;
+      updateWordStats(q.wordId,correct);
+      setVariantResults(r=>[...r,{...q,userInput:variantInput,correct}]);
+      setVariantConfirmed(true);
+      speak(q.answer);
+    }
   };
   const handleVariantNext=()=>{
     if(variantCur+1>=variantQuestions.length){setMode(MODES.VARIANT_RESULT);return;}
-    setVariantCur(c=>c+1); setVariantInput(""); setVariantConfirmed(false);
-    if(variantInputRef.current) variantInputRef.current.focus();
+    setVariantCur(c=>c+1); setVariantInput(""); setVariantConfirmed(false); setVariantSelected(null);
+    if(variantQuizType==="essay"&&variantInputRef.current) variantInputRef.current.focus();
   };
 
   // 문제 자동발음 — animKey가 바뀔 때(새 문제)만 1회 재생
@@ -2256,6 +2272,14 @@ export default function HebrewQuiz() {
                 onClick={startVariantQuiz} disabled={!variantPoolSize||!variantCats.length}>
                 🔀 변형 퀴즈 시작! ({variantCount===9999?variantPoolSize:Math.min(variantCount,variantPoolSize)}문제)
               </button>
+              <div style={{display:"flex",gap:"6px",marginTop:"8px"}}>
+                {[["essay","✍️ 서술형"],["mcq","🎯 객관식"]].map(([t,label])=>(
+                  <button key={t} onClick={()=>setVariantQuizType(t)}
+                    style={{...S.optBtn,flex:1,...(variantQuizType===t?{background:"rgba(80,160,120,0.2)",borderColor:"rgba(80,160,120,0.5)",color:"#50c898"}:{})}}>
+                    {label}
+                  </button>
+                ))}
+              </div>
               </div>}
             </div>}
           </div>
@@ -2410,34 +2434,78 @@ export default function HebrewQuiz() {
                 <span style={{color:"#50c898",fontWeight:600}}>정답 {variantResults.filter(r=>r.correct).length} / {variantCur+(variantConfirmed?1:0)}</span>
               </div>
               <div style={{...S.questionCard,border:"1px solid rgba(80,160,120,0.3)"}}>
-                <div style={{...S.questionTag,color:"#50c898"}}>{vt?vt.prompt[uiLang]||vt.prompt.ko:vq.variantType}</div>
-                <div style={{fontFamily:"Arial",fontSize:"clamp(1.8rem,7vw,2.8rem)",direction:"rtl",color:"#f0ece0",marginBottom:"8px"}}>{vq.base}</div>
-                <div style={{fontSize:"0.85rem",color:"#7a7890",marginBottom:"14px"}}>{vq.meaning}</div>
+                {/* 문제 유형 태그 */}
+                <div style={{...S.questionTag,color:"#50c898",fontSize:"0.85rem",marginBottom:"10px"}}>{vt?vt.prompt[uiLang]||vt.prompt.ko:vq.variantType}</div>
+                {/* 기본형 — 크게 */}
+                <div style={{fontFamily:"Arial",fontSize:"clamp(2.5rem,9vw,4rem)",direction:"rtl",color:"#f0ece0",marginBottom:"6px",lineHeight:1.2}}>{vq.base}</div>
+                {/* 뜻 */}
+                <div style={{fontSize:"1rem",color:"#a0a0c0",marginBottom:"16px"}}>{vq.meaning}</div>
                 <div style={{display:"flex",alignItems:"center",gap:"8px",justifyContent:"center"}}>
-                  <SpeakBtn text={vq.base} onSpeak={speak} muted={muted} size="lg"/>
+                  <SpeakBtn text={vq.base} onSpeak={speakOnDemand} muted={muted} size="lg"/>
                 </div>
               </div>
-              <input
-                ref={variantInputRef}
-                style={{...S.input,fontSize:"1.2rem",fontFamily:"Arial",direction:"rtl",marginBottom:"12px",
-                  ...( variantConfirmed?{borderColor:lastResult?.correct?"rgba(60,180,100,0.6)":"rgba(200,60,60,0.6)"}:{})}}
-                placeholder="변형을 히브리어로 입력하세요..."
-                value={variantInput} onChange={e=>!variantConfirmed&&setVariantInput(e.target.value)}
-                onKeyDown={e=>{if(e.key==="Enter"){if(!variantConfirmed)handleVariantConfirm();else handleVariantNext();}}}
-                readOnly={variantConfirmed} lang="he" spellCheck={false} autoCorrect="off"/>
-              {variantConfirmed&&(
-                <div style={{height:"52px",marginBottom:"8px",display:"flex",alignItems:"center",justifyContent:"center"}}>
-                  {lastResult?.correct
-                    ?<div style={{...S.feedbackCorrect,padding:"8px 14px",fontSize:"0.88rem"}}>✅ 정답!</div>
-                    :<div style={{...S.feedbackWrong,padding:"8px 14px",fontSize:"0.88rem"}}>
-                      ❌ 오답 — 정답: <b style={{fontFamily:"Arial",direction:"rtl",marginLeft:"6px"}}>{vq.answer}</b>
-                      <SpeakBtn text={vq.answer} onSpeak={speakOnDemand} muted={muted}/>
-                    </div>}
-                </div>
+
+              {/* 서술형 입력 */}
+              {variantQuizType==="essay"&&(
+                <>
+                  <input
+                    ref={variantInputRef}
+                    style={{...S.input,fontSize:"1.3rem",fontFamily:"Arial",direction:"rtl",marginBottom:"12px",
+                      ...(variantConfirmed?{borderColor:lastResult?.correct?"rgba(60,180,100,0.6)":"rgba(200,60,60,0.6)"}:{})}}
+                    placeholder="변형을 히브리어로 입력..."
+                    value={variantInput} onChange={e=>!variantConfirmed&&setVariantInput(e.target.value)}
+                    onKeyDown={e=>{if(e.key==="Enter"){if(!variantConfirmed)handleVariantConfirm();else handleVariantNext();}}}
+                    readOnly={variantConfirmed} lang="he" spellCheck={false} autoCorrect="off"/>
+                  {variantConfirmed&&(
+                    <div style={{marginBottom:"10px",display:"flex",alignItems:"center",justifyContent:"center",gap:"8px"}}>
+                      {lastResult?.correct
+                        ?<div style={{...S.feedbackCorrect,padding:"8px 16px"}}>✅ 정답!</div>
+                        :<div style={{...S.feedbackWrong,padding:"8px 16px",display:"flex",alignItems:"center",gap:"8px"}}>
+                          ❌ 정답: <b style={{fontFamily:"Arial",direction:"rtl",fontSize:"1.2rem"}}>{vq.answer}</b>
+                          <SpeakBtn text={vq.answer} onSpeak={speakOnDemand} muted={muted}/>
+                        </div>}
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* 객관식 보기 */}
+              {variantQuizType==="mcq"&&(
+                <>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px",marginBottom:"12px"}}>
+                    {(vq.choices||[]).map((choice,ci)=>{
+                      const isSelected=variantSelected===choice;
+                      const isCorrect=variantConfirmed&&choice===vq.answer;
+                      const isWrong=variantConfirmed&&isSelected&&choice!==vq.answer;
+                      return(
+                        <button key={ci} onClick={()=>{if(!variantConfirmed){setVariantSelected(choice);}}}
+                          style={{padding:"14px 10px",borderRadius:"12px",fontFamily:"Arial",direction:"rtl",
+                            fontSize:"clamp(1rem,4vw,1.4rem)",fontWeight:600,cursor:variantConfirmed?"default":"pointer",
+                            border:`2px solid ${isCorrect?"rgba(60,180,100,0.8)":isWrong?"rgba(200,60,60,0.8)":isSelected?"rgba(80,160,120,0.6)":"rgba(255,255,255,0.1)"}`,
+                            background:isCorrect?"rgba(60,180,100,0.2)":isWrong?"rgba(200,60,60,0.15)":isSelected?"rgba(80,160,120,0.15)":"rgba(255,255,255,0.04)",
+                            color:isCorrect?"#60e898":isWrong?"#f07070":isSelected?"#50c898":"#e8e6f0",
+                            transition:"all 0.15s"}}>
+                          {choice}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {variantConfirmed&&(
+                    <div style={{marginBottom:"10px",display:"flex",alignItems:"center",justifyContent:"center",gap:"8px"}}>
+                      {lastResult?.correct
+                        ?<div style={{...S.feedbackCorrect,padding:"8px 16px"}}>✅ 정답!</div>
+                        :<div style={{...S.feedbackWrong,padding:"8px 16px",display:"flex",alignItems:"center",gap:"8px"}}>
+                          ❌ 정답: <b style={{fontFamily:"Arial",direction:"rtl",fontSize:"1.2rem"}}>{vq.answer}</b>
+                          <SpeakBtn text={vq.answer} onSpeak={speakOnDemand} muted={muted}/>
+                        </div>}
+                    </div>
+                  )}
+                </>
               )}
               <div className="quiz-btn-row" style={S.quizBtnRow}>
                 {!variantConfirmed
-                  ?<button style={{...S.btnConfirm,background:"linear-gradient(135deg,#50c898,#70e8b8)",color:"#0f1a14",...(!variantInput.trim()?S.btnDisabled:{})}} onClick={handleVariantConfirm} disabled={!variantInput.trim()}>{T.confirm}</button>
+                  ?<button style={{...S.btnConfirm,background:"linear-gradient(135deg,#50c898,#70e8b8)",color:"#0f1a14",...(variantQuizType==="essay"?(!variantInput.trim()?S.btnDisabled:{}):(variantSelected===null?S.btnDisabled:{}))}}
+                    onClick={handleVariantConfirm} disabled={variantQuizType==="essay"?!variantInput.trim():variantSelected===null}>{T.confirm}</button>
                   :<button style={{...S.btnNext,background:"linear-gradient(135deg,#50c898,#70e8b8)",color:"#0f1a14"}} onClick={handleVariantNext}>{variantCur+1>=variantQuestions.length?T.finish:T.next}</button>}
                 <button style={S.btnQuit} onClick={()=>{window.speechSynthesis?.cancel();setMode(MODES.LIST);}}>{T.quit}</button>
               </div>
