@@ -1396,18 +1396,39 @@ export default function HebrewQuiz() {
                 <div style={{background:"rgba(80,160,120,0.08)",border:"1px solid rgba(80,160,120,0.2)",borderRadius:"10px",padding:"14px",marginBottom:"12px"}}>
                   <div style={{display:"flex",alignItems:"center",gap:"10px",marginBottom:"10px",flexWrap:"wrap"}}>
                     <span style={{fontFamily:"Arial",direction:"rtl",fontSize:"1.5rem",color:"#50c898"}}>{pealimPreview.infinitive}</span>
-                    <span style={{color:"#a0a0c0",fontSize:"0.9rem"}}>{pealimPreview.meaning}</span>
                     <span style={{fontSize:"0.72rem",background:"rgba(80,160,120,0.2)",padding:"3px 10px",borderRadius:"6px",color:"#50c898",fontWeight:600}}>
-                      {Object.keys(pealimPreview.variants||{}).length}개 변형 불러옴
+                      {Object.keys(pealimPreview.variants||{}).length}개 변형
                     </span>
                   </div>
-                  {/* 뜻이 없으면 입력 */}
-                  {!pealimPreview.meaning&&(
-                    <input value={pealimPreview.meaning||""}
-                      onChange={e=>setPealimPreview(p=>({...p,meaning:e.target.value}))}
-                      style={{...S.input,padding:"7px 12px",fontSize:"0.9rem",marginBottom:"10px"}}
-                      placeholder="뜻 입력 (한국어/영어)"/>
-                  )}
+                  {/* 뜻 — 항상 수정 가능 */}
+                  <input value={pealimPreview.meaning||""}
+                    onChange={e=>setPealimPreview(p=>({...p,meaning:e.target.value}))}
+                    style={{...S.input,padding:"7px 12px",fontSize:"0.9rem",marginBottom:"10px"}}
+                    placeholder="뜻 입력 (한국어/영어) *필수"/>
+                  {/* 품사 선택 (선택사항) */}
+                  <div style={{marginBottom:"8px"}}>
+                    <div style={{fontSize:"0.72rem",color:"#7a7890",marginBottom:"5px"}}>품사 선택 <span style={{color:"#5a5870"}}>(선택사항)</span></div>
+                    <div style={{display:"flex",gap:"5px",flexWrap:"wrap"}}>
+                      {/* 선택 안함 버튼 */}
+                      <button onClick={()=>setPealimPreview(p=>({...p,wordType:null}))}
+                        style={{padding:"4px 10px",borderRadius:"7px",fontSize:"0.75rem",cursor:"pointer",border:"1px solid",
+                          background:!pealimPreview.wordType?"rgba(255,255,255,0.12)":"rgba(255,255,255,0.04)",
+                          borderColor:!pealimPreview.wordType?"rgba(255,255,255,0.3)":"rgba(255,255,255,0.1)",
+                          color:!pealimPreview.wordType?"#e8e6f0":"#5a5870"}}>
+                        ⚪ 선택 안함
+                      </button>
+                      {WORD_TYPES.map(wt=>(
+                        <button key={wt.id}
+                          onClick={()=>setPealimPreview(p=>({...p,wordType:p.wordType===wt.id?null:wt.id}))}
+                          style={{padding:"4px 10px",borderRadius:"7px",fontSize:"0.75rem",cursor:"pointer",border:"1px solid",
+                            background:pealimPreview.wordType===wt.id?"rgba(196,160,80,0.2)":"rgba(255,255,255,0.04)",
+                            borderColor:pealimPreview.wordType===wt.id?"rgba(196,160,80,0.5)":"rgba(255,255,255,0.1)",
+                            color:pealimPreview.wordType===wt.id?"#c4a050":"#5a5870"}}>
+                          {wt.emoji} {wt.label.ko}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                   {/* 변형 목록 — 카테고리별 그룹 */}
                   <div style={{maxHeight:"260px",overflowY:"auto"}}>
                     {VARIANT_CATS.map(cat=>{
