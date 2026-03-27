@@ -33,14 +33,25 @@ async function fetchPage(url) {
   return r.text();
 }
 
+// 히브리어 bold 추출
+function extractBold(text) {
+  const forms = [];
+  const re = /\*\*([\u05D0-\u05EA\u05B0-\u05C7\/\-\s]+)\*\*/g;
+  let m;
+  while ((m = re.exec(text)) !== null) {
+    const form = m[1].split('/')[0].replace(/\s/g,'').trim();
+    if (form && form.length > 1 && /[\u05D0-\u05EA]/.test(form)) forms.push(form);
+  }
+  return forms;
+}
+
 function parseReverso(html, verbInput) {
   // 1. 인피니티브 추출
   let infinitive = (verbInput || '').trim();
   const h2a = html.match(/<h2[^>]*>\s*<a[^>]*>([\u05D0-\u05EA\u05B0-\u05C7\s]+)<\/a>/);
   if (h2a) infinitive = h2a[1].trim();
 
-  // 2. HTML → 마크다운 스타일 텍스트 변환
-  //    <b>/<strong> 히브리어는 **...**로 보존
+  // 2. HTML → 텍스트 (히브리어 bold 보존)
   const text = html
     .replace(/<(?:b|strong)[^>]*>([\u05D0-\u05EA\u05B0-\u05C7\/\-\s]+)<\/(?:b|strong)>/gi,
       (_, m) => `**${m.trim()}**`)
@@ -49,51 +60,48 @@ function parseReverso(html, verbInput) {
     .replace(/<[^>]+>/g, ' ')
     .replace(/[ \t]+/g, ' ');
 
-  // 3. 섹션 마커 탐지
-  // Reverso 실제 구조:
-  //   ####\n\nPresent   (빈 h4 뒤에 Present가 별도 줄)
-  //   \nPast\n          (단독 줄, #### 없음)
-  //   \nFuture\n        (단독 줄, #### 없음)
-  //   #### Imperative   (h4에 바로 붙음)
-  //   #### Passive Participle  (건너뜀)
-  //   #### Infinitive   (h4에 바로 붙음)
-  const SECTION_PATTERNS = [
-    { key: 'present',    re: /####\s*\n+\s*Present\b/m },
-    { key: 'past',       re: /\bPast\b(?!\s*Participle)/m },
-    { key: 'future',     re: /\bFuture\b/m },
-    { key: 'imperative', re: /####\s*Imperative\b/m },
-    { key: 'passive',    re: /####\s*Passive\b/m },   // 건너뜀용
-    { key: 'infinitive', re: /####\s*Infinitive\b/m },
+  // 3. 변형 테이블 영역만 추출
+  // 시작: 첫 번째 "####" (변형 테이블 시작 신호)
+  // 끝: "Similar Hebrew verbs" 또는 "Conjugate also"
+  const tableStart = text.search(/####/m);
+  const tableEndMatch = text.search(/Similar Hebrew verbs|Conjugate also/im);
+  const tableText = tableStart >= 0
+    ? text.slice(tableStart, tableEndMatch > tableStart ? tableEndMatch : text.length)
+    : text;
+
+  // 4. 테이블 내에서 섹션 분리
+  // Reverso 구조 (테이블 영역 안):
+  //   ####\n\nPresent\n...
+  //   \nPast\n...
+  //   \nFuture\n...
+  //   #### Imperative\n...
+  //   #### Passive Participle
+  //   #### Infinitive\n...
+  const PATTERNS = [
+    { key: 'present',    re: /####\s*\n\s*\n?\s*Present\b/ },
+    { key: 'past',       re: /\n\s*Past\b(?!\s*Participle)/ },
+    { key: 'future',     re: /\n\s*Future\b/ },
+    { key: 'imperative', re: /####\s*Imperative\b/ },
+    { key: 'passive',    re: /####\s*Passive\b/ },
+    { key: 'infinitive', re: /####\s*Infinitive\b/ },
   ];
 
   const positions = [];
-  for (const { key, re } of SECTION_PATTERNS) {
-    const m = text.search(re);
-    if (m >= 0) positions.push({ key, idx: m });
+  for (const { key, re } of PATTERNS) {
+    const idx = tableText.search(re);
+    if (idx >= 0) positions.push({ key, idx });
   }
   positions.sort((a, b) => a.idx - b.idx);
 
-  // 4. 섹션별 텍스트 추출 (passive 건너뜀)
   const sections = {};
   for (let i = 0; i < positions.length; i++) {
     if (positions[i].key === 'passive') continue;
     const start = positions[i].idx;
-    const end = i + 1 < positions.length ? positions[i+1].idx : text.length;
-    sections[positions[i].key] = text.slice(start, end);
+    const end = i + 1 < positions.length ? positions[i+1].idx : tableText.length;
+    sections[positions[i].key] = tableText.slice(start, end);
   }
 
-  // 5. **히브리어** 추출
-  function extractBold(t) {
-    const forms = [];
-    const re = /\*\*([\u05D0-\u05EA\u05B0-\u05C7\/\-\s]+)\*\*/g;
-    let m;
-    while ((m = re.exec(t)) !== null) {
-      const form = m[1].split('/')[0].replace(/\s/g, '').trim();
-      if (form && form.length > 1 && /[\u05D0-\u05EA]/.test(form)) forms.push(form);
-    }
-    return forms;
-  }
-
+  // 5. 변형 추출
   const variants = {};
   const MAP = {
     present:    ['pres_ms','pres_fs','pres_mp','pres_fp'],
@@ -110,5 +118,13 @@ function parseReverso(html, verbInput) {
   }
   if (!variants['infinitive'] && infinitive) variants['infinitive'] = infinitive;
 
-  return { infinitive, meaning: '', wordType: 'verb', variants, variantCount: Object.keys(variants).length };
+  return {
+    infinitive,
+    meaning: '',
+    wordType: 'verb',
+    variants,
+    variantCount: Object.keys(variants).length,
+    // 디버그: 섹션 감지 현황
+    debug: { sections: Object.keys(sections), tableLen: tableText.length }
+  };
 }
