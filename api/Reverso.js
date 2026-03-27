@@ -1,4 +1,4 @@
-// api/Reverso.js — Reverso Conjugator 기반
+// api/Reverso.js
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
@@ -33,14 +33,22 @@ async function fetchPage(url) {
   return r.text();
 }
 
-// 히브리어 bold 추출
-function extractBold(text) {
+// <li> 안의 히브리어 형태 추출
+// Reverso: <li><i>אני</i><b>שַׁרְתִּי</b> sharti<br>...</li>
+function extractLiHebrewForms(html) {
+  const pronouns = new Set(['אני','אתה','את','הוא','היא','אנחנו','אתם','אתן','הם','הן',
+    'אני/אתה/הוא','אני/את/היא','אנחנו/אתם/הם','אנחנו/אתן/הן',
+    'ani','ata','at','hu','hi','anakhnu','atem','aten','hem','hen']);
   const forms = [];
-  const re = /\*\*([\u05D0-\u05EA\u05B0-\u05C7\/\-\s]+)\*\*/g;
+  const liRe = /<li[^>]*>([\s\S]*?)<\/li>/gi;
   let m;
-  while ((m = re.exec(text)) !== null) {
-    const form = m[1].split('/')[0].replace(/\s/g,'').trim();
-    if (form && form.length > 1 && /[\u05D0-\u05EA]/.test(form)) forms.push(form);
+  while ((m = liRe.exec(html)) !== null) {
+    const li = m[1];
+    // 히브리어 단어들 모두 추출 (닉쿠드 포함)
+    const hebrewWords = li.match(/[\u05D0-\u05EA\u05B0-\u05C7]{2,}/g) || [];
+    // 인칭 대명사 제외하고 첫 번째 = 동사 형태
+    const verbForm = hebrewWords.find(w => !pronouns.has(w));
+    if (verbForm) forms.push(verbForm.split('/')[0]);
   }
   return forms;
 }
@@ -51,57 +59,58 @@ function parseReverso(html, verbInput) {
   const h2a = html.match(/<h2[^>]*>\s*<a[^>]*>([\u05D0-\u05EA\u05B0-\u05C7\s]+)<\/a>/);
   if (h2a) infinitive = h2a[1].trim();
 
-  // 2. HTML → 텍스트 (히브리어 bold 보존)
-  const text = html
-    .replace(/<(?:b|strong)[^>]*>([\u05D0-\u05EA\u05B0-\u05C7\/\-\s]+)<\/(?:b|strong)>/gi,
-      (_, m) => `**${m.trim()}**`)
-    .replace(/<script[\s\S]*?<\/script>/gi, '')
-    .replace(/<style[\s\S]*?<\/style>/gi, '')
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/[ \t]+/g, ' ');
+  // 2. 섹션별 HTML 분리
+  // Reverso HTML 구조: <h4> 태그로 섹션 구분 + <ul> 안에 <li> 목록
+  // Present는 빈 <h4></h4> 뒤에 별도 ul로 오거나,
+  // <h4>Past</h4>, <h4>Future</h4> 등으로 구분됨
 
-  // 3. 변형 테이블 영역만 추출
-  // 시작: 첫 번째 "####" (변형 테이블 시작 신호)
-  // 끝: "Similar Hebrew verbs" 또는 "Conjugate also"
-  const tableStart = text.search(/####/m);
-  const tableEndMatch = text.search(/Similar Hebrew verbs|Conjugate also/im);
-  const tableText = tableStart >= 0
-    ? text.slice(tableStart, tableEndMatch > tableStart ? tableEndMatch : text.length)
-    : text;
-
-  // 4. 테이블 내에서 섹션 분리
-  // Reverso 구조 (테이블 영역 안):
-  //   ####\n\nPresent\n...
-  //   \nPast\n...
-  //   \nFuture\n...
-  //   #### Imperative\n...
-  //   #### Passive Participle
-  //   #### Infinitive\n...
-  const PATTERNS = [
-    { key: 'present',    re: /####\s*\n\s*\n?\s*Present\b/ },
-    { key: 'past',       re: /\n\s*Past\b(?!\s*Participle)/ },
-    { key: 'future',     re: /\n\s*Future\b/ },
-    { key: 'imperative', re: /####\s*Imperative\b/ },
-    { key: 'passive',    re: /####\s*Passive\b/ },
-    { key: 'infinitive', re: /####\s*Infinitive\b/ },
-  ];
-
-  const positions = [];
-  for (const { key, re } of PATTERNS) {
-    const idx = tableText.search(re);
-    if (idx >= 0) positions.push({ key, idx });
-  }
-  positions.sort((a, b) => a.idx - b.idx);
-
-  const sections = {};
-  for (let i = 0; i < positions.length; i++) {
-    if (positions[i].key === 'passive') continue;
-    const start = positions[i].idx;
-    const end = i + 1 < positions.length ? positions[i+1].idx : tableText.length;
-    sections[positions[i].key] = tableText.slice(start, end);
+  // h4 태그 위치 찾기
+  const h4Re = /<h4[^>]*>([\s\S]*?)<\/h4>/gi;
+  const h4list = [];
+  let hm;
+  while ((hm = h4Re.exec(html)) !== null) {
+    const label = hm[1].replace(/<[^>]+>/g, '').trim();
+    h4list.push({ label, idx: hm.index, end: hm.index + hm[0].length });
   }
 
-  // 5. 변형 추출
+  // ul 태그 위치 찾기
+  const ulRe = /<ul[^>]*>([\s\S]*?)<\/ul>/gi;
+  const ulList = [];
+  let um;
+  while ((um = ulRe.exec(html)) !== null) {
+    ulList.push({ html: um[1], idx: um.index });
+  }
+
+  // 각 섹션의 ul 매핑
+  // h4 직후에 오는 ul이 해당 섹션의 데이터
+  const SECTION_LABELS = {
+    '': 'present',           // 빈 h4 = Present
+    'present': 'present',
+    'past': 'past',
+    'future': 'future',
+    'imperative': 'imperative',
+    'passive participle': 'passive',
+    'infinitive': 'infinitive',
+  };
+
+  const sectionUls = {};
+
+  for (let i = 0; i < h4list.length; i++) {
+    const h4 = h4list[i];
+    const labelKey = h4.label.toLowerCase();
+    const secName = SECTION_LABELS[labelKey];
+    if (!secName || secName === 'passive') continue;
+
+    // 이 h4 다음에 오는 ul 찾기
+    const nextH4idx = i + 1 < h4list.length ? h4list[i+1].idx : html.length;
+    const ul = ulList.find(u => u.idx > h4.end && u.idx < nextH4idx);
+    if (ul) {
+      if (!sectionUls[secName]) sectionUls[secName] = '';
+      sectionUls[secName] += ul.html;
+    }
+  }
+
+  // 변형 추출
   const variants = {};
   const MAP = {
     present:    ['pres_ms','pres_fs','pres_mp','pres_fp'],
@@ -112,8 +121,8 @@ function parseReverso(html, verbInput) {
   };
 
   for (const [sec, keys] of Object.entries(MAP)) {
-    if (!sections[sec]) continue;
-    const f = extractBold(sections[sec]);
+    if (!sectionUls[sec]) continue;
+    const f = extractLiHebrewForms('<ul>' + sectionUls[sec] + '</ul>');
     keys.forEach((k, i) => { if (f[i]) variants[k] = f[i]; });
   }
   if (!variants['infinitive'] && infinitive) variants['infinitive'] = infinitive;
@@ -124,7 +133,6 @@ function parseReverso(html, verbInput) {
     wordType: 'verb',
     variants,
     variantCount: Object.keys(variants).length,
-    // 디버그: 섹션 감지 현황
-    debug: { sections: Object.keys(sections), tableLen: tableText.length }
+    debug: { sections: Object.keys(sectionUls), h4labels: h4list.map(h=>h.label) }
   };
 }
