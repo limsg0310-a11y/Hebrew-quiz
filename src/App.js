@@ -610,7 +610,8 @@ export default function HebrewQuiz() {
   const [mode,setMode]                  =useState(MODES.LIST);
   const [newHebrew,setNewHebrew]        =useState("");
   const [newWordType,setNewWordType]    =useState(null);
-  const [newWordWallet,setNewWordWallet]=useState(null);
+  const [newWordWallets,setNewWordWallets]=useState(new Set()); // 추가할 커스텀 단어장들
+  const [newWordExcludeDefault,setNewWordExcludeDefault]=useState(false); // 기본 단어장 제외
   const [newMeaning,setNewMeaning]      =useState("");
   const [editId,setEditId]              =useState(null);
   const [quizType,setQuizType]          =useState(QUIZ_TYPES.HEB_TO_MEAN);
@@ -1336,12 +1337,20 @@ export default function HebrewQuiz() {
       setEditId(null);
     }else{
       const newId=Date.now();
-      setWords(ws=>[{id:newId,hebrew:newHebrew.trim(),meaning:newMeaning.trim(),status:"learning",streak:0,wrongCount:0,...(newWordType?{wordType:newWordType}:{})}, ...ws]);
-      // 선택된 커스텀 단어장에 자동 추가
-      if(newWordWallet){
-        saveWallets(wallets.map(wl=>wl.id===newWordWallet?{...wl,wordIds:[...wl.wordIds,newId]}:wl));
+      // 기본 단어장 제외 옵션이 아닐 때만 기본 단어장에 추가
+      if(!newWordExcludeDefault){
+        setWords(ws=>[{id:newId,hebrew:newHebrew.trim(),meaning:newMeaning.trim(),status:"learning",streak:0,wrongCount:0,...(newWordType?{wordType:newWordType}:{})}, ...ws]);
+        setPage(0);
       }
-      setPage(0);
+      // 선택된 커스텀 단어장에 추가
+      if(newWordWallets.size>0){
+        saveWallets(wallets.map(wl=>newWordWallets.has(wl.id)?{...wl,wordIds:[...wl.wordIds,newId]}:wl));
+        // 커스텀 단어장 전용이면 words에도 넣어야 함 (단어 데이터 보존)
+        if(newWordExcludeDefault){
+          setWords(ws=>[{id:newId,hebrew:newHebrew.trim(),meaning:newMeaning.trim(),status:"learning",streak:0,wrongCount:0,...(newWordType?{wordType:newWordType}:{})}, ...ws]);
+        }
+      }
+      if(!newWordExcludeDefault||newWordWallets.size>0) setPage(0);
     }
     setNewHebrew(""); setNewMeaning(""); setNewWordType(null);
     // 커스텀 단어장 선택은 유지 (연속 추가 편의)
@@ -2122,27 +2131,34 @@ export default function HebrewQuiz() {
                 {/* 커스텀 단어장 선택 */}
                 {wallets.length>0&&editId===null&&(
                   <div style={{marginBottom:"4px"}}>
-                    <div style={{fontSize:"0.72rem",color:"#7a7890",marginBottom:"5px"}}>📚 추가할 단어장 선택 <span style={{color:"#5a5870"}}>(선택사항)</span></div>
-                    <div style={{display:"flex",gap:"5px",flexWrap:"wrap"}}>
-                      <button onClick={()=>setNewWordWallet(null)}
-                        style={{padding:"4px 10px",borderRadius:"7px",fontSize:"0.75rem",cursor:"pointer",border:"1px solid",
-                          background:!newWordWallet?"rgba(255,255,255,0.12)":"rgba(255,255,255,0.04)",
-                          borderColor:!newWordWallet?"rgba(255,255,255,0.3)":"rgba(255,255,255,0.1)",
-                          color:!newWordWallet?"#e8e6f0":"#5a5870"}}>
-                        기본 단어장만
-                      </button>
-                      {wallets.map(wl=>(
-                        <button key={wl.id} onClick={()=>setNewWordWallet(wl.id===newWordWallet?null:wl.id)}
-                          style={{padding:"4px 10px",borderRadius:"7px",fontSize:"0.75rem",cursor:"pointer",border:"1px solid",
-                            background:newWordWallet===wl.id?wl.color+"25":"rgba(255,255,255,0.04)",
-                            borderColor:newWordWallet===wl.id?wl.color+"60":"rgba(255,255,255,0.1)",
-                            color:newWordWallet===wl.id?wl.color:"#5a5870",
-                            display:"flex",alignItems:"center",gap:"5px"}}>
-                          <span style={{width:"8px",height:"8px",borderRadius:"50%",background:wl.color,flexShrink:0,display:"inline-block"}}/>
-                          {wl.name}
-                        </button>
-                      ))}
+                    <div style={{fontSize:"0.72rem",color:"#7a7890",marginBottom:"5px"}}>📚 단어장 선택 <span style={{color:"#5a5870"}}>(선택사항 — 복수 선택 가능)</span></div>
+                    <div style={{display:"flex",gap:"5px",flexWrap:"wrap",marginBottom:"5px"}}>
+                      {wallets.map(wl=>{
+                        const sel=newWordWallets.has(wl.id);
+                        return(
+                          <button key={wl.id} onClick={()=>setNewWordWallets(s=>{const n=new Set(s);sel?n.delete(wl.id):n.add(wl.id);return n;})}
+                            style={{padding:"4px 10px",borderRadius:"7px",fontSize:"0.75rem",cursor:"pointer",border:"1px solid",
+                              background:sel?wl.color+"25":"rgba(255,255,255,0.04)",
+                              borderColor:sel?wl.color+"60":"rgba(255,255,255,0.1)",
+                              color:sel?wl.color:"#5a5870",
+                              display:"flex",alignItems:"center",gap:"5px"}}>
+                            <span style={{width:"8px",height:"8px",borderRadius:"50%",background:wl.color,flexShrink:0,display:"inline-block"}}/>
+                            {wl.name} {sel&&"✓"}
+                          </button>
+                        );
+                      })}
                     </div>
+                    {/* 기본 단어장 포함 여부 */}
+                    <button onClick={()=>setNewWordExcludeDefault(v=>!v)}
+                      style={{padding:"3px 10px",borderRadius:"7px",fontSize:"0.72rem",cursor:"pointer",border:"1px solid",
+                        background:newWordExcludeDefault?"rgba(200,60,60,0.1)":"rgba(255,255,255,0.04)",
+                        borderColor:newWordExcludeDefault?"rgba(200,60,60,0.4)":"rgba(255,255,255,0.1)",
+                        color:newWordExcludeDefault?"#f07050":"#5a5870"}}>
+                      {newWordExcludeDefault?"🚫 기본 단어장 제외 중":"+ 기본 단어장에도 추가"}
+                    </button>
+                    {newWordExcludeDefault&&newWordWallets.size===0&&(
+                      <span style={{fontSize:"0.68rem",color:"#f07050",marginLeft:"8px"}}>⚠️ 커스텀 단어장을 선택해야 해요</span>
+                    )}
                   </div>
                 )}
                 <div style={{display:"flex",gap:"8px"}}>
