@@ -655,6 +655,7 @@ export default function HebrewQuiz() {
   const [showRootModal,setShowRootModal]    =useState(false);
   // ── 단어 지갑 ──
   const [showWalletModal,setShowWalletModal]=useState(false);
+  const [walletPickWord,setWalletPickWord]=useState(null); // 지갑 선택 팝업용 wordId
   const [wallets,setWallets]=useState(()=>{
     try{ const s=localStorage.getItem("wordWallets"); return s?JSON.parse(s):[]; }catch{ return []; }
   });
@@ -894,7 +895,7 @@ export default function HebrewQuiz() {
           hebrew: data.infinitive||r.hebrew,
           meaning: data.meaning||r.meaning||"",
           status:"learning", streak:0, wrongCount:0,
-          wordType: data.wordType||"verb", variants, root:pealimRoot
+          wordType: data.wordType||null, variants, root:pealimRoot
         });
       }catch(e){
         // API 실패해도 단어 자체는 추가
@@ -956,7 +957,7 @@ export default function HebrewQuiz() {
     const variants=Object.entries(pealimPreview.variants)
       .filter(([,form])=>form)
       .map(([type,form])=>({type,form}));
-    setWords(ws=>ws.map(w=>w.id===wordId?{...w,wordType:"verb",variants}:w));
+    setWords(ws=>ws.map(w=>w.id===wordId?{...w,variants}:w)); // wordType 유지
     setShowPealimModal(false); setPealimPreview(null); setPealimRoot(""); setPealimResults([]);
     showToast(`✅ ${variants.length}개 변형을 단어장에 저장했어요!`);
   };
@@ -1019,7 +1020,7 @@ export default function HebrewQuiz() {
     const exists = words.find(w=>stripNikkud(w.hebrew)===stripNikkud(pealimPreview.infinitive));
     if(exists){
       // 기존 단어에 변형만 업데이트
-      setWords(ws=>ws.map(w=>w.id===exists.id?{...w,wordType:"verb",variants}:w));
+      setWords(ws=>ws.map(w=>w.id===exists.id?{...w,variants}:w)); // wordType 유지
       showToast(`✅ "${pealimPreview.infinitive}" 변형 ${variants.length}개 업데이트됐어요!`);
     } else {
       const newWord={
@@ -1027,7 +1028,7 @@ export default function HebrewQuiz() {
         hebrew:pealimPreview.infinitive,
         meaning:pealimPreview.meaning||"",
         status:"learning",streak:0,wrongCount:0,
-        wordType: pealimPreview.wordType||"verb", variants,
+        wordType: pealimPreview.wordType||null, variants,
         root: pealimPreview.root||""
       };
       setWords(ws=>[newWord,...ws]);
@@ -1215,7 +1216,7 @@ export default function HebrewQuiz() {
         const infinitive=variants_obj['infinitive']||'';
         const variants=Object.entries(variants_obj).filter(([k,v])=>v&&k!=='infinitive').map(([type,form])=>({type,form}));
         // 미리보기로 표시
-        setPealimPreview({infinitive, meaning:'', wordType:'verb', variants:variants_obj, variantCount, root:''});
+        setPealimPreview({infinitive, meaning:'', wordType:null, variants:variants_obj, variantCount, root:''});
         setShowPealimModal(true);
         showToast(`✅ ${variantCount}개 변형 불러옴! 뜻을 입력하고 추가해주세요.`);
       }catch(err){showToast("파일을 읽을 수 없어요: "+err.message,"err");}
@@ -1397,6 +1398,32 @@ export default function HebrewQuiz() {
       </Modal>
 
       {/* Pealim 동사 변형 가져오기 모달 */}
+      {/* ── 지갑 선택 팝업 (여러 지갑 중 선택) ── */}
+      {walletPickWord&&(
+        <div style={{...S.modalOverlay,zIndex:9999}} onClick={()=>setWalletPickWord(null)}>
+          <div style={{...S.modal,maxWidth:"320px",padding:"16px"}} onClick={e=>e.stopPropagation()}>
+            <h3 style={{...S.modalTitle,marginBottom:"12px"}}>👛 지갑 선택</h3>
+            <div style={{display:"flex",flexDirection:"column",gap:"6px"}}>
+              {wallets.map(wl=>{
+                const inWallet=wl.wordIds.includes(walletPickWord);
+                return(
+                  <button key={wl.id} onClick={()=>{toggleWordInWallet(wl.id,walletPickWord);setWalletPickWord(null);}}
+                    style={{display:"flex",alignItems:"center",gap:"10px",padding:"10px 14px",borderRadius:"10px",
+                      background:inWallet?"rgba(196,160,80,0.15)":"rgba(255,255,255,0.04)",
+                      border:`1px solid ${inWallet?"rgba(196,160,80,0.4)":wl.color+"30"}`,cursor:"pointer",textAlign:"left"}}>
+                    <div style={{width:"12px",height:"12px",borderRadius:"50%",background:wl.color,flexShrink:0}}/>
+                    <span style={{color:"#e8e6f0",flex:1}}>{wl.name}</span>
+                    <span style={{fontSize:"0.75rem",color:"#5a5870"}}>{words.filter(w=>wl.wordIds.includes(w.id)).length}개</span>
+                    {inWallet&&<span style={{fontSize:"0.72rem",color:"#c4a050"}}>✓ 담김</span>}
+                  </button>
+                );
+              })}
+            </div>
+            <button style={{...S.btnCancel2,width:"100%",marginTop:"10px"}} onClick={()=>setWalletPickWord(null)}>취소</button>
+          </div>
+        </div>
+      )}
+
       {/* ── 단어 지갑 모달 ── */}
       {showWalletModal&&(
         <div style={S.modalOverlay} onClick={()=>setShowWalletModal(false)}>
@@ -2296,6 +2323,21 @@ export default function HebrewQuiz() {
                         onClick={()=>expandedVariantWord===w.id?setExpandedVariantWord(null):openVariantModal(w)}>
                         {w.variants&&w.variants.length>0?`🔀${w.variants.length}`:"🔀"}
                       </button>
+                      {wallets.length>0&&(
+                        <div style={{position:"relative"}}>
+                          <button title="지갑에 담기" style={{...S.btnEdit,
+                            color:wallets.some(wl=>wl.wordIds.includes(w.id))?"#c4a050":"inherit",
+                            opacity:wallets.some(wl=>wl.wordIds.includes(w.id))?1:0.45}}
+                            onClick={e=>{
+                              e.stopPropagation();
+                              if(wallets.length===1){
+                                toggleWordInWallet(wallets[0].id,w.id);
+                              } else {
+                                setWalletPickWord(w.id);
+                              }
+                            }}>👛</button>
+                        </div>
+                      )}
                       <button style={S.btnDel} onClick={()=>deleteWord(w.id)}>🗑️</button>
                     </div>
                   </div>
