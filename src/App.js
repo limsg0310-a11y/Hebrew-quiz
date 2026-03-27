@@ -760,7 +760,9 @@ export default function HebrewQuiz() {
       const data=await res.json();
       if(data.error){setPealimError(data.error);return;}
       if(!data.variantCount){
-        setPealimError("변형을 찾지 못했어요. 히브리어 동사 원형(לְדַבֵּר 형태)을 입력해주세요.");return;
+        const dbg=data.debug||{};
+        setPealimError(`변형 없음. 섹션:${(dbg.sections||[]).join(',')||"없음"} / h4레이블:${(dbg.h4labels||[]).join('|')||"없음"}`);
+        return;
       }
       setPealimPreview({...data, root:pealimRoot.trim()});
     }catch(e){setPealimError("불러오는 중 오류: "+e.message);}
@@ -837,7 +839,11 @@ export default function HebrewQuiz() {
       const res=await fetch(`/api/Reverso?mode=conjugation&url=${encodeURIComponent(url)}`);
       const data=await res.json();
       if(data.error){setPealimError(data.error);return;}
-      if(!data.variantCount){setPealimError("변형을 찾지 못했어요.");return;}
+      if(!data.variantCount){
+        const dbg=data.debug||{};
+        setPealimError(`변형 없음. 섹션:${(dbg.sections||[]).join(',')||"없음"} h4:${(dbg.h4labels||[]).join('|')||"없음"}`);
+        return;
+      }
       setPealimPreview({...data, root: root||pealimRoot});
     }catch(e){setPealimError("변형 데이터를 가져오는 중 오류: "+e.message);}
     finally{setPealimLoading(false);}
@@ -1306,13 +1312,17 @@ export default function HebrewQuiz() {
                             {catVariants.map(tid=>{
                               const vt=VARIANT_TYPES.find(t=>t.id===tid);
                               const form=(pealimPreview.variants||{})[tid];
+                              // 히브리어 글자 수에 따라 폰트 크기 자동 조절
+                              const formLen = (form||'').length;
+                              const fontSize = formLen>8?"0.72rem":formLen>6?"0.82rem":"0.95rem";
                               return(
                                 <div key={tid} style={{display:"flex",justifyContent:"space-between",alignItems:"center",
-                                  padding:"4px 8px",background:"rgba(255,255,255,0.03)",borderRadius:"5px",gap:"6px"}}>
-                                  <span style={{color:"#7a7890",fontSize:"0.68rem",flexShrink:0,lineHeight:1.3}}>
+                                  padding:"4px 6px",background:"rgba(255,255,255,0.03)",borderRadius:"5px",gap:"4px",minWidth:0}}>
+                                  <span style={{color:"#7a7890",fontSize:"0.63rem",flexShrink:0,lineHeight:1.3,maxWidth:"55%"}}>
                                     {vt?vt.label.ko:tid}
                                   </span>
-                                  <span style={{fontFamily:"Arial",direction:"rtl",color:"#e8e6f0",fontSize:"0.95rem"}}>
+                                  <span style={{fontFamily:"Arial",direction:"rtl",color:"#e8e6f0",fontSize,
+                                    flexShrink:1,minWidth:0,textAlign:"right",wordBreak:"keep-all",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>
                                     {form}
                                   </span>
                                 </div>
