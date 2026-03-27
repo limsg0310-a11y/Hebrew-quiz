@@ -229,7 +229,7 @@ function getAllowedPasteOrder(wordType) {
   return VARIANT_PASTE_ORDER.filter(t=>allowed.has(t));
 }
 const BOOKS = [
-  { id:"hebrew",  label:{ko:"히브리어", en:"Hebrew"},  emoji:"🇮🇱", color:"#c4a050", ttsLang:"he-IL", ttsName:"he-IL-Wavenet-A", ttsRate:0.9,
+  { id:"hebrew",  label:{ko:"히브리어", en:"Hebrew"},  emoji:"🇮🇱", color:"#c4a050", ttsLang:"he-IL", ttsName:"he-IL-Neural2-A", ttsRate:0.9,
     termA:{ko:"히브리어", en:"Word"}, termB:{ko:"뜻", en:"Meaning"},
     placeholderA:{ko:"עברית (히브리어)", en:"Hebrew word"},
     placeholderB:{ko:"뜻 (한국어/영어)", en:"Meaning"},
@@ -364,20 +364,40 @@ function generateQuestion(word, allWords, type) {
   return { question, answer, choices:shuffle([answer,...distractors]), questionType:actualType, wordId:word.id };
 }
 
-async function googleTTS(text, apiKey, lang="he-IL", name="he-IL-Standard-A", rate=0.85) {
-  // 히브리어는 닉쿠드 제거, 다른 언어는 그대로
-  const input = lang.startsWith("he") ? stripNikkud(text) : text;
-  const res = await fetch(`https://texttospeech.googleapis.com/v1/text:synthesize?key=${apiKey}`,{
-    method:"POST", headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({input:{text:input}, voice:{languageCode:lang, name}, audioConfig:{audioEncoding:"MP3", speakingRate:rate}}),
-  });
-  if(!res.ok) throw new Error("TTS error");
-  const data=await res.json();
-  new Audio(`data:audio/mp3;base64,${data.audioContent}`).play();
+async function googleTTS(text, apiKey, lang="he-IL", name="he-IL-Wavenet-A", rate=0.9) {
+  // Google TTS: 히브리어는 닉쿠드 포함해서 전송 (닉쿠드가 있어야 정확한 발음)
+  // 단, 다른 언어도 그대로 전송
+  const input = text;
+
+  // Neural2 먼저 시도, 실패하면 Wavenet으로 폴백
+  const voiceNames = lang.startsWith("he")
+    ? ["he-IL-Neural2-A", "he-IL-Wavenet-A", "he-IL-Standard-A"]
+    : [name];
+
+  for(const voiceName of voiceNames){
+    try{
+      const res = await fetch(`https://texttospeech.googleapis.com/v1/text:synthesize?key=${apiKey}`,{
+        method:"POST", headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({
+          input:{text:input},
+          voice:{languageCode:lang, name:voiceName},
+          audioConfig:{audioEncoding:"MP3", speakingRate:rate, pitch:0}
+        }),
+      });
+      if(!res.ok) continue; // 이 음성 안 되면 다음 시도
+      const data=await res.json();
+      if(data.audioContent){
+        new Audio(`data:audio/mp3;base64,${data.audioContent}`).play();
+        return; // 성공
+      }
+    }catch{}
+  }
+  throw new Error("TTS error");
 }
-function browserTTS(text, lang="he-IL", rate=0.85) {
+function browserTTS(text, lang="he-IL", rate=0.9) {
   if(!window.speechSynthesis) return;
   window.speechSynthesis.cancel();
+  // 브라우저 TTS: 닉쿠드 제거 (브라우저는 닉쿠드 처리 못함)
   const input = lang.startsWith("he") ? stripNikkud(text) : text;
   const utt=new SpeechSynthesisUtterance(input);
   utt.lang=lang; utt.rate=rate; window.speechSynthesis.speak(utt);
