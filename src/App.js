@@ -706,22 +706,19 @@ export default function HebrewQuiz() {
 
   // Pealim 어근 검색
   const searchPealim=async()=>{
-    if(!pealimRoot.trim()){setPealimError("어근을 입력해주세요");return;}
+    if(!pealimRoot.trim()){setPealimError("동사를 입력해주세요");return;}
     setPealimLoading(true); setPealimError(""); setPealimResults([]); setPealimPreview(null);
     setPealimSelected(new Set());
     try{
-      const res=await fetch(`/api/pealim?mode=search&root=${encodeURIComponent(pealimRoot)}`);
+      // Reverso: 인피니티브 직접 조회
+      const res=await fetch(`/api/pealim?mode=conjugation&verb=${encodeURIComponent(pealimRoot.trim())}`);
       const data=await res.json();
       if(data.error){setPealimError(data.error);return;}
-      if(!data.results||!data.results.length){
-        const dbg = data.debug;
-        const msg = dbg
-          ? `검색 결과가 없어요. (링크:${dbg.dictLinks}개, menukad:${dbg.menukadCount}개, HTML:${dbg.htmlLength}자)`
-          : "검색 결과가 없어요. 어근을 확인해주세요.";
-        setPealimError(msg);return;
+      if(!data.variantCount){
+        setPealimError("변형을 찾지 못했어요. 히브리어 동사 원형(לְדַבֵּר 형태)을 입력해주세요.");return;
       }
-      setPealimResults(data.results);
-    }catch(e){setPealimError("검색 중 오류가 발생했어요: "+e.message);}
+      setPealimPreview({...data, root:pealimRoot.trim()});
+    }catch(e){setPealimError("불러오는 중 오류: "+e.message);}
     finally{setPealimLoading(false);}
   };
 
@@ -737,7 +734,8 @@ export default function HebrewQuiz() {
     for(let i=0; i<selectedList.length; i++){
       const r = selectedList[i];
       try{
-        const res = await fetch(`/api/pealim?mode=conjugation&url=${encodeURIComponent(r.url)}`);
+        const conjUrl = r.url||`https://conjugator.reverso.net/conjugation-hebrew-verb-${encodeURIComponent(r.hebrew)}.html`;
+        const res = await fetch(`/api/pealim?mode=conjugation&url=${encodeURIComponent(conjUrl)}`);
         if(!res.ok) throw new Error("서버 오류 "+res.status);
         const data = await res.json();
         if(data.error) throw new Error(data.error);
@@ -794,12 +792,7 @@ export default function HebrewQuiz() {
       const res=await fetch(`/api/pealim?mode=conjugation&url=${encodeURIComponent(url)}`);
       const data=await res.json();
       if(data.error){setPealimError(data.error);return;}
-      // 변형이 없으면 디버그 정보 표시
-      if(!data.variantCount && data.debug){
-        const d=data.debug;
-        setPealimError(`변형을 찾지 못했어요. 섹션감지: 현재형${d.present?'✓':'✗'} 과거형${d.past?'✓':'✗'} 미래형${d.future?'✓':'✗'}, 🔊형태: ${d.speakerCount}개`);
-        return;
-      }
+      if(!data.variantCount){setPealimError("변형을 찾지 못했어요.");return;}
       setPealimPreview({...data, root: root||pealimRoot});
     }catch(e){setPealimError("변형 데이터를 가져오는 중 오류: "+e.message);}
     finally{setPealimLoading(false);}
@@ -1126,14 +1119,14 @@ export default function HebrewQuiz() {
       {showPealimModal&&(
         <div style={S.modalOverlay}>
           <div style={{...S.modal,maxWidth:"500px",maxHeight:"88vh",overflowY:"auto"}}>
-            <h3 style={S.modalTitle}>🔍 Pealim에서 동사 변형 가져오기</h3>
-            <p style={S.modalSub}>히브리어 어근을 입력하면 pealim.com에서 변형표를 자동으로 가져와요</p>
+            <h3 style={S.modalTitle}>🔍 동사 변형 자동 불러오기</h3>
+            <p style={S.modalSub}>히브리어 동사 원형(to부정사)을 입력하면 변형표를 자동으로 가져와요. 예: לָשִׁיר, לְדַבֵּר, לֶאֱכֹל</p>
 
             {/* 어근 입력 */}
             <div style={{display:"flex",gap:"8px",marginBottom:"12px"}}>
               <input
                 style={{...S.input,flex:1,direction:"rtl",fontFamily:"Arial",fontSize:"1.1rem"}}
-                placeholder="ד-ב-ר 또는 דבר"
+                placeholder="לָשִׁיר, לְדַבֵּר, לֶאֱכֹל ..."
                 value={pealimRoot}
                 onChange={e=>setPealimRoot(e.target.value)}
                 onKeyDown={e=>e.key==="Enter"&&searchPealim()}
@@ -1150,10 +1143,10 @@ export default function HebrewQuiz() {
 
             {/* 입력 예시 */}
             <div style={{display:"flex",gap:"6px",flexWrap:"wrap",marginBottom:"12px"}}>
-              {[["ד-ב-ר","말하다"],["ה-ל-כ","가다"],["א-כ-ל","먹다"],["כ-ת-ב","쓰다"],["ר-א-ה","보다"]].map(([root,hint])=>(
-                <button key={root} onClick={()=>{setPealimRoot(root);}}
-                  style={{padding:"4px 10px",borderRadius:"6px",background:"rgba(196,160,80,0.1)",border:"1px solid rgba(196,160,80,0.3)",color:"#c4a050",fontSize:"0.78rem",cursor:"pointer",fontFamily:"Arial"}}>
-                  {root} <span style={{color:"#5a5870"}}>{hint}</span>
+              {[["לְדַבֵּר","말하다"],["לָלֶכֶת","가다"],["לֶאֱכֹל","먹다"],["לִכְתּוֹב","쓰다"],["לִרְאוֹת","보다"],["לָשִׁיר","노래하다"],["לֶאֱהֹב","사랑하다"]].map(([verb,hint])=>(
+                <button key={verb} onClick={()=>{setPealimRoot(verb);}}
+                  style={{padding:"4px 10px",borderRadius:"6px",background:"rgba(196,160,80,0.1)",border:"1px solid rgba(196,160,80,0.3)",color:"#c4a050",fontSize:"0.78rem",cursor:"pointer",fontFamily:"Arial",direction:"rtl"}}>
+                  {verb} <span style={{color:"#5a5870",direction:"ltr"}}>{hint}</span>
                 </button>
               ))}
             </div>
