@@ -617,9 +617,19 @@ export default function HebrewQuiz() {
   const [quizType,setQuizType]          =useState(QUIZ_TYPES.HEB_TO_MEAN);
   const [quizFilter,setQuizFilter]      =useState(QUIZ_FILTERS.LEARNING_ONLY);
   const [quizCount,setQuizCount]        =useState(10);
-  const [listFilter,setListFilter]      =useState("all");
+  const [listFilter,setListFilter] = useState(()=>{
+    try{ return localStorage.getItem("listFilter")||"all"; }catch{ return "all"; }
+  });
+  const setListFilterSave=(v)=>{ setListFilter(v); try{localStorage.setItem("listFilter",v);}catch{}; };
+  const [sortBy,setSortBy] = useState(()=>{
+    try{ return localStorage.getItem("sortBy")||"default"; }catch{ return "default"; }
+  });
+  const setSortBySave=(v)=>{ setSortBy(v); try{localStorage.setItem("sortBy",v);}catch{}; };
   const [searchQuery,setSearchQuery]    =useState("");
-  const [pageSize,setPageSize]          =useState(20);
+  const [pageSize,setPageSize] = useState(()=>{
+    try{ const s=localStorage.getItem("pageSize"); return s?Number(s):20; }catch{ return 20; }
+  });
+  const setPageSizeSave=(n)=>{ setPageSize(n); try{localStorage.setItem("pageSize",n);}catch{}; };
   const [page,setPage]                  =useState(0);
   const [selectedIds,setSelectedIds]    =useState(new Set());
   const [questions,setQuestions]        =useState([]);
@@ -1377,13 +1387,23 @@ export default function HebrewQuiz() {
   const startEdit=word=>{ setEditId(word.id); setNewHebrew(word.hebrew); setNewMeaning(word.meaning); setNewWordType(word.wordType||null); setOpenSections(s=>({...s,add:true})); window.scrollTo({top:0,behavior:'smooth'}); };
   const cancelEdit=()=>{ setEditId(null); setNewHebrew(""); setNewMeaning(""); setNewWordType(null); };
 
-  const searchedWords = words.filter(w => {
-    const matchFilter = listFilter === "all" || w.status === listFilter;
-    if (!matchFilter) return false;
-    if (!searchQuery.trim()) return true;
-    const q = searchQuery.toLowerCase();
-    return w.hebrew.includes(q) || w.meaning.toLowerCase().includes(q);
-  });
+  const searchedWords = (()=>{
+    let result = words.filter(w => {
+      const matchFilter = listFilter === "all" || w.status === listFilter;
+      if (!matchFilter) return false;
+      if (!searchQuery.trim()) return true;
+      const q = searchQuery.toLowerCase();
+      return w.hebrew.includes(q) || w.meaning.toLowerCase().includes(q);
+    });
+    if(sortBy==="hebrew_asc") result=[...result].sort((a,b)=>a.hebrew.localeCompare(b.hebrew,'he'));
+    else if(sortBy==="hebrew_desc") result=[...result].sort((a,b)=>b.hebrew.localeCompare(a.hebrew,'he'));
+    else if(sortBy==="meaning_asc") result=[...result].sort((a,b)=>a.meaning.localeCompare(b.meaning));
+    else if(sortBy==="meaning_desc") result=[...result].sort((a,b)=>b.meaning.localeCompare(a.meaning));
+    else if(sortBy==="hard_first") result=[...result].sort((a,b)=>{const o={hard:0,learning:1,mastered:2};return(o[a.status]??1)-(o[b.status]??1);});
+    else if(sortBy==="mastered_first") result=[...result].sort((a,b)=>{const o={mastered:0,learning:1,hard:2};return(o[a.status]??1)-(o[b.status]??1);});
+    else if(sortBy==="wrong_desc") result=[...result].sort((a,b)=>(b.wrongCount||0)-(a.wrongCount||0));
+    return result;
+  })();
   const totalPages = Math.ceil(searchedWords.length / pageSize);
   const filteredWords = pageSize === 9999
     ? searchedWords
@@ -2148,9 +2168,19 @@ export default function HebrewQuiz() {
                 )}
                 {/* 커스텀 단어장 선택 */}
                 {wallets.length>0&&editId===null&&(
-                  <div style={{marginBottom:"4px"}}>
-                    <div style={{fontSize:"0.72rem",color:"#7a7890",marginBottom:"5px"}}>📚 단어장 선택 <span style={{color:"#5a5870"}}>(선택사항 — 복수 선택 가능)</span></div>
-                    <div style={{display:"flex",gap:"5px",flexWrap:"wrap",marginBottom:"5px"}}>
+                  <div style={{marginBottom:"6px"}}>
+                    <div style={{fontSize:"0.72rem",color:"#7a7890",marginBottom:"5px"}}>📚 추가할 단어장 선택</div>
+                    <div style={{display:"flex",gap:"5px",flexWrap:"wrap"}}>
+                      {/* 기본 단어장 */}
+                      <button onClick={()=>setNewWordExcludeDefault(v=>!v)}
+                        style={{padding:"4px 10px",borderRadius:"7px",fontSize:"0.75rem",cursor:"pointer",border:"1px solid",
+                          background:!newWordExcludeDefault?"rgba(196,160,80,0.2)":"rgba(255,255,255,0.04)",
+                          borderColor:!newWordExcludeDefault?"rgba(196,160,80,0.5)":"rgba(255,255,255,0.1)",
+                          color:!newWordExcludeDefault?"#c4a050":"#5a5870",display:"flex",alignItems:"center",gap:"5px"}}>
+                        <span style={{width:"8px",height:"8px",borderRadius:"50%",background:"#c4a050",display:"inline-block",flexShrink:0}}/>
+                        기본 단어장{!newWordExcludeDefault?" ✓":""}
+                      </button>
+                      {/* 커스텀 단어장들 */}
                       {wallets.map(wl=>{
                         const sel=newWordWallets.has(wl.id);
                         return(
@@ -2158,24 +2188,15 @@ export default function HebrewQuiz() {
                             style={{padding:"4px 10px",borderRadius:"7px",fontSize:"0.75rem",cursor:"pointer",border:"1px solid",
                               background:sel?wl.color+"25":"rgba(255,255,255,0.04)",
                               borderColor:sel?wl.color+"60":"rgba(255,255,255,0.1)",
-                              color:sel?wl.color:"#5a5870",
-                              display:"flex",alignItems:"center",gap:"5px"}}>
+                              color:sel?wl.color:"#5a5870",display:"flex",alignItems:"center",gap:"5px"}}>
                             <span style={{width:"8px",height:"8px",borderRadius:"50%",background:wl.color,flexShrink:0,display:"inline-block"}}/>
-                            {wl.name} {sel&&"✓"}
+                            {wl.name}{sel?" ✓":""}
                           </button>
                         );
                       })}
                     </div>
-                    {/* 기본 단어장 포함 여부 */}
-                    <button onClick={()=>setNewWordExcludeDefault(v=>!v)}
-                      style={{padding:"3px 10px",borderRadius:"7px",fontSize:"0.72rem",cursor:"pointer",border:"1px solid",
-                        background:newWordExcludeDefault?"rgba(200,60,60,0.1)":"rgba(255,255,255,0.04)",
-                        borderColor:newWordExcludeDefault?"rgba(200,60,60,0.4)":"rgba(255,255,255,0.1)",
-                        color:newWordExcludeDefault?"#f07050":"#5a5870"}}>
-                      {newWordExcludeDefault?"🚫 기본 단어장 제외 중":"+ 기본 단어장에도 추가"}
-                    </button>
                     {newWordExcludeDefault&&newWordWallets.size===0&&(
-                      <span style={{fontSize:"0.68rem",color:"#f07050",marginLeft:"8px"}}>⚠️ 커스텀 단어장을 선택해야 해요</span>
+                      <div style={{fontSize:"0.68rem",color:"#f07050",marginTop:"4px"}}>⚠️ 커스텀 단어장을 하나 이상 선택해야 해요</div>
                     )}
                   </div>
                 )}
@@ -2243,8 +2264,16 @@ export default function HebrewQuiz() {
                 {/* 가져올 단어장 선택 */}
                 {wallets.length>0&&(
                   <div style={{padding:"10px 12px",borderRadius:"10px",background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.08)"}}>
-                    <div style={{fontSize:"0.72rem",color:"#7a7890",marginBottom:"6px"}}>📚 가져올 단어장</div>
-                    <div style={{display:"flex",gap:"5px",flexWrap:"wrap",marginBottom:"6px"}}>
+                    <div style={{fontSize:"0.72rem",color:"#7a7890",marginBottom:"6px"}}>📚 추가할 단어장 선택</div>
+                    <div style={{display:"flex",gap:"5px",flexWrap:"wrap"}}>
+                      <button onClick={()=>setImportExcludeDefault(v=>!v)}
+                        style={{padding:"4px 10px",borderRadius:"7px",fontSize:"0.75rem",cursor:"pointer",border:"1px solid",
+                          background:!importExcludeDefault?"rgba(196,160,80,0.2)":"rgba(255,255,255,0.04)",
+                          borderColor:!importExcludeDefault?"rgba(196,160,80,0.5)":"rgba(255,255,255,0.1)",
+                          color:!importExcludeDefault?"#c4a050":"#5a5870",display:"flex",alignItems:"center",gap:"5px"}}>
+                        <span style={{width:"8px",height:"8px",borderRadius:"50%",background:"#c4a050",display:"inline-block",flexShrink:0}}/>
+                        기본 단어장{!importExcludeDefault?" ✓":""}
+                      </button>
                       {wallets.map(wl=>{
                         const sel=importTargetWallets.has(wl.id);
                         return(
@@ -2259,19 +2288,12 @@ export default function HebrewQuiz() {
                         );
                       })}
                     </div>
-                    <button onClick={()=>setImportExcludeDefault(v=>!v)}
-                      style={{padding:"3px 10px",borderRadius:"7px",fontSize:"0.72rem",cursor:"pointer",border:"1px solid",
-                        background:importExcludeDefault?"rgba(200,60,60,0.1)":"rgba(255,255,255,0.04)",
-                        borderColor:importExcludeDefault?"rgba(200,60,60,0.4)":"rgba(255,255,255,0.1)",
-                        color:importExcludeDefault?"#f07050":"#5a5870"}}>
-                      {importExcludeDefault?"🚫 기본 단어장 제외 중":"+ 기본 단어장에도 추가"}
-                    </button>
                   </div>
                 )}
               </div>}
             </div>
 
-            {/* 검색 + 보기 수 */}
+            {/* 검색 + 정렬 + 보기 수 */}
             <div style={{display:"flex",gap:"8px",marginBottom:"10px",flexWrap:"wrap",alignItems:"center"}}>
               <input
                 style={{...S.input,flex:1,minWidth:"160px",padding:"9px 14px",fontSize:"0.9rem"}}
@@ -2279,10 +2301,24 @@ export default function HebrewQuiz() {
                 value={searchQuery}
                 onChange={e=>{setSearchQuery(e.target.value);setPage(0);}}
               />
+              {/* 정렬 */}
+              <select value={sortBy} onChange={e=>{setSortBySave(e.target.value);setPage(0);}}
+                style={{padding:"8px 10px",borderRadius:"8px",background:"rgba(255,255,255,0.06)",
+                  border:"1px solid rgba(255,255,255,0.15)",color:"#c4a050",fontSize:"0.78rem",cursor:"pointer",outline:"none"}}>
+                <option value="default">기본순</option>
+                <option value="hebrew_asc">히브리어 ↑</option>
+                <option value="hebrew_desc">히브리어 ↓</option>
+                <option value="meaning_asc">뜻 ↑</option>
+                <option value="meaning_desc">뜻 ↓</option>
+                <option value="hard_first">🔥 어려운 것 먼저</option>
+                <option value="mastered_first">✅ 암기 먼저</option>
+                <option value="wrong_desc">❌ 오답 많은 것 먼저</option>
+              </select>
+              {/* 보기 수 */}
               <div style={{display:"flex",gap:"4px"}}>
                 {[10,20,9999].map(n=>(
                   <button key={n} style={{...S.optBtn,padding:"8px 10px",fontSize:"0.78rem",...(pageSize===n?S.optBtnActive:{})}}
-                    onClick={()=>{setPageSize(n);setPage(0);}}>
+                    onClick={()=>{setPageSizeSave(n);setPage(0);}}>
                     {n===9999?"전체":n+"개"}
                   </button>
                 ))}
@@ -2390,7 +2426,7 @@ export default function HebrewQuiz() {
             {/* 필터 탭 */}
             <div style={S.filterTabs}>
               {[["all",T.all,words.length],["learning",T.learning,learningCount],["hard",T.hard,hardCount],["mastered",T.done,masteredCount]].map(([val,label,cnt])=>(
-                <button key={val} style={{...S.filterTab,...(listFilter===val?S.filterTabActive:{})}} onClick={()=>{setListFilter(val);setPage(0);setSelectedIds(new Set());}}>
+                <button key={val} style={{...S.filterTab,...(listFilter===val?S.filterTabActive:{})}} onClick={()=>{setListFilterSave(val);setPage(0);setSelectedIds(new Set());}}>
                   {label}<span style={S.filterCnt}>{cnt}</span>
                 </button>
               ))}
