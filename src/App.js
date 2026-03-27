@@ -937,30 +937,51 @@ export default function HebrewQuiz() {
 
   // root가 있는 단어들 변형 일괄 재로딩
   const [refreshingVariants,setRefreshingVariants]=useState(false);
+  const [refreshLog,setRefreshLog]=useState([]); // 불러온 단어 로그
+  const [showRefreshLog,setShowRefreshLog]=useState(false);
+
+  const downloadTemplate=()=>{
+    const b64="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";
+    const bin=atob(b64);
+    const arr=new Uint8Array(bin.length);
+    for(let i=0;i<bin.length;i++) arr[i]=bin.charCodeAt(i);
+    const blob=new Blob([arr],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement("a");
+    a.href=url; a.download="Hebrew_동사변형_양식.xlsx"; a.click();
+    URL.revokeObjectURL(url);
+  };
   const refreshAllVariants=async()=>{
-    // 동사 단어 (wordType=verb 또는 변형이 있는 단어)
     const verbWords=words.filter(w=>w.wordType==="verb"||(w.variants||[]).length>0);
-    if(!verbWords.length){ showToast("동사 단어가 없어요. 단어장에 동사를 추가해주세요.","err"); return; }
+    if(!verbWords.length){ showToast("동사 단어가 없어요.","err"); return; }
     setRefreshingVariants(true);
-    let updated=0;
+    setRefreshLog([]);
+    const log=[];
     const done=new Set();
     for(const w of verbWords){
       const key=stripNikkud(w.hebrew);
       if(done.has(key)) continue;
       done.add(key);
       try{
-        // Reverso: 히브리어 단어 자체를 인피니티브로 직접 조회
         const res=await fetch(`/api/Reverso?mode=conjugation&verb=${encodeURIComponent(w.hebrew)}`);
         const cd=await res.json();
-        if(cd.error||!cd.variantCount) continue;
+        if(cd.error||!cd.variantCount){
+          log.push({hebrew:w.hebrew,meaning:w.meaning,status:"fail",variantCount:0,error:cd.error||"변형 없음"});
+          continue;
+        }
         const variants=Object.entries(cd.variants).filter(([,f])=>f).map(([type,form])=>({type,form}));
-        if(!variants.length) continue;
+        if(!variants.length){ log.push({hebrew:w.hebrew,meaning:w.meaning,status:"fail",variantCount:0,error:"변형 없음"}); continue; }
         setWords(ws=>ws.map(ww=>stripNikkud(ww.hebrew)===key?{...ww,variants,meaning:ww.meaning||cd.meaning||""}:ww));
-        updated++;
-      }catch(e){ console.error(e); }
+        log.push({hebrew:w.hebrew,meaning:w.meaning,status:"ok",variantCount:variants.length});
+      }catch(e){
+        log.push({hebrew:w.hebrew,meaning:w.meaning,status:"fail",variantCount:0,error:e.message});
+      }
     }
+    setRefreshLog(log);
+    setShowRefreshLog(true);
     setRefreshingVariants(false);
-    showToast(`✅ ${updated}개 단어의 변형을 업데이트했어요!`);
+    const ok=log.filter(l=>l.status==="ok").length;
+    showToast(`✅ ${ok}개 성공 / ${log.length-ok}개 실패`);
   };
 
   const addNewWordFromPealim=()=>{
@@ -2215,9 +2236,33 @@ export default function HebrewQuiz() {
               <p style={{fontSize:"0.82rem",color:"#7a7890",marginBottom:"8px"}}>성별·복수·동사 활용·소유격 변형을 직접 타이핑! 단어장의 🔀 버튼으로 추가하거나 엑셀 파일로 일괄 추가하세요.</p>
               {words.filter(w=>w.root&&w.wordType==="verb").length>0&&(
                 <button onClick={refreshAllVariants} disabled={refreshingVariants}
-                  style={{...S.btnIO("#50c898","rgba(80,160,120,0.15)","rgba(80,160,120,0.4)"),marginBottom:"10px",opacity:refreshingVariants?0.6:1}}>
-                  {refreshingVariants?"🔄 변형 업데이트 중...":"🔄 기존 단어 변형 다시 불러오기"}
+                  style={{...S.btnIO("#50c898","rgba(80,160,120,0.15)","rgba(80,160,120,0.4)"),marginBottom:"6px",opacity:refreshingVariants?0.6:1}}>
+                  {refreshingVariants?`🔄 변형 업데이트 중...`:"🔄 기존 단어 변형 다시 불러오기"}
                 </button>
+                {refreshLog.length>0&&(
+                  <div style={{marginBottom:"10px"}}>
+                    <button onClick={()=>setShowRefreshLog(v=>!v)}
+                      style={{...S.scrollBtn,width:"100%",marginBottom:"4px",fontSize:"0.78rem"}}>
+                      {showRefreshLog?"▲ 결과 숨기기":"▼ 불러오기 결과 보기"} ({refreshLog.filter(l=>l.status==="ok").length}개 성공 / {refreshLog.filter(l=>l.status==="fail").length}개 실패)
+                    </button>
+                    {showRefreshLog&&(
+                      <div style={{maxHeight:"200px",overflowY:"auto",display:"flex",flexDirection:"column",gap:"3px"}}>
+                        {refreshLog.map((l,i)=>(
+                          <div key={i} style={{display:"flex",alignItems:"center",gap:"8px",padding:"5px 10px",borderRadius:"7px",
+                            background:l.status==="ok"?"rgba(80,160,120,0.08)":"rgba(200,60,60,0.06)",
+                            border:`1px solid ${l.status==="ok"?"rgba(80,160,120,0.2)":"rgba(200,60,60,0.2)"}`}}>
+                            <span style={{fontSize:"0.8rem"}}>{l.status==="ok"?"✅":"❌"}</span>
+                            <span style={{fontFamily:"Arial",direction:"rtl",color:"#c4a050",fontSize:"0.95rem",minWidth:"70px"}}>{l.hebrew}</span>
+                            <span style={{color:"#7a7890",fontSize:"0.78rem",flex:1}}>{l.meaning}</span>
+                            {l.status==="ok"
+                              ?<span style={{fontSize:"0.7rem",color:"#50c898",flexShrink:0}}>변형 {l.variantCount}개</span>
+                              :<span style={{fontSize:"0.7rem",color:"#f07050",flexShrink:0}}>{l.error}</span>}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               )}
               <div style={{display:"flex",gap:"8px",marginBottom:"12px",flexWrap:"wrap"}}>
                 <button style={S.btnIO("#50c898","rgba(80,160,120,0.15)","rgba(80,160,120,0.4)")} onClick={()=>setShowPealimModal(true)}>🔍 Reverso에서 변형 가져오기</button>
@@ -2225,7 +2270,7 @@ export default function HebrewQuiz() {
                 <button style={S.btnIO("#9060f0","rgba(100,80,200,0.15)","rgba(100,80,200,0.4)")} onClick={()=>variantFileRef.current.click()}>📥 변형 엑셀 불러오기</button>
                 <button style={S.btnIO("#50c898","rgba(80,160,120,0.15)","rgba(80,160,120,0.4)")} onClick={()=>verbFormFileRef.current?.click()}>📋 동사변형 양식 불러오기</button>
                 <input ref={verbFormFileRef} type="file" accept=".xlsx,.xls" style={{display:"none"}} onChange={handleVerbFormExcel}/>
-                <a href="/hebrew_variant_template.xlsx" download style={{...S.btnIO("#c4a050","rgba(196,160,80,0.1)","rgba(196,160,80,0.3)"),textDecoration:"none",display:"flex",alignItems:"center"}}>⬇️ 양식 다운로드</a>
+                <button onClick={downloadTemplate} style={S.btnIO("#c4a050","rgba(196,160,80,0.1)","rgba(196,160,80,0.3)")}>⬇️ 양식 다운로드</button>
                 <input ref={variantFileRef} type="file" accept=".xlsx,.xls" style={{display:"none"}} onChange={handleVariantExcel}/>
               </div>
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"6px"}}>
