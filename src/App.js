@@ -610,6 +610,7 @@ export default function HebrewQuiz() {
   const [mode,setMode]                  =useState(MODES.LIST);
   const [newHebrew,setNewHebrew]        =useState("");
   const [newWordType,setNewWordType]    =useState(null);
+  const [newWordWallet,setNewWordWallet]=useState(null);
   const [newMeaning,setNewMeaning]      =useState("");
   const [editId,setEditId]              =useState(null);
   const [quizType,setQuizType]          =useState(QUIZ_TYPES.HEB_TO_MEAN);
