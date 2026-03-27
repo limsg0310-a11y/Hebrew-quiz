@@ -711,7 +711,7 @@ export default function HebrewQuiz() {
     setPealimSelected(new Set());
     try{
       // Reverso: 인피니티브 직접 조회
-      const res=await fetch(`/api/pealim?mode=conjugation&verb=${encodeURIComponent(pealimRoot.trim())}`);
+      const res=await fetch(`/api/Reverso?mode=conjugation&verb=${encodeURIComponent(pealimRoot.trim())}`);
       const data=await res.json();
       if(data.error){setPealimError(data.error);return;}
       if(!data.variantCount){
@@ -735,7 +735,7 @@ export default function HebrewQuiz() {
       const r = selectedList[i];
       try{
         const conjUrl = r.url||`https://conjugator.reverso.net/conjugation-hebrew-verb-${encodeURIComponent(r.hebrew)}.html`;
-        const res = await fetch(`/api/pealim?mode=conjugation&url=${encodeURIComponent(conjUrl)}`);
+        const res = await fetch(`/api/Reverso?mode=conjugation&url=${encodeURIComponent(conjUrl)}`);
         if(!res.ok) throw new Error("서버 오류 "+res.status);
         const data = await res.json();
         if(data.error) throw new Error(data.error);
@@ -789,7 +789,7 @@ export default function HebrewQuiz() {
   const fetchPealimConjugation=async(url, root)=>{
     setPealimLoading(true); setPealimError(""); setPealimPreview(null);
     try{
-      const res=await fetch(`/api/pealim?mode=conjugation&url=${encodeURIComponent(url)}`);
+      const res=await fetch(`/api/Reverso?mode=conjugation&url=${encodeURIComponent(url)}`);
       const data=await res.json();
       if(data.error){setPealimError(data.error);return;}
       if(!data.variantCount){setPealimError("변형을 찾지 못했어요.");return;}
@@ -820,12 +820,12 @@ export default function HebrewQuiz() {
       if(done.has(w.hebrew)) continue;
       done.add(w.hebrew);
       try{
-        const searchRes=await fetch(`/api/pealim?mode=search&root=${encodeURIComponent(w.root)}`);
+        const searchRes=await fetch(`/api/Reverso?mode=search&root=${encodeURIComponent(w.root)}`);
         const sd=await searchRes.json();
         if(sd.error||!sd.results?.length) continue;
         const match=sd.results.find(r=>stripNikkud(r.hebrew)===stripNikkud(w.hebrew)||r.hebrew===w.hebrew);
         if(!match) continue;
-        const cr=await fetch(`/api/pealim?mode=conjugation&url=${encodeURIComponent(match.url)}`);
+        const cr=await fetch(`/api/Reverso?mode=conjugation&url=${encodeURIComponent(match.url)}`);
         const cd=await cr.json();
         if(cd.error||!cd.variants) continue;
         const variants=Object.entries(cd.variants).filter(([,f])=>f).map(([type,form])=>({type,form}));
@@ -1637,13 +1637,13 @@ export default function HebrewQuiz() {
                             // 해당 어근 단어들만 변형 새로고침
                             setRefreshingVariants(true);
                             try{
-                              const searchRes=await fetch(`/api/pealim?mode=search&root=${encodeURIComponent(root)}`);
+                              const searchRes=await fetch(`/api/Reverso?mode=search&root=${encodeURIComponent(root)}`);
                               const sd=await searchRes.json();
                               if(!sd.error&&sd.results){
                                 for(const r of sd.results){
                                   const match=ws.find(w=>stripNikkud(w.hebrew)===stripNikkud(r.hebrew));
                                   if(!match) continue;
-                                  const cr=await fetch(`/api/pealim?mode=conjugation&url=${encodeURIComponent(r.url)}`);
+                                  const cr=await fetch(`/api/Reverso?mode=conjugation&url=${encodeURIComponent(r.url)}`);
                                   const cd=await cr.json();
                                   if(!cd.error&&cd.variants){
                                     const variants=Object.entries(cd.variants).filter(([,f])=>f).map(([type,form])=>({type,form}));
