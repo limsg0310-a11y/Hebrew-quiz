@@ -678,9 +678,15 @@ export default function HebrewQuiz() {
   const [variantInput,setVariantInput]       =useState("");
   const [variantConfirmed,setVariantConfirmed]=useState(false);
   const [variantResults,setVariantResults]   =useState([]);
-  const [variantFilter,setVariantFilter]     =useState(QUIZ_FILTERS.ALL);
+  const [variantFilter,setVariantFilter] = useState(()=>{
+    try{ return localStorage.getItem("variantFilter")||QUIZ_FILTERS.ALL; }catch{ return QUIZ_FILTERS.ALL; }
+  });
+  const setVariantFilterSave=(v)=>{ setVariantFilter(v); try{localStorage.setItem("variantFilter",v);}catch{}; };
   const [variantCount,setVariantCount]       =useState(10);
-  const [variantCats,setVariantCats]         =useState(["gender","plural"]); // 선택된 카테고리
+  const [variantCats,setVariantCats] = useState(()=>{
+    try{ const s=localStorage.getItem("variantCats"); return s?JSON.parse(s):VARIANT_CATS.map(c=>c.id); }catch{ return VARIANT_CATS.map(c=>c.id); }
+  });
+  const setVariantCatsSave=(v)=>{ const next=typeof v==="function"?v(variantCats):v; setVariantCats(next); try{localStorage.setItem("variantCats",JSON.stringify(next));}catch{} };
   const [expandedVariantWord,setExpandedVariantWord]=useState(null);
   // 섹션 접기/펼치기
   const [openSections,setOpenSections]    =useState(()=>{
@@ -888,26 +894,24 @@ export default function HebrewQuiz() {
   // root가 있는 단어들 변형 일괄 재로딩
   const [refreshingVariants,setRefreshingVariants]=useState(false);
   const refreshAllVariants=async()=>{
-    const rootWords=words.filter(w=>w.root&&w.wordType==="verb");
-    if(!rootWords.length){ showToast("어근 정보가 있는 동사가 없어요","err"); return; }
+    // 동사 단어 (wordType=verb 또는 변형이 있는 단어)
+    const verbWords=words.filter(w=>w.wordType==="verb"||(w.variants||[]).length>0);
+    if(!verbWords.length){ showToast("동사 단어가 없어요. 단어장에 동사를 추가해주세요.","err"); return; }
     setRefreshingVariants(true);
     let updated=0;
     const done=new Set();
-    for(const w of rootWords){
-      if(done.has(w.hebrew)) continue;
-      done.add(w.hebrew);
+    for(const w of verbWords){
+      const key=stripNikkud(w.hebrew);
+      if(done.has(key)) continue;
+      done.add(key);
       try{
-        const searchRes=await fetch(`/api/Reverso?mode=search&root=${encodeURIComponent(w.root)}`);
-        const sd=await searchRes.json();
-        if(sd.error||!sd.results?.length) continue;
-        const match=sd.results.find(r=>stripNikkud(r.hebrew)===stripNikkud(w.hebrew)||r.hebrew===w.hebrew);
-        if(!match) continue;
-        const cr=await fetch(`/api/Reverso?mode=conjugation&url=${encodeURIComponent(match.url)}`);
-        const cd=await cr.json();
-        if(cd.error||!cd.variants) continue;
+        // Reverso: 히브리어 단어 자체를 인피니티브로 직접 조회
+        const res=await fetch(`/api/Reverso?mode=conjugation&verb=${encodeURIComponent(w.hebrew)}`);
+        const cd=await res.json();
+        if(cd.error||!cd.variantCount) continue;
         const variants=Object.entries(cd.variants).filter(([,f])=>f).map(([type,form])=>({type,form}));
         if(!variants.length) continue;
-        setWords(ws=>ws.map(ww=>stripNikkud(ww.hebrew)===stripNikkud(w.hebrew)?{...ww,variants,meaning:ww.meaning||cd.meaning||"",wordType:ww.wordType||cd.wordType||"verb"}:ww));
+        setWords(ws=>ws.map(ww=>stripNikkud(ww.hebrew)===key?{...ww,variants,meaning:ww.meaning||cd.meaning||""}:ww));
         updated++;
       }catch(e){ console.error(e); }
     }
@@ -2080,12 +2084,18 @@ export default function HebrewQuiz() {
                 <a href="/hebrew_variant_template.xlsx" download style={{...S.btnIO("#c4a050","rgba(196,160,80,0.1)","rgba(196,160,80,0.3)"),textDecoration:"none",display:"flex",alignItems:"center"}}>⬇️ 양식 다운로드</a>
                 <input ref={variantFileRef} type="file" accept=".xlsx,.xls" style={{display:"none"}} onChange={handleVariantExcel}/>
               </div>
-              <p style={S.settingLabel}>변형 유형 선택</p>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"6px"}}>
+                <p style={{...S.settingLabel,margin:0}}>변형 유형 선택</p>
+                <button onClick={()=>setVariantCatsSave(variantCats.length===VARIANT_CATS.length?[]:VARIANT_CATS.map(c=>c.id))}
+                  style={{...S.scrollBtn,padding:"3px 10px",fontSize:"0.72rem"}}>
+                  {variantCats.length===VARIANT_CATS.length?"전체 해제":"전체 선택"}
+                </button>
+              </div>
               <div style={S.optionRow}>
                 {VARIANT_CATS.map(cat=>(
                   <button key={cat.id}
                     style={{...S.optBtn,...(variantCats.includes(cat.id)?{background:"rgba(80,160,120,0.2)",borderColor:"rgba(80,160,120,0.5)",color:"#50c898"}:{})}}
-                    onClick={()=>setVariantCats(v=>v.includes(cat.id)?v.filter(x=>x!==cat.id):[...v,cat.id])}>
+                    onClick={()=>setVariantCatsSave(v=>v.includes(cat.id)?v.filter(x=>x!==cat.id):[...v,cat.id])}>
                     {cat.label[uiLang]||cat.label.ko}
                   </button>
                 ))}
@@ -2103,7 +2113,7 @@ export default function HebrewQuiz() {
                     [QUIZ_FILTERS.ALL, `전체 (${vAll})`],
                     [QUIZ_FILTERS.EXCLUDE_MASTERED, `암기 제외 (${vExclude})`],
                     [QUIZ_FILTERS.HARD_ONLY, `🔥 어려운 것만 (${vHard})`]
-                  ].map(([val,label])=><button key={val} style={{...S.optBtn,...(variantFilter===val?{background:"rgba(80,160,120,0.2)",borderColor:"rgba(80,160,120,0.5)",color:"#50c898"}:{})}} onClick={()=>setVariantFilter(val)}>{label}</button>)}</div>
+                  ].map(([val,label])=><button key={val} style={{...S.optBtn,...(variantFilter===val?{background:"rgba(80,160,120,0.2)",borderColor:"rgba(80,160,120,0.5)",color:"#50c898"}:{})}} onClick={()=>setVariantFilterSave(val)}>{label}</button>)}</div>
                 );
               })()}
               <p style={S.settingLabel}>{T.questionCount} <span style={{color:"#5a5870",fontWeight:400,textTransform:"none"}}>(가능: {variantPoolSize}개)</span></p>
