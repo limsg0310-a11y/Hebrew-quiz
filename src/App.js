@@ -2669,22 +2669,18 @@ export default function HebrewQuiz() {
                           onClick={()=>expandedVariantWord===w.id?setExpandedVariantWord(null):openVariantModal(w)}>
                           {w.variants&&w.variants.length>0?`🔀${w.variants.length}`:"🔀"}
                         </button>
-                      {wallets.length>0&&(
-                        <div style={{position:"relative"}}>
+                        {wallets.length>0&&(
                           <button title="단어장에 추가" style={{...S.btnEdit,
                             color:wallets.some(wl=>wl.wordIds.includes(w.id))?"#c4a050":"inherit",
                             opacity:wallets.some(wl=>wl.wordIds.includes(w.id))?1:0.45}}
                             onClick={e=>{
                               e.stopPropagation();
-                              if(wallets.length===1){
-                                toggleWordInWallet(wallets[0].id,w.id);
-                              } else {
-                                setWalletPickWord(w.id);
-                              }
+                              if(wallets.length===1){ toggleWordInWallet(wallets[0].id,w.id); }
+                              else { setWalletPickWord(w.id); }
                             }}>📚</button>
-                        </div>
-                      )}
-                      <button style={S.btnDel} onClick={()=>deleteWord(w.id)}>🗑️</button>
+                        )}
+                        <button style={S.btnDel} onClick={()=>deleteWord(w.id)}>🗑️</button>
+                      </div>
                     </div>
                   </div>
                 </div>
