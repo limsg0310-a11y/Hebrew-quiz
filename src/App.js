@@ -839,26 +839,48 @@ export default function HebrewQuiz() {
   // Pealim 어근 검색
   // ── 어근 기반 단어 검색 (Pealim) ──
   // ── 한국어/영어로 히브리어 단어 검색 ──
+  // 번역 유틸
+  const translateText=async(text, from, to)=>{
+    const res=await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=${from}&tl=${to}&dt=t&q=${encodeURIComponent(text)}`);
+    const data=await res.json();
+    return data?.[0]?.[0]?.[0]||"";
+  };
+
   const searchWordByMeaning=async()=>{
     if(!wordSearchInput.trim()){setWordSearchError("검색어를 입력해주세요");return;}
     setWordSearchLoading(true); setWordSearchError(""); setWordSearchResults([]); setWordSearchSelected(new Set());
     try{
-      let query=wordSearchInput.trim();
-      // 한국어 포함 시 영어로 번역
-      const hasKorean=/[ㄱ-ㅎ|ㅏ-ㅣ|가-힣]/.test(query);
-      if(hasKorean){
-        try{
-          const tRes=await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=ko&tl=en&dt=t&q=${encodeURIComponent(query)}`);
-          const tData=await tRes.json();
-          const translated=tData?.[0]?.[0]?.[0];
-          if(translated) query=translated;
-        }catch{ /* 번역 실패 시 원문으로 검색 */ }
+      const q=wordSearchInput.trim();
+      const hasKorean=/[ㄱ-ㅎ가-힣]/.test(q);
+      const hasHebrew=/[א-ת]/.test(q);
+
+      if(currentBook==="hebrew"){
+        // 히브리어 단어장: 한/영 → 히브리어 (Pealim)
+        let searchQ=q;
+        if(hasKorean){
+          try{ const t=await translateText(q,"ko","en"); if(t) searchQ=t; }catch{}
+        }
+        const res=await fetch(`/api/Reverso?mode=word_search&q=${encodeURIComponent(searchQ)}`);
+        const data=await res.json();
+        if(data.error){setWordSearchError(data.error);return;}
+        if(!data.results?.length){setWordSearchError(`"${q}"${hasKorean?` → "${searchQ}"`:""} 검색 결과가 없어요.`);return;}
+        setWordSearchResults(data.results);
+
+      } else if(currentBook==="english"){
+        // 영어 단어장: 한국어 → 영어 번역 결과를 카드로 표시
+        if(!hasKorean){setWordSearchError("한국어로 입력해주세요 (예: 사과, 사랑)");return;}
+        const translated=await translateText(q,"ko","en");
+        if(!translated){setWordSearchError("번역 결과가 없어요.");return;}
+        setWordSearchResults([{meaning:translated,hebrew:"",pos:"translation",note:`"${q}" 번역 결과`}]);
+
+      } else if(currentBook==="korean"){
+        // 한국어 단어장: 영어/히브리어 → 한국어
+        let fromLang="en";
+        if(hasHebrew) fromLang="he";
+        const translated=await translateText(q,fromLang,"ko");
+        if(!translated){setWordSearchError("번역 결과가 없어요.");return;}
+        setWordSearchResults([{meaning:translated,hebrew:q,pos:"translation",note:`"${q}" 번역 결과`}]);
       }
-      const res=await fetch(`/api/Reverso?mode=word_search&q=${encodeURIComponent(query)}`);
-      const data=await res.json();
-      if(data.error){setWordSearchError(data.error);return;}
-      if(!data.results?.length){setWordSearchError(`"${wordSearchInput}" 검색 결과가 없어요. 영어로도 시도해보세요.`);return;}
-      setWordSearchResults(data.results);
     }catch(e){setWordSearchError("오류: "+e.message);}
     finally{setWordSearchLoading(false);}
   };
@@ -866,12 +888,14 @@ export default function HebrewQuiz() {
   const addSelectedWordSearchResults=()=>{
     if(!wordSearchSelected.size){setWordSearchError("단어를 선택해주세요");return;}
     const toAdd=[...wordSearchSelected].map(i=>wordSearchResults[i]).filter(Boolean);
-    const newWords=toAdd.map(r=>({
-      id:Date.now()+Math.random(),
-      hebrew:r.hebrew, meaning:r.meaning||"",
-      status:"learning",streak:0,wrongCount:0,
-      wordType:r.pos||null, variants:[]
-    }));
+    const newWords=toAdd.map(r=>{
+      // 단어장별 hebrew/meaning 필드 결정
+      let hebrew="", meaning="";
+      if(currentBook==="hebrew"){ hebrew=r.hebrew; meaning=r.meaning||""; }
+      else if(currentBook==="english"){ hebrew=""; meaning=r.meaning||""; } // 영어 단어장: meaning=영어단어
+      else if(currentBook==="korean"){ hebrew=r.hebrew||""; meaning=r.meaning||""; } // 한국어: meaning=한국어
+      return { id:Date.now()+Math.random(), hebrew, meaning, status:"learning", streak:0, wrongCount:0, wordType:r.pos==="translation"?null:r.pos||null, variants:[] };
+    });
     if(!importExcludeDefault){
       setWords(ws=>[...newWords,...ws]); setPage(0);
     } else {
@@ -1662,11 +1686,15 @@ export default function HebrewQuiz() {
       {showWordSearchModal&&(
         <div style={S.modalOverlay} onClick={()=>setShowWordSearchModal(false)}>
           <div style={{...S.modal,maxWidth:"480px"}} onClick={e=>e.stopPropagation()}>
-            <h3 style={S.modalTitle}>🔎 뜻으로 히브리어 검색</h3>
-            <p style={S.modalSub}>한국어 또는 영어로 입력하면 Pealim에서 히브리어 단어를 찾아줘요. 한국어는 자동 번역 후 검색해요. 예: 사랑, 사과, love, write</p>
+            <h3 style={S.modalTitle}>🔎 {currentBook==="hebrew"?"뜻으로 히브리어 검색":currentBook==="english"?"한국어로 영어 찾기":"영어/히브리어로 한국어 찾기"}</h3>
+            <p style={S.modalSub}>{
+              currentBook==="hebrew"?"한국어 또는 영어로 입력하면 히브리어 단어를 찾아줘요. 한국어는 자동 번역돼요. 예: 사랑, love":
+              currentBook==="english"?"한국어를 입력하면 영어로 번역해줘요. 예: 사과, 감사합니다":
+              "영어 또는 히브리어를 입력하면 한국어 뜻을 찾아줘요. 예: love, שלום"
+            }</p>
             <div style={{display:"flex",gap:"8px",marginBottom:"10px"}}>
               <input style={{...S.input,flex:1}}
-                placeholder="사과, apple, 사랑..."
+                placeholder={currentBook==="hebrew"?"사랑, love, apple...":currentBook==="english"?"한국어 입력 (예: 사과, 감사)":"영어 또는 히브리어 입력"}
                 value={wordSearchInput}
                 onChange={e=>setWordSearchInput(e.target.value)}
                 onKeyDown={e=>e.key==="Enter"&&searchWordByMeaning()}/>
@@ -1694,14 +1722,15 @@ export default function HebrewQuiz() {
                 <div style={{maxHeight:"340px",overflowY:"auto",display:"flex",flexDirection:"column",gap:"5px"}}>
                   {wordSearchResults.map((r,i)=>{
                     const sel=wordSearchSelected.has(i);
-                    const exists=!!words.find(w=>stripNikkud(w.hebrew)===stripNikkud(r.hebrew));
+                    const isTranslation=r.pos==="translation";
+                    const exists=!isTranslation&&!!words.find(w=>stripNikkud(w.hebrew||"")===stripNikkud(r.hebrew||"")&&w.meaning===r.meaning);
                     const posColors={verb:"#60c880",noun:"#c4a050",adj:"#f09050"};
                     const posLabels={verb:"동사",noun:"명사",adj:"형용사"};
                     return(
                       <div key={i} onClick={()=>{if(exists)return;setWordSearchSelected(s=>{const n=new Set(s);n.has(i)?n.delete(i):n.add(i);return n;});}}
-                        style={{display:"flex",gap:"8px",alignItems:"center",padding:"8px 12px",borderRadius:"10px",
-                          background:sel?"rgba(196,160,80,0.1)":"rgba(255,255,255,0.03)",
-                          border:`1px solid ${sel?"rgba(196,160,80,0.4)":exists?"rgba(255,255,255,0.05)":"rgba(255,255,255,0.08)"}`,
+                        style={{display:"flex",gap:"8px",alignItems:"center",padding:"10px 12px",borderRadius:"10px",
+                          background:sel?"rgba(196,160,80,0.1)":isTranslation?"rgba(100,80,200,0.06)":"rgba(255,255,255,0.03)",
+                          border:`1px solid ${sel?"rgba(196,160,80,0.4)":isTranslation?"rgba(100,80,200,0.25)":exists?"rgba(255,255,255,0.05)":"rgba(255,255,255,0.08)"}`,
                           cursor:exists?"default":"pointer",opacity:exists?0.5:1}}>
                         <div style={{width:"16px",height:"16px",borderRadius:"4px",flexShrink:0,
                           border:`2px solid ${sel?"#c4a050":"rgba(255,255,255,0.2)"}`,
@@ -1709,11 +1738,21 @@ export default function HebrewQuiz() {
                           display:"flex",alignItems:"center",justifyContent:"center"}}>
                           {sel&&<span style={{color:"#1a1820",fontSize:"0.65rem",fontWeight:700}}>✓</span>}
                         </div>
-                        {r.pos&&<span style={{fontSize:"0.62rem",padding:"1px 6px",borderRadius:"4px",flexShrink:0,
-                          background:`rgba(${r.pos==="verb"?"96,200,128":r.pos==="noun"?"196,160,80":"240,144,80"},0.15)`,
-                          color:posColors[r.pos]||"#a0a0c0"}}>{posLabels[r.pos]||r.pos}</span>}
-                        <span style={{fontFamily:"Arial",direction:"rtl",fontSize:"1.05rem",color:"#c4a050",minWidth:"80px"}}>{r.hebrew}</span>
-                        <span style={{fontSize:"0.82rem",color:"#a0a0c0",flex:1}}>{r.meaning}</span>
+                        {isTranslation?(
+                          <div style={{flex:1}}>
+                            {r.note&&<div style={{fontSize:"0.65rem",color:"#7a7890",marginBottom:"2px"}}>{r.note}</div>}
+                            <span style={{fontSize:"1.1rem",color:"#c4a050",fontWeight:600}}>{r.meaning}</span>
+                            {r.hebrew&&<span style={{fontFamily:"Arial",direction:"rtl",fontSize:"0.9rem",color:"#a0a0c0",marginLeft:"8px"}}>{r.hebrew}</span>}
+                          </div>
+                        ):(
+                          <>
+                            {r.pos&&<span style={{fontSize:"0.62rem",padding:"1px 6px",borderRadius:"4px",flexShrink:0,
+                              background:`rgba(${r.pos==="verb"?"96,200,128":r.pos==="noun"?"196,160,80":"240,144,80"},0.15)`,
+                              color:posColors[r.pos]||"#a0a0c0"}}>{posLabels[r.pos]||r.pos}</span>}
+                            <span style={{fontFamily:"Arial",direction:"rtl",fontSize:"1.05rem",color:"#c4a050",minWidth:"80px"}}>{r.hebrew}</span>
+                            <span style={{fontSize:"0.82rem",color:"#a0a0c0",flex:1}}>{r.meaning}</span>
+                          </>
+                        )}
                         {exists&&<span style={{fontSize:"0.65rem",color:"#50c898",flexShrink:0}}>✓ 있음</span>}
                       </div>
                     );
