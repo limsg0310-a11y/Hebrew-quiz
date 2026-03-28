@@ -843,10 +843,21 @@ export default function HebrewQuiz() {
     if(!wordSearchInput.trim()){setWordSearchError("검색어를 입력해주세요");return;}
     setWordSearchLoading(true); setWordSearchError(""); setWordSearchResults([]); setWordSearchSelected(new Set());
     try{
-      const res=await fetch(`/api/Reverso?mode=word_search&q=${encodeURIComponent(wordSearchInput.trim())}`);
+      let query=wordSearchInput.trim();
+      // 한국어 포함 시 영어로 번역
+      const hasKorean=/[ㄱ-ㅎ|ㅏ-ㅣ|가-힣]/.test(query);
+      if(hasKorean){
+        try{
+          const tRes=await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=ko&tl=en&dt=t&q=${encodeURIComponent(query)}`);
+          const tData=await tRes.json();
+          const translated=tData?.[0]?.[0]?.[0];
+          if(translated) query=translated;
+        }catch{ /* 번역 실패 시 원문으로 검색 */ }
+      }
+      const res=await fetch(`/api/Reverso?mode=word_search&q=${encodeURIComponent(query)}`);
       const data=await res.json();
       if(data.error){setWordSearchError(data.error);return;}
-      if(!data.results?.length){setWordSearchError("검색 결과가 없어요.");return;}
+      if(!data.results?.length){setWordSearchError(`"${wordSearchInput}" 검색 결과가 없어요. 영어로도 시도해보세요.`);return;}
       setWordSearchResults(data.results);
     }catch(e){setWordSearchError("오류: "+e.message);}
     finally{setWordSearchLoading(false);}
@@ -1652,7 +1663,7 @@ export default function HebrewQuiz() {
         <div style={S.modalOverlay} onClick={()=>setShowWordSearchModal(false)}>
           <div style={{...S.modal,maxWidth:"480px"}} onClick={e=>e.stopPropagation()}>
             <h3 style={S.modalTitle}>🔎 뜻으로 히브리어 검색</h3>
-            <p style={S.modalSub}>한국어 또는 영어로 입력하면 Pealim에서 히브리어 단어를 찾아줘요. 예: 사과, apple, love</p>
+            <p style={S.modalSub}>한국어 또는 영어로 입력하면 Pealim에서 히브리어 단어를 찾아줘요. 한국어는 자동 번역 후 검색해요. 예: 사랑, 사과, love, write</p>
             <div style={{display:"flex",gap:"8px",marginBottom:"10px"}}>
               <input style={{...S.input,flex:1}}
                 placeholder="사과, apple, 사랑..."
@@ -2332,6 +2343,13 @@ export default function HebrewQuiz() {
               <SectionHeader sectionKey="io" title={T.saveLoad} color="#a0a0c0"/>
               {openSections.io&&<>
               <div style={{...S.ioSub,margin:"10px 0 8px"}}>{T.telegramTip}</div>
+              {currentBook!=="hebrew"&&(
+                <div style={{marginBottom:"8px"}}>
+                  <button style={{...S.btnIO("#c4a050","rgba(196,160,80,0.15)","rgba(196,160,80,0.4)"),width:"100%"}} onClick={()=>setShowWordSearchModal(true)}>
+                    🔎 {currentBook==="korean"?"한국어로 히브리어 검색":"Search Hebrew by meaning"}
+                  </button>
+                </div>
+              )}
               <div className="io-btns" style={{display:"flex",gap:"8px",flexWrap:"wrap"}}>
                 <button style={S.btnIO("#c4a050","rgba(196,160,80,0.15)","rgba(196,160,80,0.4)")} onClick={exportWords}>⬇️ 파일 저장</button>
                 <button style={S.btnIO("#c4a050","rgba(196,160,80,0.1)","rgba(196,160,80,0.3)")} onClick={copyToClipboard}>📋 복사</button>
@@ -2654,8 +2672,8 @@ export default function HebrewQuiz() {
               <div style={S.optionRow}>{[[QUIZ_TYPES.HEB_TO_MEAN,T.dirAtoB(bookInfo)],[QUIZ_TYPES.MEAN_TO_HEB,T.dirBtoA(bookInfo)],[QUIZ_TYPES.MIXED,T.mixed]].map(([val,label])=><button key={val} style={{...S.optBtn,...(quizType===val?S.optBtnActive:{})}} onClick={()=>setQuizType(val)}>{label}</button>)}</div>
               <p style={S.settingLabel}>{T.wordRange}</p>
               <div style={S.optionRow}>{[
-                [QUIZ_FILTERS.LEARNING_ONLY, `📖 학습중 (${learningCount})`],
                 [QUIZ_FILTERS.ALL,T.allRange(words.length)],
+                [QUIZ_FILTERS.LEARNING_ONLY, `📖 학습중 (${learningCount})`],
                 [QUIZ_FILTERS.EXCLUDE_MASTERED,T.excludeMastered(words.filter(w=>w.status!=="mastered").length)],
                 [QUIZ_FILTERS.HARD_ONLY,T.hardOnly(hardCount)]
               ].map(([val,label])=><button key={val} style={{...S.optBtn,...(quizFilter===val?S.optBtnActive:{})}} onClick={()=>setQuizFilter(val)}>{label}</button>)}</div>
@@ -3173,10 +3191,10 @@ const S={
   wordCenter:{display:"flex",flexDirection:"column",gap:"4px",flex:1,minWidth:0},
   wordHeb:{fontFamily:"Arial,sans-serif",fontSize:"1.15rem",color:"#c4a050",direction:"rtl"},
   wordMean:{fontSize:"0.82rem",color:"#a0a0c0",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"},
-  wordRight:{display:"flex",flexDirection:"column",gap:"4px",alignItems:"flex-end",flexShrink:0,minWidth:"fit-content"},
-  statusBtns:{display:"flex",gap:"3px"},
+  wordRight:{display:"flex",flexDirection:"column",gap:"3px",alignItems:"flex-end",flexShrink:0,width:"80px"},
+  statusBtns:{display:"flex",gap:"3px",justifyContent:"flex-end"},
   statusBtn:{background:"rgba(255,255,255,0.04)",border:"1px solid rgba(255,255,255,0.1)",borderRadius:"6px",padding:"4px 8px",cursor:"pointer",fontSize:"0.9rem",opacity:0.45},
-  wordActions:{display:"flex",gap:"2px"},
+  wordActions:{display:"flex",gap:"2px",justifyContent:"flex-end"},
   btnEdit:{background:"transparent",border:"none",cursor:"pointer",fontSize:"0.9rem",opacity:0.45,padding:"2px 4px"},
   btnDel:{background:"transparent",border:"none",cursor:"pointer",fontSize:"0.9rem",opacity:0.45,padding:"2px 4px"},
   settingLabel:{margin:"0 0 8px",fontSize:"0.72rem",color:"#5a5870",textTransform:"uppercase",letterSpacing:"0.8px",fontWeight:600},
