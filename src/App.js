@@ -618,9 +618,12 @@ export default function HebrewQuiz() {
   const [newWordExcludeDefault,setNewWordExcludeDefault]=useState(false); // 기본 단어장 제외
   const [newMeaning,setNewMeaning]      =useState("");
   const [editId,setEditId]              =useState(null);
-  const [quizType,setQuizType]          =useState(QUIZ_TYPES.HEB_TO_MEAN);
-  const [quizFilter,setQuizFilter]      =useState(QUIZ_FILTERS.LEARNING_ONLY);
-  const [quizCount,setQuizCount]        =useState(10);
+  const [quizType,setQuizType] = useState(()=>{ try{return localStorage.getItem("quizType")||QUIZ_TYPES.HEB_TO_MEAN;}catch{return QUIZ_TYPES.HEB_TO_MEAN;} });
+  const setQuizTypeSave=(v)=>{setQuizType(v);try{localStorage.setItem("quizType",v);}catch{}};
+  const [quizFilter,setQuizFilter] = useState(()=>{ try{return localStorage.getItem("quizFilter")||QUIZ_FILTERS.ALL;}catch{return QUIZ_FILTERS.ALL;} });
+  const setQuizFilterSave=(v)=>{setQuizFilter(v);try{localStorage.setItem("quizFilter",v);}catch{}};
+  const [quizCount,setQuizCount] = useState(()=>{ try{const s=localStorage.getItem("quizCount");return s?Number(s):10;}catch{return 10;} });
+  const setQuizCountSave=(v)=>{setQuizCount(v);try{localStorage.setItem("quizCount",v);}catch{}};
   const [listFilter,setListFilter] = useState(()=>{
     try{ return localStorage.getItem("listFilter")||"all"; }catch{ return "all"; }
   });
@@ -719,9 +722,11 @@ export default function HebrewQuiz() {
   const [essayInput,setEssayInput]      =useState("");
   const [essayConfirmed,setEssayConfirmed]=useState(false);
   const [essayResults,setEssayResults]  =useState([]);
-  const [essayFilter,setEssayFilter]    =useState(QUIZ_FILTERS.ALL);
+  const [essayFilter,setEssayFilter] = useState(()=>{ try{return localStorage.getItem("essayFilter")||QUIZ_FILTERS.ALL;}catch{return QUIZ_FILTERS.ALL;} });
+  const setEssayFilterSave=(v)=>{setEssayFilter(v);try{localStorage.setItem("essayFilter",v);}catch{}};
   const [essayCount,setEssayCount]      =useState(10);
-  const [essayType,setEssayType]         =useState("heb_to_mean"); // heb_to_mean | mean_to_heb | mixed
+  const [essayType,setEssayType] = useState(()=>{ try{return localStorage.getItem("essayType")||"heb_to_mean";}catch{return "heb_to_mean";} });
+  const setEssayTypeSave=(v)=>{setEssayType(v);try{localStorage.setItem("essayType",v);}catch{}};
   const essayInputRef=useRef(null); const essayHebrewRef=useRef(null); const fileInputRef=useRef(null); const csvInputRef=useRef(null); const variantFileRef=useRef(null);
   const variantInputRef=useRef(null);
   const verbFormFileRef=useRef(null);
@@ -2638,36 +2643,32 @@ export default function HebrewQuiz() {
                     onChange={e=>{ const s=new Set(selectedIds); e.target.checked?s.add(w.id):s.delete(w.id); setSelectedIds(s); }}
                     style={{width:"16px",height:"16px",cursor:"pointer",accentColor:"#f08080",flexShrink:0}}/>
                   <span style={S.wordIndex}>{i+1}</span>
-                  <div style={S.wordCenter}>
-                    <div style={{display:"flex",alignItems:"center",gap:"8px",flexWrap:"wrap"}}>
-                      <span style={S.wordHeb}>{w.hebrew}</span>
-                      <RepeatSpeakBtn text={w.hebrew} onSpeak={speakOnDemand} muted={muted} size="sm"/>
+                  {/* 카드 내용: flex-column */}
+                  <div style={{flex:1,minWidth:0,display:"flex",flexDirection:"column",gap:"4px"}}>
+                    {/* 상단: 히브리어 + 상태버튼 */}
+                    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:"6px"}}>
+                      <span style={{...S.wordHeb,flex:1,minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{w.hebrew}</span>
+                      <div style={{display:"flex",gap:"3px",flexShrink:0}}>
+                        {["learning","hard","mastered"].map(s=>{ const sc=STATUS_CONFIG[s]; return<button key={s} title={sc.label} style={{...S.statusBtn,...(w.status===s?{background:sc.bg,borderColor:sc.border,opacity:1}:{})}} onClick={()=>setManualStatus(w.id,s)}>{sc.emoji}</button>; })}
+                      </div>
                     </div>
+                    {/* 뜻 + 태그 */}
                     <div style={{display:"flex",alignItems:"center",gap:"6px",flexWrap:"wrap"}}>
                       <span style={S.wordMean}>{w.meaning||<span style={{color:"#3a3848",fontStyle:"italic"}}>뜻 없음</span>}</span>
                       {w.wordType&&(()=>{ const wt=WORD_TYPES.find(t=>t.id===w.wordType);
                         return wt?<span style={{fontSize:"0.65rem",background:"rgba(196,160,80,0.12)",border:"1px solid rgba(196,160,80,0.25)",borderRadius:"4px",padding:"1px 5px",color:"#c4a050"}}>{wt.emoji} {wt.label[uiLang]||wt.label.ko}</span>:null;
                       })()}
-                      {w.root&&(
-                        <button onClick={()=>{
-                          setPealimRoot(w.root);
-                          setShowPealimModal(true);
-                          // 자동 검색 트리거
-                          setTimeout(()=>document.getElementById("pealim-search-btn")?.click(),100);
-                        }} style={{fontSize:"0.65rem",background:"rgba(80,160,120,0.12)",border:"1px solid rgba(80,160,120,0.3)",borderRadius:"4px",padding:"1px 6px",color:"#50c898",cursor:"pointer",fontFamily:"Arial",direction:"rtl"}}>
-                          {w.root}
-                        </button>
-                      )}
+                      {w.root&&<button onClick={()=>{setPealimRoot(w.root);setShowPealimModal(true);setTimeout(()=>document.getElementById("pealim-search-btn")?.click(),100);}} style={{fontSize:"0.65rem",background:"rgba(80,160,120,0.12)",border:"1px solid rgba(80,160,120,0.3)",borderRadius:"4px",padding:"1px 6px",color:"#50c898",cursor:"pointer",fontFamily:"Arial",direction:"rtl"}}>{w.root}</button>}
                     </div>
-                  </div>
-                  <div style={S.wordRight}>
-                    <div style={S.statusBtns}>{["learning","hard","mastered"].map(s=>{ const sc=STATUS_CONFIG[s]; return<button key={s} title={sc.label} style={{...S.statusBtn,...(w.status===s?{background:sc.bg,borderColor:sc.border,opacity:1}:{})}} onClick={()=>setManualStatus(w.id,s)}>{sc.emoji}</button>; })}</div>
-                    <div style={S.wordActions}>
-                      <button style={S.btnEdit} onClick={()=>startEdit(w)}>✏️</button>
-                      <button title="변형 추가" style={{...S.btnEdit,opacity:(w.variants&&w.variants.length>0)?1:0.35,color:"#9060f0"}}
-                        onClick={()=>expandedVariantWord===w.id?setExpandedVariantWord(null):openVariantModal(w)}>
-                        {w.variants&&w.variants.length>0?`🔀${w.variants.length}`:"🔀"}
-                      </button>
+                    {/* 하단: 발음버튼 + 편집버튼 — 완전 분리된 행 */}
+                    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:"6px",marginTop:"2px"}}>
+                      <RepeatSpeakBtn text={w.hebrew} onSpeak={speakOnDemand} muted={muted} size="sm"/>
+                      <div style={{display:"flex",gap:"4px",flexShrink:0}}>
+                        <button style={S.btnEdit} onClick={()=>startEdit(w)}>✏️</button>
+                        <button title="변형 추가" style={{...S.btnEdit,opacity:(w.variants&&w.variants.length>0)?1:0.35,color:"#9060f0"}}
+                          onClick={()=>expandedVariantWord===w.id?setExpandedVariantWord(null):openVariantModal(w)}>
+                          {w.variants&&w.variants.length>0?`🔀${w.variants.length}`:"🔀"}
+                        </button>
                       {wallets.length>0&&(
                         <div style={{position:"relative"}}>
                           <button title="단어장에 추가" style={{...S.btnEdit,
@@ -2708,21 +2709,21 @@ export default function HebrewQuiz() {
                 badge={poolSize>0?`${poolSize}개 가능`:uiLang==="en"?"No words":"단어 없음"}/>
               {openSections.quiz_mcq&&<div style={{marginTop:"12px"}}>
               <p style={S.settingLabel}>{T.direction}</p>
-              <div style={S.optionRow}>{[[QUIZ_TYPES.HEB_TO_MEAN,T.dirAtoB(bookInfo)],[QUIZ_TYPES.MEAN_TO_HEB,T.dirBtoA(bookInfo)],[QUIZ_TYPES.MIXED,T.mixed]].map(([val,label])=><button key={val} style={{...S.optBtn,...(quizType===val?S.optBtnActive:{})}} onClick={()=>setQuizType(val)}>{label}</button>)}</div>
+              <div style={S.optionRow}>{[[QUIZ_TYPES.HEB_TO_MEAN,T.dirAtoB(bookInfo)],[QUIZ_TYPES.MEAN_TO_HEB,T.dirBtoA(bookInfo)],[QUIZ_TYPES.MIXED,T.mixed]].map(([val,label])=><button key={val} style={{...S.optBtn,...(quizType===val?S.optBtnActive:{})}} onClick={()=>setQuizTypeSave(val)}>{label}</button>)}</div>
               <p style={S.settingLabel}>{T.wordRange}</p>
               <div style={S.optionRow}>{[
                 [QUIZ_FILTERS.ALL,T.allRange(words.length)],
                 [QUIZ_FILTERS.LEARNING_ONLY, `📖 학습중 (${learningCount})`],
                 [QUIZ_FILTERS.EXCLUDE_MASTERED,T.excludeMastered(words.filter(w=>w.status!=="mastered").length)],
                 [QUIZ_FILTERS.HARD_ONLY,T.hardOnly(hardCount)]
-              ].map(([val,label])=><button key={val} style={{...S.optBtn,...(quizFilter===val?S.optBtnActive:{})}} onClick={()=>setQuizFilter(val)}>{label}</button>)}</div>
+              ].map(([val,label])=><button key={val} style={{...S.optBtn,...(quizFilter===val?S.optBtnActive:{})}} onClick={()=>setQuizFilterSave(val)}>{label}</button>)}</div>
               <p style={S.settingLabel}>{T.questionCount}</p>
               <div style={S.optionRow}>{countOptions.map(({label,value})=>{ const d=value!==9999&&value>poolSize; return<button key={value} style={{...S.optBtn,...(quizCount===value?S.optBtnActive:{}),...(d?{opacity:0.3,cursor:"not-allowed"}:{})}} onClick={()=>!d&&setQuizCount(value)} disabled={d}>{label}</button>; })}</div>
               <div style={S.sliderWrap}>
                 <span style={S.sliderLabel}>{T.directInput}</span>
-                <input type="range" min={1} max={Math.max(4,poolSize)} value={Math.min(quizCount===9999?poolSize:quizCount,poolSize)} onChange={e=>setQuizCount(Number(e.target.value))} style={S.slider}/>
+                <input type="range" min={1} max={Math.max(4,poolSize)} value={Math.min(quizCount===9999?poolSize:quizCount,poolSize)} onChange={e=>setQuizCountSave(Number(e.target.value))} style={S.slider}/>
                 <input type="number" min={1} max={poolSize} value={quizCount===9999?poolSize:Math.min(quizCount,poolSize)}
-                  onChange={e=>{ const v=Math.max(1,Math.min(poolSize,Number(e.target.value)||1)); setQuizCount(v); }}
+                  onChange={e=>{ const v=Math.max(1,Math.min(poolSize,Number(e.target.value)||1)); setQuizCountSave(v); }}
                   style={{width:"52px",padding:"4px 6px",background:"rgba(255,255,255,0.08)",border:"1px solid rgba(196,160,80,0.4)",borderRadius:"6px",color:"#c4a050",fontSize:"0.9rem",fontWeight:700,textAlign:"center",outline:"none"}}/>
               </div>
               <div style={{...S.autoPlayRow,marginBottom:"14px",flexDirection:"column",alignItems:"flex-start",gap:"10px"}}>
@@ -2761,14 +2762,14 @@ export default function HebrewQuiz() {
                 ))}
               </div>
               <p style={S.settingLabel}>단어 범위</p>
-              <div style={S.optionRow}>{[[QUIZ_FILTERS.ALL,T.allRange(words.length)],[QUIZ_FILTERS.EXCLUDE_MASTERED,T.excludeMastered(words.filter(w=>w.status!=="mastered").length)],[QUIZ_FILTERS.HARD_ONLY,T.hardOnly(hardCount)]].map(([val,label])=><button key={val} style={{...S.optBtn,...(essayFilter===val?S.essayOptActive:{})}} onClick={()=>setEssayFilter(val)}>{label}</button>)}</div>
+              <div style={S.optionRow}>{[[QUIZ_FILTERS.ALL,T.allRange(words.length)],[QUIZ_FILTERS.EXCLUDE_MASTERED,T.excludeMastered(words.filter(w=>w.status!=="mastered").length)],[QUIZ_FILTERS.HARD_ONLY,T.hardOnly(hardCount)]].map(([val,label])=><button key={val} style={{...S.optBtn,...(essayFilter===val?S.essayOptActive:{})}} onClick={()=>setEssayFilterSave(val)}>{label}</button>)}</div>
               <p style={S.settingLabel}>{T.questionCount}</p>
               <div style={S.optionRow}>{countOptions.map(({label,value})=>{ const d=value!==9999&&value>essayPoolSize; return<button key={value} style={{...S.optBtn,...(essayCount===value?S.essayOptActive:{}),...(d?{opacity:0.3,cursor:"not-allowed"}:{})}} onClick={()=>!d&&setEssayCount(value)} disabled={d}>{label}</button>; })}</div>
               <div style={S.sliderWrap}>
                 <span style={S.sliderLabel}>{T.directInput}</span>
-                <input type="range" min={1} max={Math.max(1,essayPoolSize)} value={Math.min(essayCount===9999?essayPoolSize:essayCount,essayPoolSize)} onChange={e=>setEssayCount(Number(e.target.value))} style={S.slider}/>
+                <input type="range" min={1} max={Math.max(1,essayPoolSize)} value={Math.min(essayCount===9999?essayPoolSize:essayCount,essayPoolSize)} onChange={e=>setEssayCountSave(Number(e.target.value))} style={S.slider}/>
                 <input type="number" min={1} max={essayPoolSize} value={essayCount===9999?essayPoolSize:Math.min(essayCount,essayPoolSize)}
-                  onChange={e=>{ const v=Math.max(1,Math.min(essayPoolSize,Number(e.target.value)||1)); setEssayCount(v); }}
+                  onChange={e=>{ const v=Math.max(1,Math.min(essayPoolSize,Number(e.target.value)||1)); setEssayCountSave(v); }}
                   style={{width:"52px",padding:"4px 6px",background:"rgba(255,255,255,0.08)",border:"1px solid rgba(100,80,200,0.4)",borderRadius:"6px",color:"#c0b0ff",fontSize:"0.9rem",fontWeight:700,textAlign:"center",outline:"none"}}/>
               </div>
               <button style={{...S.btnEssayStart,...(!essayPoolSize?S.btnDisabled:{})}} onClick={startEssay} disabled={!essayPoolSize}>✍️ 서술형 시작! ({essayCount===9999?essayPoolSize:Math.min(essayCount,essayPoolSize)} {uiLang==="en"?"questions":"문제"})</button>
