@@ -1393,7 +1393,10 @@ export default function HebrewQuiz() {
       if (!matchFilter) return false;
       if (!searchQuery.trim()) return true;
       const q = searchQuery.toLowerCase();
-      return w.hebrew.includes(q) || w.meaning.toLowerCase().includes(q);
+      // 히브리어, 뜻(영어/한국어) 모두 검색
+      return w.hebrew.includes(searchQuery.trim())
+        || w.meaning.toLowerCase().includes(q)
+        || (w.hebrew && stripNikkud(w.hebrew).includes(searchQuery.trim()));
     });
     if(sortBy==="hebrew_asc") result=[...result].sort((a,b)=>a.hebrew.localeCompare(b.hebrew,'he'));
     else if(sortBy==="hebrew_desc") result=[...result].sort((a,b)=>b.hebrew.localeCompare(a.hebrew,'he'));
@@ -2225,8 +2228,8 @@ export default function HebrewQuiz() {
               </>}
             </div>
 
-            {/* 단어 가져오기 섹션 */}
-            <div style={{...S.ioCard,borderColor:"rgba(80,160,120,0.2)"}}>
+            {/* 단어 가져오기 섹션 — 히브리어 단어장만 */}
+            {currentBook==="hebrew"&&<div style={{...S.ioCard,borderColor:"rgba(80,160,120,0.2)"}}>
               <SectionHeader sectionKey="import" title="📥 단어 가져오기" color="#50c898"/>
               {openSections.import&&<div style={{marginTop:"10px"}}>
                 <div style={{display:"flex",gap:"8px",flexWrap:"wrap",marginBottom:"10px"}}>
@@ -2291,13 +2294,13 @@ export default function HebrewQuiz() {
                   </div>
                 )}
               </div>}
-            </div>
+            </div>}
 
             {/* 검색 + 정렬 + 보기 수 */}
             <div style={{display:"flex",gap:"8px",marginBottom:"10px",flexWrap:"wrap",alignItems:"center"}}>
               <input
                 style={{...S.input,flex:1,minWidth:"160px",padding:"9px 14px",fontSize:"0.9rem"}}
-                placeholder={T.searchPlaceholder}
+                placeholder={currentBook==="hebrew"?"히브리어 또는 뜻으로 검색...":currentBook==="english"?"Search English or Hebrew...":"한국어 또는 히브리어로 검색..."}
                 value={searchQuery}
                 onChange={e=>{setSearchQuery(e.target.value);setPage(0);}}
               />
@@ -2887,6 +2890,22 @@ export default function HebrewQuiz() {
                   )}
                 </>
               )}
+              {variantConfirmed&&(()=>{const vw=words.find(x=>x.id===vq.wordId);return vw?(
+                <div style={{display:"flex",gap:"6px",marginBottom:"8px",justifyContent:"center",flexWrap:"wrap"}}>
+                  {vw.status!=="hard"&&<button onClick={()=>setManualStatus(vq.wordId,"hard")}
+                    style={{...S.statusBtn,opacity:1,background:"rgba(240,112,80,0.15)",borderColor:"rgba(240,112,80,0.4)",color:"#f07050",padding:"5px 12px",fontSize:"0.8rem"}}>
+                    🔥 {uiLang==="en"?"Hard":"어려움"}
+                  </button>}
+                  {vw.status!=="mastered"&&<button onClick={()=>setManualStatus(vq.wordId,"mastered")}
+                    style={{...S.statusBtn,opacity:1,background:"rgba(60,180,100,0.15)",borderColor:"rgba(60,180,100,0.4)",color:"#60c880",padding:"5px 12px",fontSize:"0.8rem"}}>
+                    ✅ {uiLang==="en"?"Done":"암기완료"}
+                  </button>}
+                  {vw.status!=="learning"&&<button onClick={()=>setManualStatus(vq.wordId,"learning")}
+                    style={{...S.statusBtn,opacity:1,background:"rgba(100,100,160,0.15)",borderColor:"rgba(100,100,160,0.4)",color:"#9090c0",padding:"5px 12px",fontSize:"0.8rem"}}>
+                    📖 {uiLang==="en"?"Learning":"학습중"}
+                  </button>}
+                </div>
+              ):null;})()}
               <div className="quiz-btn-row" style={S.quizBtnRow}>
                 {!variantConfirmed
                   ?<button style={{...S.btnConfirm,background:"linear-gradient(135deg,#50c898,#70e8b8)",color:"#0f1a14",...(variantQuizType==="essay"?(!variantInput.trim()?S.btnDisabled:{}):(variantSelected===null?S.btnDisabled:{}))}}
@@ -2942,7 +2961,7 @@ export default function HebrewQuiz() {
             <p style={S.resultMsg}>{score===questions.length?"🎉 완벽해요!":score>=questions.length*0.7?"👏 잘했어요!":score>=questions.length*0.5?"💪 조금 더 연습해봐요!":"📖 틀린 단어를 복습해봐요!"}</p>
             <p style={S.resultPct}>정답률: {Math.round(score/questions.length*100)}%</p>
             <div style={S.resultStats}>{[["mastered","✅ 암기완료","#60c880"],["hard","🔥 어려움","#f07050"],["learning","📖 학습중","#9090b0"]].map(([st,label,color])=><div key={st} style={{...S.resultStatItem,color}}><span style={S.resultStatNum}>{words.filter(w=>w.status===st).length}</span><span style={S.resultStatLabel}>{label}</span></div>)}</div>
-            {wrongWords.length>0&&<div style={S.wrongList}><h3 style={S.wrongTitle}>❌ 틀린 단어</h3>{wrongWords.map((q,i)=>{const w=words.find(x=>x.id===q.wordId);return w?<div key={i} style={S.wrongItem}><span style={{fontFamily:"Arial,sans-serif",fontSize:"1.1rem",direction:"rtl",color:"#c4a050"}}>{w.hebrew}</span><SpeakBtn text={w.hebrew} onSpeak={speakOnDemand} muted={muted}/><span style={{color:"#a0a0b0",margin:"0 4px"}}>→</span><span style={{fontSize:"0.9rem"}}>{w.meaning}</span></div>:null;})}</div>}
+            {wrongWords.length>0&&<div style={S.wrongList}><h3 style={S.wrongTitle}>❌ 틀린 단어</h3>{wrongWords.map((q,i)=>{const w=words.find(x=>x.id===q.wordId);return w?<div key={i} style={S.wrongItem}><span style={{fontFamily:"Arial,sans-serif",fontSize:"1.1rem",direction:"rtl",color:"#c4a050",whiteSpace:"nowrap"}}>{w.hebrew}</span><SpeakBtn text={w.hebrew} onSpeak={speakOnDemand} muted={muted}/><span style={{color:"#a0a0b0",margin:"0 4px"}}>→</span><span style={{fontSize:"0.9rem"}}>{w.meaning}</span></div>:null;})}</div>}
             <div className="result-btn-row" style={S.resultBtnRow}><button style={{...S.btnStart,flex:1}} onClick={startQuiz}>🔄 다시 풀기</button><button style={{...S.btnQuit,flex:1}} onClick={()=>setMode(MODES.LIST)}>📚 단어장으로</button></div>
           </div>
         )}
@@ -3025,8 +3044,8 @@ const S={
   btnCancel:{padding:"12px 14px",borderRadius:"10px",background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.12)",color:"#a0a0b0",cursor:"pointer",fontSize:"0.9rem"},
   scrollBtn:{padding:"6px 12px",borderRadius:"8px",background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.12)",color:"#a0a0c0",cursor:"pointer",fontSize:"0.78rem"},
   floatBtn:{position:"fixed",right:"16px",bottom:"20px",width:"44px",height:"44px",borderRadius:"50%",background:"rgba(196,160,80,0.9)",border:"none",color:"#1a1820",fontWeight:700,fontSize:"1.1rem",cursor:"pointer",zIndex:500,boxShadow:"0 4px 14px rgba(0,0,0,0.4)",display:"flex",alignItems:"center",justifyContent:"center"},
-  filterTabs:{display:"flex",gap:"6px",marginBottom:"12px",flexWrap:"wrap"},
-  filterTab:{padding:"8px 12px",borderRadius:"8px",border:"1px solid rgba(255,255,255,0.1)",background:"transparent",color:"#7a7890",cursor:"pointer",fontSize:"0.8rem"},
+  filterTabs:{display:"flex",gap:"6px",marginBottom:"12px",flexWrap:"wrap",alignItems:"stretch"},
+  filterTab:{padding:"8px 12px",borderRadius:"8px",border:"1px solid rgba(255,255,255,0.1)",background:"transparent",color:"#7a7890",cursor:"pointer",fontSize:"0.8rem",display:"flex",alignItems:"center",gap:"5px",whiteSpace:"nowrap"},
   filterTabActive:{background:"rgba(196,160,80,0.15)",borderColor:"rgba(196,160,80,0.4)",color:"#c4a050"},
   filterCnt:{background:"rgba(255,255,255,0.1)",borderRadius:"4px",padding:"1px 5px",marginLeft:"4px",fontSize:"0.7rem"},
   wordList:{display:"flex",flexDirection:"column",gap:"8px",marginBottom:"12px"},
@@ -3036,12 +3055,12 @@ const S={
   wordCenter:{display:"flex",flexDirection:"column",gap:"4px",flex:1,minWidth:0},
   wordHeb:{fontFamily:"Arial,sans-serif",fontSize:"1.15rem",color:"#c4a050",direction:"rtl"},
   wordMean:{fontSize:"0.82rem",color:"#a0a0c0",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"},
-  wordRight:{display:"flex",flexDirection:"column",gap:"6px",alignItems:"flex-end",flexShrink:0},
-  statusBtns:{display:"flex",gap:"4px"},
+  wordRight:{display:"flex",flexDirection:"column",gap:"4px",alignItems:"flex-end",flexShrink:0,minWidth:"fit-content"},
+  statusBtns:{display:"flex",gap:"3px"},
   statusBtn:{background:"rgba(255,255,255,0.04)",border:"1px solid rgba(255,255,255,0.1)",borderRadius:"6px",padding:"4px 8px",cursor:"pointer",fontSize:"0.9rem",opacity:0.45},
-  wordActions:{display:"flex",gap:"4px"},
-  btnEdit:{background:"transparent",border:"none",cursor:"pointer",fontSize:"1rem",opacity:0.45,padding:"2px 5px"},
-  btnDel:{background:"transparent",border:"none",cursor:"pointer",fontSize:"1rem",opacity:0.45,padding:"2px 5px"},
+  wordActions:{display:"flex",gap:"2px"},
+  btnEdit:{background:"transparent",border:"none",cursor:"pointer",fontSize:"0.9rem",opacity:0.45,padding:"2px 4px"},
+  btnDel:{background:"transparent",border:"none",cursor:"pointer",fontSize:"0.9rem",opacity:0.45,padding:"2px 4px"},
   settingLabel:{margin:"0 0 8px",fontSize:"0.72rem",color:"#5a5870",textTransform:"uppercase",letterSpacing:"0.8px",fontWeight:600},
   optionRow:{display:"flex",gap:"6px",marginBottom:"12px",flexWrap:"wrap"},
   optBtn:{padding:"9px 13px",borderRadius:"9px",border:"1px solid rgba(255,255,255,0.1)",background:"transparent",color:"#7a7890",cursor:"pointer",fontSize:"0.82rem"},
