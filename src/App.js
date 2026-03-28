@@ -628,6 +628,7 @@ export default function HebrewQuiz() {
     try{ return localStorage.getItem("listFilter")||"all"; }catch{ return "all"; }
   });
   const setListFilterSave=(v)=>{ setListFilter(v); try{localStorage.setItem("listFilter",v);}catch{}; };
+  const [walletFilter,setWalletFilter] = useState(null); // null=전체, walletId=특정 단어장
   const [sortBy,setSortBy] = useState(()=>{
     try{ return localStorage.getItem("sortBy")||"default"; }catch{ return "default"; }
   });
@@ -1479,6 +1480,11 @@ export default function HebrewQuiz() {
     let result = words.filter(w => {
       const matchFilter = listFilter === "all" || w.status === listFilter;
       if (!matchFilter) return false;
+      // 단어장 필터
+      if(walletFilter){
+        const wl=wallets.find(x=>x.id===walletFilter);
+        if(!wl||!wl.wordIds.includes(w.id)) return false;
+      }
       if (!searchQuery.trim()) return true;
       const q = searchQuery.toLowerCase();
       // 히브리어, 뜻(영어/한국어) 모두 검색
@@ -2610,10 +2616,24 @@ export default function HebrewQuiz() {
             {/* 필터 탭 */}
             <div style={S.filterTabs}>
               {[["all",T.all,words.length],["learning",T.learning,learningCount],["hard",T.hard,hardCount],["mastered",T.done,masteredCount]].map(([val,label,cnt])=>(
-                <button key={val} style={{...S.filterTab,...(listFilter===val?S.filterTabActive:{})}} onClick={()=>{setListFilterSave(val);setPage(0);setSelectedIds(new Set());}}>
+                <button key={val} style={{...S.filterTab,...(listFilter===val&&!walletFilter?S.filterTabActive:{})}}
+                  onClick={()=>{setListFilterSave(val);setWalletFilter(null);setPage(0);setSelectedIds(new Set());}}>
                   {label}<span style={S.filterCnt}>{cnt}</span>
                 </button>
               ))}
+              {/* 단어장별 탭 */}
+              {wallets.map(wl=>{
+                const cnt=words.filter(w=>wl.wordIds.includes(w.id)).length;
+                const isActive=walletFilter===wl.id;
+                return(
+                  <button key={wl.id}
+                    style={{...S.filterTab,...(isActive?{background:wl.color+"25",borderColor:wl.color+"60",color:wl.color}:{})}}
+                    onClick={()=>{setWalletFilter(isActive?null:wl.id);setPage(0);setSelectedIds(new Set());}}>
+                    <span style={{width:"8px",height:"8px",borderRadius:"50%",background:wl.color,display:"inline-block",flexShrink:0}}/>
+                    {wl.name}<span style={S.filterCnt}>{cnt}</span>
+                  </button>
+                );
+              })}
             </div>
 
             {/* 맨 위로 버튼 + 전체 선택 삭제 */}
