@@ -205,3 +205,38 @@ function getUlForms(html) {
   }
   return forms;
 }
+
+
+// ── 뜻(한국어/영어)으로 Pealim 검색 ──
+async function searchPealimByMeaning(query) {
+  try {
+    const searchUrl = 'https://www.pealim.com/search/?q=' + enc(query.trim());
+    const html = await fetchPage(searchUrl);
+    const results = parsePealimSearchList(html);
+    if (!results.length) return { results: [] };
+
+    // 각 단어 페이지에서 뜻 병렬 fetch
+    await Promise.allSettled(results.map(async (r) => {
+      try {
+        const pageHtml = await fetchPage(r.url);
+        const titleMatch = pageHtml.match(/<title[^>]*>([^<]+)<\/title>/);
+        if (titleMatch) {
+          const parts = titleMatch[1].split(/\s*[–—\-]\s*/);
+          const meaning = parts.find(p =>
+            !/conjugation|inflection|tables|pealim/i.test(p) &&
+            !/^[א-תְ-ׇ\s]+$/.test(p)
+          );
+          if (meaning) r.meaning = meaning.trim();
+        }
+        const binyanMatch = pageHtml.match(/Binyan\s+([\w']+)/i);
+        if (binyanMatch) r.pos = 'verb';
+        const nounMatch = pageHtml.match(/class="[^"]*noun[^"]*"/i);
+        if (nounMatch && !r.pos) r.pos = 'noun';
+      } catch(e) {}
+    }));
+
+    return { results };
+  } catch(e) {
+    return { error: e.message, results: [] };
+  }
+}
