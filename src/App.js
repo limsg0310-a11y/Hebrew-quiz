@@ -354,11 +354,15 @@ function generateQuestion(word, allWords, type) {
   const question = actualType===QUIZ_TYPES.HEB_TO_MEAN ? word.hebrew : word.meaning;
   const answer   = actualType===QUIZ_TYPES.HEB_TO_MEAN ? word.meaning : word.hebrew;
 
-  // 보기: meaning이 있는 단어만, 같은 필드로 추출
+  // 보기: 정답과 다른 값, 중복 제거
   const pool = allWords.filter(w => w.id!==word.id && (actualType===QUIZ_TYPES.HEB_TO_MEAN ? !!w.meaning : !!w.hebrew));
-  const distractors = shuffle(pool).slice(0,3).map(w => actualType===QUIZ_TYPES.HEB_TO_MEAN ? w.meaning : w.hebrew);
-
-  // 보기가 3개 미만이면 전체에서 보충
+  const seen = new Set([answer]);
+  const distractors = [];
+  for(const w of shuffle(pool)){
+    const val = actualType===QUIZ_TYPES.HEB_TO_MEAN ? w.meaning : w.hebrew;
+    if(!seen.has(val)){ seen.add(val); distractors.push(val); }
+    if(distractors.length >= 3) break;
+  }
   while(distractors.length < 3) distractors.push("—");
 
   return { question, answer, choices:shuffle([answer,...distractors]), questionType:actualType, wordId:word.id };
@@ -690,7 +694,13 @@ export default function HebrewQuiz() {
       :w));
   };
   const getWalletWords=(walletId)=>{ const w=wallets.find(w=>w.id===walletId); return w?words.filter(wd=>w.wordIds.includes(wd.id)):[];};   // 어근 단어 검색 모달
-  const [rootSearchInput,setRootSearchInput]=useState("");       // 어근 입력
+  const [rootSearchInput,setRootSearchInput]=useState("");
+  const [wordSearchInput,setWordSearchInput]=useState("");   // 한/영으로 히브리어 검색
+  const [wordSearchResults,setWordSearchResults]=useState([]);
+  const [wordSearchLoading,setWordSearchLoading]=useState(false);
+  const [wordSearchError,setWordSearchError]=useState("");
+  const [wordSearchSelected,setWordSearchSelected]=useState(new Set());
+  const [showWordSearchModal,setShowWordSearchModal]=useState(false);       // 어근 입력
   const [rootSearchResults,setRootSearchResults]=useState([]);   // 검색 결과
   const [rootSearchLoading,setRootSearchLoading]=useState(false);
   const [rootSearchError,setRootSearchError]=useState("");
@@ -828,6 +838,43 @@ export default function HebrewQuiz() {
 
   // Pealim 어근 검색
   // ── 어근 기반 단어 검색 (Pealim) ──
+  // ── 한국어/영어로 히브리어 단어 검색 ──
+  const searchWordByMeaning=async()=>{
+    if(!wordSearchInput.trim()){setWordSearchError("검색어를 입력해주세요");return;}
+    setWordSearchLoading(true); setWordSearchError(""); setWordSearchResults([]); setWordSearchSelected(new Set());
+    try{
+      const res=await fetch(`/api/Reverso?mode=word_search&q=${encodeURIComponent(wordSearchInput.trim())}`);
+      const data=await res.json();
+      if(data.error){setWordSearchError(data.error);return;}
+      if(!data.results?.length){setWordSearchError("검색 결과가 없어요.");return;}
+      setWordSearchResults(data.results);
+    }catch(e){setWordSearchError("오류: "+e.message);}
+    finally{setWordSearchLoading(false);}
+  };
+
+  const addSelectedWordSearchResults=()=>{
+    if(!wordSearchSelected.size){setWordSearchError("단어를 선택해주세요");return;}
+    const toAdd=[...wordSearchSelected].map(i=>wordSearchResults[i]).filter(Boolean);
+    const newWords=toAdd.map(r=>({
+      id:Date.now()+Math.random(),
+      hebrew:r.hebrew, meaning:r.meaning||"",
+      status:"learning",streak:0,wrongCount:0,
+      wordType:r.pos||null, variants:[]
+    }));
+    if(!importExcludeDefault){
+      setWords(ws=>[...newWords,...ws]); setPage(0);
+    } else {
+      setWords(ws=>[...newWords,...ws]);
+    }
+    if(importTargetWallets.size>0){
+      const ids=newWords.map(w=>w.id);
+      saveWallets(wallets.map(wl=>importTargetWallets.has(wl.id)?{...wl,wordIds:[...wl.wordIds,...ids]}:wl));
+    }
+    showToast(`✅ ${newWords.length}개 단어를 추가했어요!`);
+    setWordSearchSelected(new Set());
+    setShowWordSearchModal(false); setWordSearchResults([]); setWordSearchInput("");
+  };
+
   const searchByRoot=async()=>{
     if(!rootSearchInput.trim()){setRootSearchError("어근을 입력해주세요");return;}
     setRootSearchLoading(true); setRootSearchError(""); setRootSearchResults([]); setRootSelected(new Set());
@@ -1600,6 +1647,76 @@ export default function HebrewQuiz() {
         </div>
       )}
 
+      {/* ── 뜻으로 히브리어 검색 모달 ── */}
+      {showWordSearchModal&&(
+        <div style={S.modalOverlay} onClick={()=>setShowWordSearchModal(false)}>
+          <div style={{...S.modal,maxWidth:"480px"}} onClick={e=>e.stopPropagation()}>
+            <h3 style={S.modalTitle}>🔎 뜻으로 히브리어 검색</h3>
+            <p style={S.modalSub}>한국어 또는 영어로 입력하면 Pealim에서 히브리어 단어를 찾아줘요. 예: 사과, apple, love</p>
+            <div style={{display:"flex",gap:"8px",marginBottom:"10px"}}>
+              <input style={{...S.input,flex:1}}
+                placeholder="사과, apple, 사랑..."
+                value={wordSearchInput}
+                onChange={e=>setWordSearchInput(e.target.value)}
+                onKeyDown={e=>e.key==="Enter"&&searchWordByMeaning()}/>
+              <button onClick={searchWordByMeaning} disabled={wordSearchLoading}
+                style={{...S.btnAdd,minWidth:"64px",opacity:wordSearchLoading?0.6:1}}>
+                {wordSearchLoading?"...":"검색"}
+              </button>
+            </div>
+            {wordSearchError&&<div style={{color:"#f07050",fontSize:"0.82rem",marginBottom:"8px",padding:"8px",background:"rgba(200,60,60,0.1)",borderRadius:"8px"}}>{wordSearchError}</div>}
+            {wordSearchResults.length>0&&(
+              <div>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"8px"}}>
+                  <span style={{fontSize:"0.78rem",color:"#7a7890"}}>{wordSearchResults.length}개 결과</span>
+                  <div style={{display:"flex",gap:"6px"}}>
+                    <button onClick={()=>setWordSearchSelected(s=>s.size===wordSearchResults.length?new Set():new Set(wordSearchResults.map((_,i)=>i)))}
+                      style={{...S.scrollBtn,fontSize:"0.72rem",padding:"3px 8px"}}>
+                      {wordSearchSelected.size===wordSearchResults.length?"전체 해제":"전체 선택"}
+                    </button>
+                    {wordSearchSelected.size>0&&<button onClick={addSelectedWordSearchResults}
+                      style={{padding:"5px 12px",borderRadius:"8px",background:"linear-gradient(135deg,#c4a050,#e8c875)",border:"none",color:"#1a1820",fontWeight:700,cursor:"pointer",fontSize:"0.8rem"}}>
+                      ✅ {wordSearchSelected.size}개 추가
+                    </button>}
+                  </div>
+                </div>
+                <div style={{maxHeight:"340px",overflowY:"auto",display:"flex",flexDirection:"column",gap:"5px"}}>
+                  {wordSearchResults.map((r,i)=>{
+                    const sel=wordSearchSelected.has(i);
+                    const exists=!!words.find(w=>stripNikkud(w.hebrew)===stripNikkud(r.hebrew));
+                    const posColors={verb:"#60c880",noun:"#c4a050",adj:"#f09050"};
+                    const posLabels={verb:"동사",noun:"명사",adj:"형용사"};
+                    return(
+                      <div key={i} onClick={()=>{if(exists)return;setWordSearchSelected(s=>{const n=new Set(s);n.has(i)?n.delete(i):n.add(i);return n;});}}
+                        style={{display:"flex",gap:"8px",alignItems:"center",padding:"8px 12px",borderRadius:"10px",
+                          background:sel?"rgba(196,160,80,0.1)":"rgba(255,255,255,0.03)",
+                          border:`1px solid ${sel?"rgba(196,160,80,0.4)":exists?"rgba(255,255,255,0.05)":"rgba(255,255,255,0.08)"}`,
+                          cursor:exists?"default":"pointer",opacity:exists?0.5:1}}>
+                        <div style={{width:"16px",height:"16px",borderRadius:"4px",flexShrink:0,
+                          border:`2px solid ${sel?"#c4a050":"rgba(255,255,255,0.2)"}`,
+                          background:sel?"#c4a050":"transparent",
+                          display:"flex",alignItems:"center",justifyContent:"center"}}>
+                          {sel&&<span style={{color:"#1a1820",fontSize:"0.65rem",fontWeight:700}}>✓</span>}
+                        </div>
+                        {r.pos&&<span style={{fontSize:"0.62rem",padding:"1px 6px",borderRadius:"4px",flexShrink:0,
+                          background:`rgba(${r.pos==="verb"?"96,200,128":r.pos==="noun"?"196,160,80":"240,144,80"},0.15)`,
+                          color:posColors[r.pos]||"#a0a0c0"}}>{posLabels[r.pos]||r.pos}</span>}
+                        <span style={{fontFamily:"Arial",direction:"rtl",fontSize:"1.05rem",color:"#c4a050",minWidth:"80px"}}>{r.hebrew}</span>
+                        <span style={{fontSize:"0.82rem",color:"#a0a0c0",flex:1}}>{r.meaning}</span>
+                        {exists&&<span style={{fontSize:"0.65rem",color:"#50c898",flexShrink:0}}>✓ 있음</span>}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+            <div style={{marginTop:"14px"}}>
+              <button style={S.btnCancel2} onClick={()=>{setShowWordSearchModal(false);setWordSearchResults([]);setWordSearchInput("");setWordSearchError("");}}>닫기</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── 어근 단어 검색 모달 ── */}
       {showRootModal&&(
         <div style={S.modalOverlay} onClick={()=>setShowRootModal(false)}>
@@ -2233,6 +2350,7 @@ export default function HebrewQuiz() {
               <SectionHeader sectionKey="import" title="📥 단어 가져오기" color="#50c898"/>
               {openSections.import&&<div style={{marginTop:"10px"}}>
                 <div style={{display:"flex",gap:"8px",flexWrap:"wrap",marginBottom:"10px"}}>
+                  <button style={S.btnIO("#c4a050","rgba(196,160,80,0.15)","rgba(196,160,80,0.4)")} onClick={()=>setShowWordSearchModal(true)}>🔎 뜻으로 히브리어 검색</button>
                   <button style={S.btnIO("#50c898","rgba(80,160,120,0.15)","rgba(80,160,120,0.4)")} onClick={()=>setShowPealimModal(true)}>🔍 Reverso 동사 변형 가져오기</button>
                   <button style={S.btnIO("#c4a050","rgba(196,160,80,0.15)","rgba(196,160,80,0.4)")} onClick={()=>setShowRootModal(true)}>🌿 어근으로 단어 검색 (Pealim)</button>
                   <button style={S.btnIO("#9060f0","rgba(100,80,200,0.15)","rgba(100,80,200,0.4)")} onClick={()=>variantFileRef.current.click()}>📥 변형 엑셀 불러오기</button>
@@ -3044,8 +3162,8 @@ const S={
   btnCancel:{padding:"12px 14px",borderRadius:"10px",background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.12)",color:"#a0a0b0",cursor:"pointer",fontSize:"0.9rem"},
   scrollBtn:{padding:"6px 12px",borderRadius:"8px",background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.12)",color:"#a0a0c0",cursor:"pointer",fontSize:"0.78rem"},
   floatBtn:{position:"fixed",right:"16px",bottom:"20px",width:"44px",height:"44px",borderRadius:"50%",background:"rgba(196,160,80,0.9)",border:"none",color:"#1a1820",fontWeight:700,fontSize:"1.1rem",cursor:"pointer",zIndex:500,boxShadow:"0 4px 14px rgba(0,0,0,0.4)",display:"flex",alignItems:"center",justifyContent:"center"},
-  filterTabs:{display:"flex",gap:"6px",marginBottom:"12px",flexWrap:"wrap",alignItems:"stretch"},
-  filterTab:{padding:"8px 12px",borderRadius:"8px",border:"1px solid rgba(255,255,255,0.1)",background:"transparent",color:"#7a7890",cursor:"pointer",fontSize:"0.8rem",display:"flex",alignItems:"center",gap:"5px",whiteSpace:"nowrap"},
+  filterTabs:{display:"flex",gap:"6px",marginBottom:"12px",alignItems:"stretch",overflowX:"auto",WebkitOverflowScrolling:"touch",scrollbarWidth:"none",msOverflowStyle:"none",paddingBottom:"2px"},
+  filterTab:{padding:"7px 10px",borderRadius:"8px",border:"1px solid rgba(255,255,255,0.1)",background:"transparent",color:"#7a7890",cursor:"pointer",fontSize:"0.78rem",display:"flex",alignItems:"center",gap:"4px",whiteSpace:"nowrap",flexShrink:0},
   filterTabActive:{background:"rgba(196,160,80,0.15)",borderColor:"rgba(196,160,80,0.4)",color:"#c4a050"},
   filterCnt:{background:"rgba(255,255,255,0.1)",borderRadius:"4px",padding:"1px 5px",marginLeft:"4px",fontSize:"0.7rem"},
   wordList:{display:"flex",flexDirection:"column",gap:"8px",marginBottom:"12px"},
