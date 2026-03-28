@@ -419,18 +419,44 @@ function SpeakBtn({text,onSpeak,size="md",muted=false}) {
   return <button onClick={handleClick} title={muted?"음소거 중":"발음 듣기"} style={{background:muted?"rgba(100,100,100,0.1)":playing?"rgba(196,160,80,0.3)":"rgba(196,160,80,0.1)",border:muted?"1px solid rgba(150,150,150,0.2)":"1px solid rgba(196,160,80,0.35)",borderRadius:"8px",cursor:muted?"default":"pointer",padding:size==="lg"?"10px 16px":"6px 10px",fontSize:size==="lg"?"1.2rem":"0.95rem",lineHeight:1,flexShrink:0,opacity:muted?0.4:1}}>{muted?"🔇":playing?"🔊":"🔈"}</button>;
 }
 
-// 반복 재생 버튼 (1회/5회/10회)
-function RepeatSpeakBtn({text,onSpeak,muted=false,size="lg"}) { // size: lg | sm
+// SpeakBtn — 단어 카드 전용 (메뉴 안에서 횟수 선택)
+function SpeakOnceBtn({text,onSpeak,muted=false,repeatN=1}){
   const [playing,setPlaying]=useState(false);
-  const [count,setCount]=useState(0); // 진행 중인 카운트
-  const [repeatMode,setRepeatMode]=useState(1); // 1, 5, 10
+  const [count,setCount]=useState(0);
   const stopRef=useRef(false);
+  const handle=async(e)=>{
+    e.stopPropagation();
+    if(muted||playing) return;
+    stopRef.current=false; setPlaying(true);
+    for(let i=0;i<repeatN;i++){
+      if(stopRef.current) break;
+      setCount(i+1);
+      try{await onSpeak(text);}catch{}
+      if(i<repeatN-1) await new Promise(r=>setTimeout(r,1400));
+    }
+    setPlaying(false); setCount(0);
+  };
+  const stop=(e)=>{e.stopPropagation();stopRef.current=true;window.speechSynthesis?.cancel();setPlaying(false);setCount(0);};
+  return(
+    <button onClick={playing?stop:handle}
+      style={{background:playing?"rgba(200,60,60,0.2)":"rgba(196,160,80,0.1)",
+        border:playing?"1px solid rgba(200,60,60,0.4)":"1px solid rgba(196,160,80,0.3)",
+        borderRadius:"7px",cursor:muted?"default":"pointer",padding:"5px 10px",fontSize:"0.9rem",lineHeight:1,opacity:muted?0.3:1}}>
+      {playing?`⏹${count}`:"🔈"}
+    </button>
+  );
+}
 
+// RepeatSpeakBtn — 퀴즈 화면용 (lg 사이즈만)
+function RepeatSpeakBtn({text,onSpeak,muted=false,size="lg"}) {
+  const [playing,setPlaying]=useState(false);
+  const [count,setCount]=useState(0);
+  const [repeatMode,setRepeatMode]=useState(1);
+  const stopRef=useRef(false);
   const handleSpeak=async(e)=>{
     e.stopPropagation();
     if(muted||playing) return;
-    stopRef.current=false;
-    setPlaying(true);
+    stopRef.current=false; setPlaying(true);
     for(let i=0;i<repeatMode;i++){
       if(stopRef.current) break;
       setCount(i+1);
@@ -439,22 +465,22 @@ function RepeatSpeakBtn({text,onSpeak,muted=false,size="lg"}) { // size: lg | sm
     }
     setPlaying(false); setCount(0);
   };
-  const handleStop=(e)=>{ e.stopPropagation(); stopRef.current=true; window.speechSynthesis?.cancel(); setPlaying(false); setCount(0); };
-
-  const modes=[1,5,10];
+  const handleStop=(e)=>{e.stopPropagation();stopRef.current=true;window.speechSynthesis?.cancel();setPlaying(false);setCount(0);};
   return(
-    <div className="repeat-btn-row" style={{display:"flex",alignItems:"center",gap:"6px",flexShrink:0}}>
-      {/* 모드 선택 버튼 */}
-      <div style={{display:"flex",gap:"3px"}}>
-        {modes.map(m=>(
-          <button key={m} onClick={e=>{e.stopPropagation();if(!playing)setRepeatMode(m);}} style={{padding:size==="sm"?"3px 6px":"4px 8px",borderRadius:"6px",border:"1px solid",fontSize:size==="sm"?"0.65rem":"0.72rem",fontWeight:700,cursor:playing?"not-allowed":"pointer",background:repeatMode===m?"rgba(196,160,80,0.3)":"rgba(255,255,255,0.05)",borderColor:repeatMode===m?"rgba(196,160,80,0.6)":"rgba(255,255,255,0.1)",color:repeatMode===m?"#c4a050":"#5a5870",opacity:playing&&repeatMode!==m?0.4:1}}>
-            {m}회
-          </button>
-        ))}
-      </div>
-      {/* 재생/정지 버튼 */}
-      <button onClick={playing?handleStop:handleSpeak} title={muted?"음소거 중":playing?"정지":"발음 듣기"}
-        style={{background:muted?"rgba(100,100,100,0.1)":playing?"rgba(200,60,60,0.2)":"rgba(196,160,80,0.1)",border:muted?"1px solid rgba(150,150,150,0.2)":playing?"1px solid rgba(200,60,60,0.4)":"1px solid rgba(196,160,80,0.35)",borderRadius:"8px",cursor:muted?"default":"pointer",padding:size==="sm"?"5px 10px":"10px 16px",fontSize:size==="sm"?"0.9rem":"1.2rem",lineHeight:1,flexShrink:0,opacity:muted?0.4:1}}>
+    <div style={{display:"flex",alignItems:"center",gap:"4px"}}>
+      {[1,5,10].map(m=>(
+        <button key={m} onClick={e=>{e.stopPropagation();if(!playing)setRepeatMode(m);}}
+          style={{padding:"4px 8px",borderRadius:"6px",border:"1px solid",fontSize:"0.72rem",fontWeight:700,cursor:playing?"not-allowed":"pointer",
+            background:repeatMode===m?"rgba(196,160,80,0.3)":"rgba(255,255,255,0.05)",
+            borderColor:repeatMode===m?"rgba(196,160,80,0.6)":"rgba(255,255,255,0.1)",
+            color:repeatMode===m?"#c4a050":"#5a5870",opacity:playing&&repeatMode!==m?0.4:1}}>
+          {m}회
+        </button>
+      ))}
+      <button onClick={playing?handleStop:handleSpeak}
+        style={{background:muted?"rgba(100,100,100,0.1)":playing?"rgba(200,60,60,0.2)":"rgba(196,160,80,0.1)",
+          border:muted?"1px solid rgba(150,150,150,0.2)":playing?"1px solid rgba(200,60,60,0.4)":"1px solid rgba(196,160,80,0.35)",
+          borderRadius:"8px",cursor:muted?"default":"pointer",padding:"10px 16px",fontSize:"1.2rem",lineHeight:1,flexShrink:0,opacity:muted?0.4:1}}>
         {muted?"🔇":playing?`⏹ ${count}/${repeatMode}`:"🔈"}
       </button>
     </div>
@@ -2664,54 +2690,69 @@ export default function HebrewQuiz() {
                     onChange={e=>{ const s=new Set(selectedIds); e.target.checked?s.add(w.id):s.delete(w.id); setSelectedIds(s); }}
                     style={{width:"16px",height:"16px",cursor:"pointer",accentColor:"#f08080",flexShrink:0}}/>
                   <span style={S.wordIndex}>{i+1}</span>
-                  {/* 카드 내용: flex-column */}
-                  <div style={{flex:1,minWidth:0,display:"flex",flexDirection:"column",gap:"3px"}}>
-                    {/* 히브리어 + 발음 (왼쪽 정렬) */}
-                    <div style={{display:"flex",alignItems:"center",gap:"8px"}}>
-                      <span style={S.wordHeb}>{w.hebrew}</span>
-                      <RepeatSpeakBtn text={w.hebrew} onSpeak={speakOnDemand} muted={muted} size="sm"/>
-                    </div>
-                    {/* 뜻 + 태그 */}
-                    <div style={{display:"flex",alignItems:"center",gap:"6px",flexWrap:"wrap"}}>
+                  {/* 왼쪽: 텍스트 */}
+                  <div style={{flex:1,minWidth:0}}>
+                    <span style={S.wordHeb}>{w.hebrew}</span>
+                    <div style={{display:"flex",alignItems:"center",gap:"5px",flexWrap:"wrap",marginTop:"2px"}}>
                       <span style={S.wordMean}>{w.meaning||<span style={{color:"#3a3848",fontStyle:"italic"}}>뜻 없음</span>}</span>
-                      {w.wordType&&(()=>{ const wt=WORD_TYPES.find(t=>t.id===w.wordType);
-                        return wt?<span style={{fontSize:"0.65rem",background:"rgba(196,160,80,0.12)",border:"1px solid rgba(196,160,80,0.25)",borderRadius:"4px",padding:"1px 5px",color:"#c4a050"}}>{wt.emoji} {wt.label[uiLang]||wt.label.ko}</span>:null;
-                      })()}
-                      {w.root&&<button onClick={()=>{setPealimRoot(w.root);setShowPealimModal(true);setTimeout(()=>document.getElementById("pealim-search-btn")?.click(),100);}} style={{fontSize:"0.65rem",background:"rgba(80,160,120,0.12)",border:"1px solid rgba(80,160,120,0.3)",borderRadius:"4px",padding:"1px 6px",color:"#50c898",cursor:"pointer",fontFamily:"Arial",direction:"rtl"}}>{w.root}</button>}
-                    </div>
-                    {/* 하단: 상태 사이클 버튼 + 편집버튼 */}
-                    <div style={{display:"flex",alignItems:"center",gap:"5px",marginTop:"1px"}}>
-                      {/* 상태 — 클릭으로 순환 */}
-                      {(()=>{
-                        const order=["learning","hard","mastered"];
-                        const sc=STATUS_CONFIG[w.status];
-                        const next=order[(order.indexOf(w.status)+1)%3];
-                        return(
-                          <button onClick={()=>setManualStatus(w.id,next)} title={`${sc.label} → 클릭해서 변경`}
-                            style={{padding:"2px 8px",borderRadius:"6px",border:`1px solid ${sc.border}`,
-                              background:sc.bg,color:sc.color,cursor:"pointer",fontSize:"0.72rem",
-                              fontWeight:600,display:"flex",alignItems:"center",gap:"3px",flexShrink:0}}>
-                            {sc.emoji} {sc.label}
-                          </button>
-                        );
-                      })()}
-                      <span style={{color:"rgba(255,255,255,0.1)",margin:"0 1px"}}>|</span>
-                      <button style={S.btnEdit} onClick={()=>startEdit(w)} title="편집">✏️</button>
-                      {(w.variants&&w.variants.length>0)&&(
-                        <button title={`변형 ${w.variants.length}개`} style={{...S.btnEdit,color:"#9060f0",opacity:1,fontSize:"0.75rem"}}
-                          onClick={()=>expandedVariantWord===w.id?setExpandedVariantWord(null):openVariantModal(w)}>
-                          🔀{w.variants.length}
-                        </button>
-                      )}
-                      {wallets.length>0&&(
-                        <button title="단어장" style={{...S.btnEdit,
-                          color:wallets.some(wl=>wl.wordIds.includes(w.id))?"#c4a050":"inherit",
-                          opacity:wallets.some(wl=>wl.wordIds.includes(w.id))?1:0.35}}
-                          onClick={e=>{e.stopPropagation();if(wallets.length===1)toggleWordInWallet(wallets[0].id,w.id);else setWalletPickWord(w.id);}}>📚</button>
-                      )}
-                      <button style={S.btnDel} onClick={()=>deleteWord(w.id)} title="삭제">🗑️</button>
+                      {w.wordType&&(()=>{ const wt=WORD_TYPES.find(t=>t.id===w.wordType); return wt?<span style={{fontSize:"0.6rem",background:"rgba(196,160,80,0.12)",border:"1px solid rgba(196,160,80,0.2)",borderRadius:"4px",padding:"1px 4px",color:"#c4a050"}}>{wt.emoji}</span>:null; })()}
+                      {w.root&&<span style={{fontSize:"0.6rem",background:"rgba(80,160,120,0.12)",border:"1px solid rgba(80,160,120,0.25)",borderRadius:"4px",padding:"1px 5px",color:"#50c898",fontFamily:"Arial",direction:"rtl"}}>{w.root}</span>}
                     </div>
                   </div>
+                  {/* 오른쪽: 🔈 + ··· 메뉴 */}
+                  {(()=>{
+                    const [menuOpen,setMenuOpen]=[expandedVariantWord===`menu_${w.id}`,v=>setExpandedVariantWord(v?`menu_${w.id}`:expandedVariantWord===`menu_${w.id}`?null:expandedVariantWord)];
+                    const sc=STATUS_CONFIG[w.status];
+                    const isMenuOpen=expandedVariantWord===`menu_${w.id}`;
+                    return(
+                      <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:"4px",flexShrink:0}}>
+                        <div style={{display:"flex",gap:"5px",alignItems:"center"}}>
+                          {/* 발음 버튼 */}
+                          <SpeakOnceBtn text={w.hebrew} onSpeak={speakOnDemand} muted={muted} repeatN={1}/>
+                          {/* ··· 메뉴 버튼 */}
+                          <button onClick={e=>{e.stopPropagation();setExpandedVariantWord(isMenuOpen?null:`menu_${w.id}`);}}
+                            style={{padding:"5px 9px",borderRadius:"7px",border:"1px solid rgba(255,255,255,0.12)",
+                              background:isMenuOpen?"rgba(255,255,255,0.1)":"rgba(255,255,255,0.04)",
+                              color:"#a0a0c0",cursor:"pointer",fontSize:"0.9rem",lineHeight:1}}>
+                            {isMenuOpen?"✕":"···"}
+                          </button>
+                        </div>
+                        {/* 펼쳐진 메뉴 */}
+                        {isMenuOpen&&(
+                          <div onClick={e=>e.stopPropagation()}
+                            style={{background:"rgba(26,24,40,0.98)",border:"1px solid rgba(255,255,255,0.12)",
+                              borderRadius:"10px",padding:"8px",display:"flex",flexDirection:"column",gap:"5px",
+                              minWidth:"160px",zIndex:10,boxShadow:"0 4px 20px rgba(0,0,0,0.5)"}}>
+                            {/* 상태 선택 */}
+                            <div style={{display:"flex",gap:"4px"}}>
+                              {["learning","hard","mastered"].map(s=>{ const sc2=STATUS_CONFIG[s]; return(
+                                <button key={s} onClick={()=>{setManualStatus(w.id,s);setExpandedVariantWord(null);}}
+                                  style={{flex:1,padding:"4px 2px",borderRadius:"6px",border:`1px solid ${w.status===s?sc2.border:"rgba(255,255,255,0.1)"}`,
+                                    background:w.status===s?sc2.bg:"rgba(255,255,255,0.03)",
+                                    color:w.status===s?sc2.color:"#5a5870",cursor:"pointer",fontSize:"0.75rem",fontWeight:600}}>
+                                  {sc2.emoji}
+                                </button>
+                              );})}
+                            </div>
+                            {/* 발음 횟수 */}
+                            <div style={{display:"flex",gap:"4px",alignItems:"center"}}>
+                              <span style={{fontSize:"0.65rem",color:"#5a5870",flexShrink:0}}>발음</span>
+                              {[1,5,10].map(n=>(
+                                <SpeakOnceBtn key={n} text={w.hebrew} onSpeak={speakOnDemand} muted={muted} repeatN={n}/>
+                              ))}
+                            </div>
+                            {/* 편집 버튼들 */}
+                            <div style={{display:"flex",gap:"4px",borderTop:"1px solid rgba(255,255,255,0.07)",paddingTop:"5px"}}>
+                              <button onClick={()=>{startEdit(w);setExpandedVariantWord(null);}} style={{...S.btnEdit,flex:1,padding:"4px",background:"rgba(255,255,255,0.04)",borderRadius:"6px",border:"1px solid rgba(255,255,255,0.08)",fontSize:"0.78rem"}}>✏️ 편집</button>
+                              <button onClick={()=>{setExpandedVariantWord(expandedVariantWord===`menu_${w.id}`?w.id:w.id);openVariantModal(w);}} style={{...S.btnEdit,flex:1,padding:"4px",background:"rgba(100,80,200,0.08)",borderRadius:"6px",border:"1px solid rgba(100,80,200,0.2)",color:"#9060f0",fontSize:"0.78rem"}}>🔀 변형{w.variants?.length?` ${w.variants.length}`:""}</button>
+                              {wallets.length>0&&<button onClick={e=>{toggleWordInWallet(wallets.length===1?wallets[0].id:wallets[0].id,w.id);}} style={{...S.btnEdit,flex:1,padding:"4px",background:"rgba(196,160,80,0.06)",borderRadius:"6px",border:"1px solid rgba(196,160,80,0.2)",color:"#c4a050",fontSize:"0.78rem"}}>📚</button>}
+                              <button onClick={()=>{if(window.confirm("삭제할까요?"))deleteWord(w.id);}} style={{...S.btnEdit,flex:1,padding:"4px",background:"rgba(200,60,60,0.08)",borderRadius:"6px",border:"1px solid rgba(200,60,60,0.2)",color:"#f07070",fontSize:"0.78rem"}}>🗑️</button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
 
               );})}
