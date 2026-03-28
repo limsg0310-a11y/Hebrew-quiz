@@ -5,11 +5,16 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   if (req.method === 'OPTIONS') return res.status(200).end();
-  const { mode, verb, url, root } = req.query;
+  const { mode, verb, url, root, q } = req.query;
   try {
     if (mode === 'root_search') {
       if (!root) return res.status(400).json({ error: '어근을 입력해주세요' });
       const result = await searchPealimByRoot(root);
+      return res.status(200).json(result);
+    }
+    if (mode === 'word_search') {
+      if (!q) return res.status(400).json({ error: '검색어를 입력해주세요' });
+      const result = await searchPealimByMeaning(q);
       return res.status(200).json(result);
     }
     if (mode !== 'conjugation') return res.status(400).json({ error: 'mode=conjugation 필요' });
