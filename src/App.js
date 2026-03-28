@@ -724,7 +724,8 @@ export default function HebrewQuiz() {
   const [essayResults,setEssayResults]  =useState([]);
   const [essayFilter,setEssayFilter] = useState(()=>{ try{return localStorage.getItem("essayFilter")||QUIZ_FILTERS.ALL;}catch{return QUIZ_FILTERS.ALL;} });
   const setEssayFilterSave=(v)=>{setEssayFilter(v);try{localStorage.setItem("essayFilter",v);}catch{}};
-  const [essayCount,setEssayCount]      =useState(10);
+  const [essayCount,setEssayCount] = useState(()=>{ try{const s=localStorage.getItem("essayCount");return s?Number(s):10;}catch{return 10;} });
+  const setEssayCountSave=(v)=>{setEssayCount(v);try{localStorage.setItem("essayCount",v);}catch{}};
   const [essayType,setEssayType] = useState(()=>{ try{return localStorage.getItem("essayType")||"heb_to_mean";}catch{return "heb_to_mean";} });
   const setEssayTypeSave=(v)=>{setEssayType(v);try{localStorage.setItem("essayType",v);}catch{}};
   const essayInputRef=useRef(null); const essayHebrewRef=useRef(null); const fileInputRef=useRef(null); const csvInputRef=useRef(null); const variantFileRef=useRef(null);
@@ -2760,7 +2761,7 @@ export default function HebrewQuiz() {
               <p style={S.settingLabel}>단어 범위</p>
               <div style={S.optionRow}>{[[QUIZ_FILTERS.ALL,T.allRange(words.length)],[QUIZ_FILTERS.EXCLUDE_MASTERED,T.excludeMastered(words.filter(w=>w.status!=="mastered").length)],[QUIZ_FILTERS.HARD_ONLY,T.hardOnly(hardCount)]].map(([val,label])=><button key={val} style={{...S.optBtn,...(essayFilter===val?S.essayOptActive:{})}} onClick={()=>setEssayFilterSave(val)}>{label}</button>)}</div>
               <p style={S.settingLabel}>{T.questionCount}</p>
-              <div style={S.optionRow}>{countOptions.map(({label,value})=>{ const d=value!==9999&&value>essayPoolSize; return<button key={value} style={{...S.optBtn,...(essayCount===value?S.essayOptActive:{}),...(d?{opacity:0.3,cursor:"not-allowed"}:{})}} onClick={()=>!d&&setEssayCount(value)} disabled={d}>{label}</button>; })}</div>
+              <div style={S.optionRow}>{countOptions.map(({label,value})=>{ const d=value!==9999&&value>essayPoolSize; return<button key={value} style={{...S.optBtn,...(essayCount===value?S.essayOptActive:{}),...(d?{opacity:0.3,cursor:"not-allowed"}:{})}} onClick={()=>!d&&setEssayCountSave(value)} disabled={d}>{label}</button>; })}</div>
               <div style={S.sliderWrap}>
                 <span style={S.sliderLabel}>{T.directInput}</span>
                 <input type="range" min={1} max={Math.max(1,essayPoolSize)} value={Math.min(essayCount===9999?essayPoolSize:essayCount,essayPoolSize)} onChange={e=>setEssayCountSave(Number(e.target.value))} style={S.slider}/>
