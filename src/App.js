@@ -2679,22 +2679,34 @@ export default function HebrewQuiz() {
                       })()}
                       {w.root&&<button onClick={()=>{setPealimRoot(w.root);setShowPealimModal(true);setTimeout(()=>document.getElementById("pealim-search-btn")?.click(),100);}} style={{fontSize:"0.65rem",background:"rgba(80,160,120,0.12)",border:"1px solid rgba(80,160,120,0.3)",borderRadius:"4px",padding:"1px 6px",color:"#50c898",cursor:"pointer",fontFamily:"Arial",direction:"rtl"}}>{w.root}</button>}
                     </div>
-                    {/* 하단: 상태버튼 + 편집버튼 한 줄 */}
-                    <div style={{display:"flex",alignItems:"center",gap:"5px",marginTop:"1px",flexWrap:"wrap"}}>
-                      {["learning","hard","mastered"].map(s=>{ const sc=STATUS_CONFIG[s]; return(
-                        <button key={s} title={sc.label} onClick={()=>setManualStatus(w.id,s)}
-                          style={{...S.statusBtn,...(w.status===s?{background:sc.bg,borderColor:sc.border,opacity:1}:{})}}>
-                          {sc.emoji}
-                        </button>
-                      );})}
-                      <span style={{color:"rgba(255,255,255,0.12)",margin:"0 1px"}}>|</span>
+                    {/* 하단: 상태 사이클 버튼 + 편집버튼 */}
+                    <div style={{display:"flex",alignItems:"center",gap:"5px",marginTop:"1px"}}>
+                      {/* 상태 — 클릭으로 순환 */}
+                      {(()=>{
+                        const order=["learning","hard","mastered"];
+                        const sc=STATUS_CONFIG[w.status];
+                        const next=order[(order.indexOf(w.status)+1)%3];
+                        return(
+                          <button onClick={()=>setManualStatus(w.id,next)} title={`${sc.label} → 클릭해서 변경`}
+                            style={{padding:"2px 8px",borderRadius:"6px",border:`1px solid ${sc.border}`,
+                              background:sc.bg,color:sc.color,cursor:"pointer",fontSize:"0.72rem",
+                              fontWeight:600,display:"flex",alignItems:"center",gap:"3px",flexShrink:0}}>
+                            {sc.emoji} {sc.label}
+                          </button>
+                        );
+                      })()}
+                      <span style={{color:"rgba(255,255,255,0.1)",margin:"0 1px"}}>|</span>
                       <button style={S.btnEdit} onClick={()=>startEdit(w)} title="편집">✏️</button>
-                      <button title="변형" style={{...S.btnEdit,opacity:(w.variants&&w.variants.length>0)?1:0.35,color:"#9060f0"}}
-                        onClick={()=>expandedVariantWord===w.id?setExpandedVariantWord(null):openVariantModal(w)}>
-                        {w.variants&&w.variants.length>0?`🔀${w.variants.length}`:"🔀"}
-                      </button>
+                      {(w.variants&&w.variants.length>0)&&(
+                        <button title={`변형 ${w.variants.length}개`} style={{...S.btnEdit,color:"#9060f0",opacity:1,fontSize:"0.75rem"}}
+                          onClick={()=>expandedVariantWord===w.id?setExpandedVariantWord(null):openVariantModal(w)}>
+                          🔀{w.variants.length}
+                        </button>
+                      )}
                       {wallets.length>0&&(
-                        <button title="단어장" style={{...S.btnEdit,color:wallets.some(wl=>wl.wordIds.includes(w.id))?"#c4a050":"inherit",opacity:wallets.some(wl=>wl.wordIds.includes(w.id))?1:0.45}}
+                        <button title="단어장" style={{...S.btnEdit,
+                          color:wallets.some(wl=>wl.wordIds.includes(w.id))?"#c4a050":"inherit",
+                          opacity:wallets.some(wl=>wl.wordIds.includes(w.id))?1:0.35}}
                           onClick={e=>{e.stopPropagation();if(wallets.length===1)toggleWordInWallet(wallets[0].id,w.id);else setWalletPickWord(w.id);}}>📚</button>
                       )}
                       <button style={S.btnDel} onClick={()=>deleteWord(w.id)} title="삭제">🗑️</button>
