@@ -2822,8 +2822,7 @@ export default function HebrewQuiz() {
                               <button onClick={()=>{setExpandedVariantWord(expandedVariantWord===`menu_${w.id}`?w.id:w.id);openVariantModal(w);}} style={{...S.btnEdit,flex:1,padding:"4px",background:"rgba(100,80,200,0.08)",borderRadius:"6px",border:"1px solid rgba(100,80,200,0.2)",color:"#9060f0",fontSize:"0.78rem"}}>🔀 변형{w.variants?.length?` ${w.variants.length}`:""}</button>
                               {wallets.length>0&&<button onClick={e=>{toggleWordInWallet(wallets.length===1?wallets[0].id:wallets[0].id,w.id);}} style={{...S.btnEdit,flex:1,padding:"4px",background:"rgba(196,160,80,0.06)",borderRadius:"6px",border:"1px solid rgba(196,160,80,0.2)",color:"#c4a050",fontSize:"0.78rem"}}>📚</button>}
                               <button onClick={()=>{
-                                const msg=walletFilter?"이 단어장에서만 제거할까요?
-(단어 자체는 유지됩니다)":"단어를 완전히 삭제할까요?";
+                                const msg=walletFilter?"이 단어장에서만 제거할까요? (단어 자체는 유지됩니다)":"단어를 완전히 삭제할까요?";
                                 if(window.confirm(msg)) deleteWord(w.id);
                               }} style={{...S.btnEdit,flex:1,padding:"4px",background:"rgba(200,60,60,0.08)",borderRadius:"6px",border:"1px solid rgba(200,60,60,0.2)",color:"#f07070",fontSize:"0.78rem"}}>
                                 {walletFilter?"제거":"🗑️"}
