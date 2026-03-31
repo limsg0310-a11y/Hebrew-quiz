@@ -654,7 +654,10 @@ export default function HebrewQuiz() {
     try{ return localStorage.getItem("listFilter")||"all"; }catch{ return "all"; }
   });
   const setListFilterSave=(v)=>{ setListFilter(v); try{localStorage.setItem("listFilter",v);}catch{}; };
-  const [walletFilter,setWalletFilter] = useState(null); // null=전체, walletId=특정 단어장
+  const [walletFilter,setWalletFilter] = useState(null);
+  const [cardStyle,setCardStyle] = useState(()=>{ try{return localStorage.getItem("cardStyle")||"menu";}catch{return "menu";} });
+  const setCardStyleSave=(v)=>{setCardStyle(v);try{localStorage.setItem("cardStyle",v);}catch{}};
+  // "menu" = 지금처럼 ··· 메뉴, "inline" = 하단에 조그마하게 항상 표시 // null=전체, walletId=특정 단어장
   const [sortBy,setSortBy] = useState(()=>{
     try{ return localStorage.getItem("sortBy")||"default"; }catch{ return "default"; }
   });
@@ -1161,23 +1164,37 @@ export default function HebrewQuiz() {
     const variants=Object.entries(pealimPreview.variants)
       .filter(([,form])=>form)
       .map(([type,form])=>({type,form}));
-    // 이미 단어장에 있는지 확인
     const exists = words.find(w=>stripNikkud(w.hebrew)===stripNikkud(pealimPreview.infinitive));
     if(exists){
-      // 기존 단어에 변형만 업데이트
-      setWords(ws=>ws.map(w=>w.id===exists.id?{...w,variants}:w)); // wordType 유지
+      // 기존 단어에 변형만 업데이트 (기본단어장 제외 여부 무관)
+      setWords(ws=>ws.map(w=>w.id===exists.id?{...w,variants}:w));
+      // 커스텀 단어장 추가
+      if(importTargetWallets.size>0){
+        saveWallets(wallets.map(wl=>importTargetWallets.has(wl.id)?{...wl,wordIds:[...new Set([...wl.wordIds,exists.id])]}:wl));
+      }
       showToast(`✅ "${pealimPreview.infinitive}" 변형 ${variants.length}개 업데이트됐어요!`);
     } else {
+      const newId=Date.now()+Math.random();
       const newWord={
-        id:Date.now()+Math.random(),
+        id:newId,
         hebrew:pealimPreview.infinitive,
         meaning:pealimPreview.meaning||"",
         status:"learning",streak:0,wrongCount:0,
         wordType: pealimPreview.wordType||null, variants,
         root: pealimPreview.root||""
       };
-      setWords(ws=>[newWord,...ws]);
-      setPage(0);
+      // importExcludeDefault에 따라 기본 단어장 저장 여부 결정
+      if(!importExcludeDefault){
+        setWords(ws=>[newWord,...ws]);
+        setPage(0);
+      } else {
+        // 기본 제외해도 words에 저장은 해야 함 (데이터 보존)
+        setWords(ws=>[newWord,...ws]);
+      }
+      // 커스텀 단어장에 추가
+      if(importTargetWallets.size>0){
+        saveWallets(wallets.map(wl=>importTargetWallets.has(wl.id)?{...wl,wordIds:[...wl.wordIds,newId]}:wl));
+      }
       showToast(`✅ "${pealimPreview.infinitive}" 단어와 변형 ${variants.length}개가 추가됐어요!`);
     }
     setShowPealimModal(false); setPealimPreview(null); setPealimRoot(""); setPealimResults([]);
@@ -1498,7 +1515,12 @@ export default function HebrewQuiz() {
     setNewHebrew(""); setNewMeaning(""); setNewWordType(null);
     // 커스텀 단어장 선택은 유지 (연속 추가 편의)
   };
-  const deleteWord=id=>setWords(ws=>ws.filter(w=>w.id!==id));
+  const deleteWord=id=>{
+    setWords(ws=>ws.filter(w=>w.id!==id));
+    // 커스텀 단어장에서는 wordId만 제거 (단어 데이터 자체는 이미 words에서 삭제됨)
+    // 단, 커스텀 단어장 목록에서 id 참조는 정리
+    saveWallets(wallets.map(wl=>({...wl,wordIds:wl.wordIds.filter(i=>i!==id)})));
+  };
   const startEdit=word=>{ setEditId(word.id); setNewHebrew(word.hebrew); setNewMeaning(word.meaning); setNewWordType(word.wordType||null); setOpenSections(s=>({...s,add:true})); window.scrollTo({top:0,behavior:'smooth'}); };
   const cancelEdit=()=>{ setEditId(null); setNewHebrew(""); setNewMeaning(""); setNewWordType(null); };
 
@@ -1724,10 +1746,10 @@ export default function HebrewQuiz() {
       {showWordSearchModal&&(
         <div style={S.modalOverlay} onClick={()=>setShowWordSearchModal(false)}>
           <div style={{...S.modal,maxWidth:"480px"}} onClick={e=>e.stopPropagation()}>
-            <h3 style={S.modalTitle}>🔎 {currentBook==="hebrew"?"뜻으로 히브리어 검색":currentBook==="english"?"한국어로 영어 찾기":"영어/히브리어로 한국어 찾기"}</h3>
+            <h3 style={S.modalTitle}>🔎 {currentBook==="hebrew"?"뜻으로 히브리어 검색":currentBook==="english"?"한국어/히브리어로 영어 찾기":"영어/히브리어로 한국어 찾기"}</h3>
             <p style={S.modalSub}>{
               currentBook==="hebrew"?"한국어 또는 영어로 입력하면 히브리어 단어를 찾아줘요. 한국어는 자동 번역돼요. 예: 사랑, love":
-              currentBook==="english"?"한국어를 입력하면 영어로 번역해줘요. 예: 사과, 감사합니다":
+              currentBook==="english"?"한국어 또는 히브리어를 입력하면 영어 단어를 찾아줘요. 예: 사과, שלום":
               "영어 또는 히브리어를 입력하면 한국어 뜻을 찾아줘요. 예: love, שלום"
             }</p>
             <div style={{display:"flex",gap:"8px",marginBottom:"10px"}}>
@@ -1780,7 +1802,6 @@ export default function HebrewQuiz() {
                           <div style={{flex:1}}>
                             {r.note&&<div style={{fontSize:"0.65rem",color:"#7a7890",marginBottom:"2px"}}>{r.note}</div>}
                             <span style={{fontSize:"1.1rem",color:"#c4a050",fontWeight:600}}>{r.meaning}</span>
-                            {r.hebrew&&<span style={{fontFamily:"Arial",direction:"rtl",fontSize:"0.9rem",color:"#a0a0c0",marginLeft:"8px"}}>{r.hebrew}</span>}
                           </div>
                         ):(
                           <>
@@ -2420,10 +2441,22 @@ export default function HebrewQuiz() {
               <SectionHeader sectionKey="io" title={T.saveLoad} color="#a0a0c0"/>
               {openSections.io&&<>
               <div style={{...S.ioSub,margin:"10px 0 8px"}}>{T.telegramTip}</div>
+              <div style={{display:"flex",gap:"6px",marginBottom:"8px",alignItems:"center"}}>
+                <span style={{fontSize:"0.72rem",color:"#7a7890"}}>카드 스타일:</span>
+                {[["menu","🪄 메뉴"],["inline","📋 인라인"]].map(([v,l])=>(
+                  <button key={v} onClick={()=>setCardStyleSave(v)}
+                    style={{padding:"3px 10px",borderRadius:"6px",fontSize:"0.72rem",cursor:"pointer",border:"1px solid",
+                      background:cardStyle===v?"rgba(196,160,80,0.2)":"rgba(255,255,255,0.04)",
+                      borderColor:cardStyle===v?"rgba(196,160,80,0.5)":"rgba(255,255,255,0.1)",
+                      color:cardStyle===v?"#c4a050":"#5a5870"}}>
+                    {l}
+                  </button>
+                ))}
+              </div>
               {currentBook!=="hebrew"&&(
                 <div style={{marginBottom:"8px"}}>
                   <button style={{...S.btnIO("#c4a050","rgba(196,160,80,0.15)","rgba(196,160,80,0.4)"),width:"100%"}} onClick={()=>setShowWordSearchModal(true)}>
-                    🔎 {currentBook==="korean"?"한국어로 히브리어 검색":"Search Hebrew by meaning"}
+                    🔎 {currentBook==="english"?"한국어/히브리어로 영어 찾기":"영어/히브리어로 한국어 찾기"}
                   </button>
                 </div>
               )}
@@ -2698,9 +2731,21 @@ export default function HebrewQuiz() {
                       {w.wordType&&(()=>{ const wt=WORD_TYPES.find(t=>t.id===w.wordType); return wt?<span style={{fontSize:"0.6rem",background:"rgba(196,160,80,0.12)",border:"1px solid rgba(196,160,80,0.2)",borderRadius:"4px",padding:"1px 4px",color:"#c4a050"}}>{wt.emoji}</span>:null; })()}
                       {w.root&&<span style={{fontSize:"0.6rem",background:"rgba(80,160,120,0.12)",border:"1px solid rgba(80,160,120,0.25)",borderRadius:"4px",padding:"1px 5px",color:"#50c898",fontFamily:"Arial",direction:"rtl"}}>{w.root}</span>}
                     </div>
+                    {/* 인라인 스타일: 항상 보이는 미니 버튼 */}
+                    {cardStyle==="inline"&&(
+                      <div style={{display:"flex",alignItems:"center",gap:"4px",marginTop:"4px",flexWrap:"wrap"}}>
+                        <SpeakOnceBtn text={w.hebrew} onSpeak={speakOnDemand} muted={muted} repeatN={1}/>
+                        {(()=>{ const sc=STATUS_CONFIG[w.status]; const order=["learning","hard","mastered"]; const next=order[(order.indexOf(w.status)+1)%3];
+                          return <button onClick={()=>setManualStatus(w.id,next)} style={{padding:"2px 6px",borderRadius:"5px",border:`1px solid ${sc.border}`,background:sc.bg,color:sc.color,cursor:"pointer",fontSize:"0.65rem",fontWeight:600}}>{sc.emoji} {sc.label}</button>;
+                        })()}
+                        <button onClick={()=>startEdit(w)} style={{...S.btnEdit,fontSize:"0.75rem",opacity:0.6}}>✏️</button>
+                        {w.variants?.length>0&&<button onClick={()=>openVariantModal(w)} style={{...S.btnEdit,color:"#9060f0",fontSize:"0.72rem",opacity:0.8}}>🔀{w.variants.length}</button>}
+                        <button onClick={()=>deleteWord(w.id)} style={{...S.btnEdit,color:"#f07070",fontSize:"0.72rem",opacity:0.6}}>🗑️</button>
+                      </div>
+                    )}
                   </div>
-                  {/* 오른쪽: 🔈 + ··· 메뉴 */}
-                  {(()=>{
+                  {/* 오른쪽: 🔈 + ··· 메뉴 (menu 스타일만) */}
+                  {cardStyle==="menu"&&(()=>{
                     const [menuOpen,setMenuOpen]=[expandedVariantWord===`menu_${w.id}`,v=>setExpandedVariantWord(v?`menu_${w.id}`:expandedVariantWord===`menu_${w.id}`?null:expandedVariantWord)];
                     const sc=STATUS_CONFIG[w.status];
                     const isMenuOpen=expandedVariantWord===`menu_${w.id}`;
@@ -2734,13 +2779,22 @@ export default function HebrewQuiz() {
                                 </button>
                               );})}
                             </div>
-                            {/* 발음 횟수 */}
-                            <div style={{display:"flex",gap:"4px",alignItems:"center"}}>
-                              <span style={{fontSize:"0.65rem",color:"#5a5870",flexShrink:0}}>발음</span>
-                              {[1,5,10].map(n=>(
-                                <SpeakOnceBtn key={n} text={w.hebrew} onSpeak={speakOnDemand} muted={muted} repeatN={n}/>
-                              ))}
-                            </div>
+                            {/* 발음 횟수 입력 */}
+                            {(()=>{
+                              const [rn,setRn]=[w._repeatN||1,n=>setWords(ws=>ws.map(x=>x.id===w.id?{...x,_repeatN:n}:x))];
+                              return(
+                                <div style={{display:"flex",gap:"4px",alignItems:"center"}}>
+                                  <span style={{fontSize:"0.65rem",color:"#5a5870",flexShrink:0}}>발음</span>
+                                  <SpeakOnceBtn text={w.hebrew} onSpeak={speakOnDemand} muted={muted} repeatN={rn}/>
+                                  <input type="number" min={1} max={20} value={rn}
+                                    onClick={e=>e.stopPropagation()}
+                                    onChange={e=>setRn(Math.max(1,Math.min(20,Number(e.target.value)||1)))}
+                                    style={{width:"36px",padding:"3px 4px",borderRadius:"5px",background:"rgba(255,255,255,0.06)",
+                                      border:"1px solid rgba(255,255,255,0.15)",color:"#c4a050",fontSize:"0.75rem",textAlign:"center",outline:"none"}}/>
+                                  <span style={{fontSize:"0.62rem",color:"#5a5870"}}>회</span>
+                                </div>
+                              );
+                            })()}
                             {/* 편집 버튼들 */}
                             <div style={{display:"flex",gap:"4px",borderTop:"1px solid rgba(255,255,255,0.07)",paddingTop:"5px"}}>
                               <button onClick={()=>{startEdit(w);setExpandedVariantWord(null);}} style={{...S.btnEdit,flex:1,padding:"4px",background:"rgba(255,255,255,0.04)",borderRadius:"6px",border:"1px solid rgba(255,255,255,0.08)",fontSize:"0.78rem"}}>✏️ 편집</button>
