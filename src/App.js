@@ -391,7 +391,9 @@ async function googleTTS(text, apiKey, lang="he-IL", name="he-IL-Wavenet-A", rat
       if(!res.ok) continue; // 이 음성 안 되면 다음 시도
       const data=await res.json();
       if(data.audioContent){
-        new Audio(`data:audio/mp3;base64,${data.audioContent}`).play();
+        const audio=new Audio(`data:audio/mp3;base64,${data.audioContent}`);
+        _currentAudio=audio;
+        audio.play();
         return; // 성공
       }
     }catch{}
@@ -420,13 +422,22 @@ function SpeakBtn({text,onSpeak,size="md",muted=false}) {
 }
 
 // SpeakBtn — 단어 카드 전용 (메뉴 안에서 횟수 선택)
+// 전역 현재 오디오 참조 (정지용)
+let _currentAudio=null;
 function SpeakOnceBtn({text,onSpeak,muted=false,repeatN=1}){
   const [playing,setPlaying]=useState(false);
   const [count,setCount]=useState(0);
   const stopRef=useRef(false);
+  const globalStop=()=>{
+    stopRef.current=true;
+    window.speechSynthesis?.cancel();
+    if(_currentAudio){_currentAudio.pause();_currentAudio.currentTime=0;_currentAudio=null;}
+    setPlaying(false);setCount(0);
+  };
   const handle=async(e)=>{
     e.stopPropagation();
-    if(muted||playing) return;
+    if(muted) return;
+    if(playing){globalStop();return;}
     stopRef.current=false; setPlaying(true);
     for(let i=0;i<repeatN;i++){
       if(stopRef.current) break;
@@ -436,13 +447,14 @@ function SpeakOnceBtn({text,onSpeak,muted=false,repeatN=1}){
     }
     setPlaying(false); setCount(0);
   };
-  const stop=(e)=>{e.stopPropagation();stopRef.current=true;window.speechSynthesis?.cancel();setPlaying(false);setCount(0);};
   return(
-    <button onClick={playing?stop:handle}
-      style={{background:playing?"rgba(200,60,60,0.2)":"rgba(196,160,80,0.1)",
-        border:playing?"1px solid rgba(200,60,60,0.4)":"1px solid rgba(196,160,80,0.3)",
-        borderRadius:"7px",cursor:muted?"default":"pointer",padding:"5px 10px",fontSize:"0.9rem",lineHeight:1,opacity:muted?0.3:1}}>
-      {playing?`⏹${count}`:"🔈"}
+    <button onClick={handle}
+      style={{background:playing?"rgba(200,60,60,0.25)":"rgba(196,160,80,0.1)",
+        border:playing?"2px solid rgba(200,60,60,0.6)":"1px solid rgba(196,160,80,0.3)",
+        borderRadius:"7px",cursor:muted?"default":"pointer",padding:"5px 10px",
+        fontSize:playing?"0.85rem":"0.9rem",lineHeight:1,opacity:muted?0.3:1,
+        fontWeight:playing?700:400,transition:"all 0.1s"}}>
+      {playing?`⏹ ${count}`:"🔈"}
     </button>
   );
 }
@@ -706,7 +718,8 @@ export default function HebrewQuiz() {
   const [importExcludeDefault,setImportExcludeDefault]=useState(false);  // 기본 단어장 제외
   // ── 단어 지갑 ──
   const [showWalletModal,setShowWalletModal]=useState(false);
-  const [walletPickWord,setWalletPickWord]=useState(null); // 단어장 선택 팝업용 wordId
+  const [walletPickWord,setWalletPickWord]=useState(null);
+  const [bulkWalletOpen,setBulkWalletOpen]=useState(false); // 단어장 선택 팝업용 wordId
   const [wallets,setWallets]=useState(()=>{
     try{ const s=localStorage.getItem("wordWallets"); return s?JSON.parse(s):[]; }catch{ return []; }
   });
@@ -2066,12 +2079,12 @@ export default function HebrewQuiz() {
                       const Cell=({tid,label})=>{
                         const form=v[tid];
                         if(!form) return null;
-                        const fontSize=form.length>9?"0.68rem":form.length>6?"0.78rem":"0.9rem";
+                        const fontSize=form.length>9?"0.78rem":form.length>6?"0.9rem":"1rem";
                         return(
                           <div style={{display:"flex",flexDirection:"column",alignItems:"center",
-                            padding:"4px 3px",background:"rgba(255,255,255,0.03)",borderRadius:"5px",gap:"2px",minWidth:0}}>
-                            <span style={{color:"#5a5870",fontSize:"0.55rem",lineHeight:1.1,textAlign:"center",fontFamily:"Arial",direction:"rtl"}}>{label}</span>
-                            <span style={{fontFamily:"Arial",direction:"rtl",color:"#e8e6f0",fontSize,fontWeight:600}}>{form}</span>
+                            padding:"5px 4px",background:"rgba(255,255,255,0.04)",borderRadius:"6px",gap:"3px",minWidth:0}}>
+                            <span style={{color:"#7a7890",fontSize:"0.65rem",lineHeight:1.1,textAlign:"center",fontFamily:"Arial",direction:"rtl",whiteSpace:"nowrap"}}>{label}</span>
+                            <span style={{fontFamily:"Arial",direction:"rtl",color:"#f0ece0",fontSize,fontWeight:700}}>{form}</span>
                           </div>
                         );
                       };
@@ -2371,8 +2384,10 @@ export default function HebrewQuiz() {
                   <span style={{fontSize:"0.7rem",color:"#c4a050",maxWidth:"80px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{user.displayName}</span>
                   {syncing&&<span style={{fontSize:"0.65rem",color:"#5a5870"}}>{T.saving}</span>}
                   <button onClick={()=>setShowWalletModal(true)}
-                    style={{fontSize:"0.78rem",padding:"3px 7px",borderRadius:"6px",background:"rgba(196,160,80,0.1)",border:"1px solid rgba(196,160,80,0.3)",color:"#c4a050",cursor:"pointer"}}>
-                    📚{wallets.length>0?` ${wallets.length}`:""}
+                    style={{fontSize:"0.8rem",padding:"4px 10px",borderRadius:"8px",
+                      background:wallets.length>0?"rgba(196,160,80,0.15)":"rgba(196,160,80,0.08)",
+                      border:"1px solid rgba(196,160,80,0.4)",color:"#c4a050",cursor:"pointer",fontWeight:600}}>
+                    📚 {wallets.length>0?`단어장 ${wallets.length}개`:"+ 단어장 만들기"}
                   </button>
                   <button onClick={()=>setUiLang(l=>l==="ko"?"en":"ko")} style={{fontSize:"0.65rem",padding:"3px 8px",borderRadius:"6px",background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.15)",color:"#c4a050",cursor:"pointer",fontWeight:700}}>{uiLang==="ko"?"EN":"KO"}</button>
                   <button onClick={signOutUser} style={{fontSize:"0.65rem",padding:"3px 8px",borderRadius:"6px",background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.15)",color:"#7a7890",cursor:"pointer"}}>{T.logout}</button>
@@ -2455,12 +2470,13 @@ export default function HebrewQuiz() {
                     <div style={{display:"flex",gap:"5px",flexWrap:"wrap"}}>
                       {/* 기본 단어장 */}
                       <button onClick={()=>setNewWordExcludeDefault(v=>!v)}
+                        title="히브리어/영어/한국어 탭에서 보이는 전체 단어 목록"
                         style={{padding:"4px 10px",borderRadius:"7px",fontSize:"0.75rem",cursor:"pointer",border:"1px solid",
                           background:!newWordExcludeDefault?"rgba(196,160,80,0.2)":"rgba(255,255,255,0.04)",
                           borderColor:!newWordExcludeDefault?"rgba(196,160,80,0.5)":"rgba(255,255,255,0.1)",
                           color:!newWordExcludeDefault?"#c4a050":"#5a5870",display:"flex",alignItems:"center",gap:"5px"}}>
                         <span style={{width:"8px",height:"8px",borderRadius:"50%",background:"#c4a050",display:"inline-block",flexShrink:0}}/>
-                        기본 단어장{!newWordExcludeDefault?" ✓":""}
+                        기본 단어장 (전체){!newWordExcludeDefault?" ✓":""}
                       </button>
                       {/* 커스텀 단어장들 */}
                       {wallets.map(wl=>{
@@ -2725,6 +2741,20 @@ export default function HebrewQuiz() {
               );
             })()}
 
+            {/* 커스텀 단어장 없을 때 안내 */}
+            {wallets.length===0&&(
+              <div style={{display:"flex",alignItems:"center",gap:"8px",padding:"8px 12px",borderRadius:"8px",
+                marginBottom:"8px",background:"rgba(196,160,80,0.06)",border:"1px solid rgba(196,160,80,0.15)"}}>
+                <span style={{fontSize:"0.78rem",color:"#7a7890",flex:1}}>
+                  📚 오른쪽 상단 <b style={{color:"#c4a050"}}>단어장 만들기</b> 버튼으로 나만의 단어장을 만들 수 있어요
+                </span>
+                <button onClick={()=>setShowWalletModal(true)}
+                  style={{padding:"4px 10px",borderRadius:"7px",background:"rgba(196,160,80,0.2)",
+                    border:"1px solid rgba(196,160,80,0.4)",color:"#c4a050",cursor:"pointer",fontSize:"0.75rem",fontWeight:600,flexShrink:0}}>
+                  + 만들기
+                </button>
+              </div>
+            )}
             {/* 커스텀 단어장 컨텍스트 안내 */}
             {walletFilter&&(()=>{
               const wl=wallets.find(x=>x.id===walletFilter);
@@ -2770,12 +2800,39 @@ export default function HebrewQuiz() {
                 }}>
                   {selectedIds.size===filteredWords.length&&filteredWords.length>0?T.deselect:T.selectAll}
                 </button>
-                {selectedIds.size>0&&(
+                {selectedIds.size>0&&(<>
+                  {wallets.length>0&&(
+                    <div style={{position:"relative",display:"inline-block"}}>
+                      <button style={{...S.scrollBtn,background:"rgba(196,160,80,0.15)",borderColor:"rgba(196,160,80,0.4)",color:"#c4a050",fontSize:"0.75rem"}}
+                        onClick={()=>setBulkWalletOpen(v=>!v)}>
+                        📚 {selectedIds.size}개 → 단어장 ▾
+                      </button>
+                      {bulkWalletOpen&&(
+                        <div style={{position:"absolute",top:"100%",left:0,zIndex:50,marginTop:"4px",
+                          background:"rgba(26,24,40,0.98)",border:"1px solid rgba(255,255,255,0.15)",
+                          borderRadius:"10px",padding:"8px",minWidth:"150px",boxShadow:"0 4px 20px rgba(0,0,0,0.5)"}}>
+                          {wallets.map(wl=>(
+                            <button key={wl.id} onClick={()=>{
+                              saveWallets(wallets.map(x=>x.id===wl.id
+                                ?{...x,wordIds:[...new Set([...x.wordIds,...selectedIds])]}:x));
+                              setBulkWalletOpen(false);
+                              showToast(`✅ ${selectedIds.size}개 → ${wl.name} 추가!`);
+                            }} style={{display:"flex",alignItems:"center",gap:"8px",padding:"7px 10px",width:"100%",
+                              background:"rgba(255,255,255,0.03)",border:"none",borderRadius:"6px",cursor:"pointer",
+                              color:"#e8e6f0",fontSize:"0.82rem",marginBottom:"3px"}}>
+                              <span style={{width:"10px",height:"10px",borderRadius:"50%",background:wl.color,flexShrink:0}}/>
+                              {wl.name}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
                   <button style={{...S.scrollBtn,background:"rgba(200,60,60,0.15)",borderColor:"rgba(200,60,60,0.4)",color:"#f08080",fontSize:"0.75rem"}}
                     onClick={()=>{ if(window.confirm(uiLang==="en"?`Delete ${selectedIds.size} selected words?`:`선택한 ${selectedIds.size}개 단어를 삭제할까요?`)){setWords(ws=>ws.filter(w=>!selectedIds.has(w.id)));setSelectedIds(new Set());} }}>
                     {T.deleteN(selectedIds.size)}
                   </button>
-                )}
+                </>)}
               </div>
 
             </div>
@@ -2867,7 +2924,10 @@ export default function HebrewQuiz() {
                             <div style={{display:"flex",gap:"4px",borderTop:"1px solid rgba(255,255,255,0.07)",paddingTop:"5px"}}>
                               <button onClick={()=>{startEdit(w);setExpandedVariantWord(null);}} style={{...S.btnEdit,flex:1,padding:"4px",background:"rgba(255,255,255,0.04)",borderRadius:"6px",border:"1px solid rgba(255,255,255,0.08)",fontSize:"0.78rem"}}>✏️ 편집</button>
                               <button onClick={()=>{setExpandedVariantWord(expandedVariantWord===`menu_${w.id}`?w.id:w.id);openVariantModal(w);}} style={{...S.btnEdit,flex:1,padding:"4px",background:"rgba(100,80,200,0.08)",borderRadius:"6px",border:"1px solid rgba(100,80,200,0.2)",color:"#9060f0",fontSize:"0.78rem"}}>🔀 변형{w.variants?.length?` ${w.variants.length}`:""}</button>
-                              {wallets.length>0&&<button onClick={e=>{toggleWordInWallet(wallets.length===1?wallets[0].id:wallets[0].id,w.id);}} style={{...S.btnEdit,flex:1,padding:"4px",background:"rgba(196,160,80,0.06)",borderRadius:"6px",border:"1px solid rgba(196,160,80,0.2)",color:"#c4a050",fontSize:"0.78rem"}}>📚</button>}
+                              {wallets.length>0&&<button onClick={e=>{e.stopPropagation();setWalletPickWord(w.id);}}
+                                style={{...S.btnEdit,flex:1,padding:"4px",background:"rgba(196,160,80,0.08)",borderRadius:"6px",border:"1px solid rgba(196,160,80,0.25)",color:"#c4a050",fontSize:"0.78rem"}}>
+                                📚 {wallets.filter(wl=>wl.wordIds.includes(w.id)).length>0?"✓":""}
+                              </button>}
                               <button onClick={()=>{
                                 const msg=walletFilter?"이 단어장에서만 제거할까요? (단어 자체는 유지됩니다)":"단어를 완전히 삭제할까요?";
                                 if(window.confirm(msg)) deleteWord(w.id);
