@@ -177,12 +177,12 @@ function parseVariantExcel(rows) {
 const VARIANT_CATS = [
   { id:"gender",    label:{ko:"성별 변형",      en:"Gender"},         color:"#e06080", types:["gender_f","gender_m"] },
   { id:"plural",    label:{ko:"단수/복수",      en:"Plural"},         color:"#60a0e0", types:["plural_m","plural_f"] },
-  { id:"past",      label:{ko:"과거형",         en:"Past Tense"},     color:"#c4a050", types:["past_1s","past_2ms","past_2fs","past_3ms","past_3fs","past_1p","past_2mp","past_2fp","past_3mp","past_3fp"] },
+  { id:"infinitive",label:{ko:"to부정사",       en:"Infinitive"},     color:"#50c898", types:["infinitive"] },
   { id:"present",   label:{ko:"현재형(분사)",    en:"Present"},        color:"#60c880", types:["pres_ms","pres_fs","pres_mp","pres_fp"] },
+  { id:"past",      label:{ko:"과거형",         en:"Past Tense"},     color:"#c4a050", types:["past_1s","past_2ms","past_2fs","past_3ms","past_3fs","past_1p","past_2mp","past_2fp","past_3mp","past_3fp"] },
   { id:"future",    label:{ko:"미래형",         en:"Future Tense"},   color:"#60a0e0", types:["fut_1s","fut_2ms","fut_2fs","fut_3ms","fut_3fs","fut_1p","fut_2mp","fut_2fp","fut_3mp","fut_3fp"] },
   { id:"imperative",label:{ko:"명령형",         en:"Imperative"},     color:"#f07050", types:["imp_2ms","imp_2fs","imp_2mp","imp_2fp"] },
   { id:"poss",      label:{ko:"소유격",         en:"Possessive"},     color:"#9060f0", types:["poss_1s","poss_2ms","poss_2fs","poss_3ms","poss_3fs","poss_1p","poss_2mp","poss_2fp","poss_3mp","poss_3fp"] },
-  { id:"infinitive",label:{ko:"to부정사",       en:"Infinitive"},     color:"#50c898", types:["infinitive"] },
 ];
 
 // 품사 정의 — 각 품사가 사용할 수 있는 변형 카테고리
@@ -2053,52 +2053,99 @@ export default function HebrewQuiz() {
                             background:pealimPreview.wordType===wt.id?"rgba(196,160,80,0.2)":"rgba(255,255,255,0.04)",
                             borderColor:pealimPreview.wordType===wt.id?"rgba(196,160,80,0.5)":"rgba(255,255,255,0.1)",
                             color:pealimPreview.wordType===wt.id?"#c4a050":"#5a5870"}}>
-                          {wt.emoji} {wt.label.ko}
+                          {wt.emoji} {wt.label[uiLang]||wt.label.ko}
                         </button>
                       ))}
                     </div>
                   </div>
-                  {/* 변형 목록 — 카테고리별 그룹 */}
-                  <div style={{maxHeight:"260px",overflowY:"auto"}}>
-                    {VARIANT_CATS.map(cat=>{
-                      const catVariants=cat.types.filter(tid=>(pealimPreview.variants||{})[tid]);
-                      if(!catVariants.length) return null;
-                      return(
-                        <div key={cat.id} style={{marginBottom:"8px"}}>
-                          <div style={{fontSize:"0.68rem",fontWeight:700,color:cat.color,marginBottom:"4px",
-                            textTransform:"uppercase",letterSpacing:"0.6px",borderBottom:`1px solid ${cat.color}30`,paddingBottom:"2px"}}>
-                            {cat.label.ko}
+                  {/* 변형 목록 — 인칭별 그룹 레이아웃 */}
+                  <div style={{maxHeight:"320px",overflowY:"auto"}}>
+                    {(()=>{
+                      const v=pealimPreview.variants||{};
+                      // 각 셀 렌더링 함수
+                      const Cell=({tid,label})=>{
+                        const form=v[tid];
+                        if(!form) return null;
+                        const fontSize=form.length>9?"0.68rem":form.length>6?"0.78rem":"0.9rem";
+                        return(
+                          <div style={{display:"flex",flexDirection:"column",alignItems:"center",
+                            padding:"4px 3px",background:"rgba(255,255,255,0.03)",borderRadius:"5px",gap:"2px",minWidth:0}}>
+                            <span style={{color:"#5a5870",fontSize:"0.55rem",lineHeight:1.1,textAlign:"center",fontFamily:"Arial",direction:"rtl"}}>{label}</span>
+                            <span style={{fontFamily:"Arial",direction:"rtl",color:"#e8e6f0",fontSize,fontWeight:600}}>{form}</span>
                           </div>
-                          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"3px"}}>
-                            {catVariants.map(tid=>{
-                              const vt=VARIANT_TYPES.find(t=>t.id===tid);
-                              const form=(pealimPreview.variants||{})[tid];
-                              // 히브리어 글자 수에 따라 폰트 크기 자동 조절
-                              const formLen = (form||'').length;
-                              const fontSize = formLen>8?"0.72rem":formLen>6?"0.82rem":"0.95rem";
-                              return(
-                                <div key={tid} style={{display:"flex",justifyContent:"space-between",alignItems:"center",
-                                  padding:"4px 6px",background:"rgba(255,255,255,0.03)",borderRadius:"5px",gap:"4px",minWidth:0,overflow:"hidden"}}>
-                                  <span style={{color:"#7a7890",fontSize:"0.6rem",flexShrink:1,lineHeight:1.2,minWidth:0,
-                                    overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
-                                    {vt?(()=>{
-                                      const lbl=vt.label.ko;
-                                      const m=lbl.match(/^(.*?)(\s*\([א-תְ-ׇ\/\s]+\))$/);
-                                      if(m) return <>{m[1]}<span style={{fontFamily:"Arial",direction:"rtl",whiteSpace:"nowrap"}}>{m[2]}</span></>;
-                                      return lbl;
-                                    })():tid}
-                                  </span>
-                                  <span style={{fontFamily:"Arial",direction:"rtl",color:"#e8e6f0",fontSize,
-                                    flexShrink:0,whiteSpace:"nowrap",textAlign:"right",marginLeft:"4px"}}>
-                                    {form}
-                                  </span>
-                                </div>
-                              );
-                            })}
-                          </div>
+                        );
+                      };
+                      const Row=({cells,style={}})=>(
+                        <div style={{display:"grid",gridTemplateColumns:`repeat(${cells.length},1fr)`,gap:"3px",marginBottom:"3px",...style}}>
+                          {cells.map(([tid,lbl],i)=><Cell key={i} tid={tid} label={lbl}/>)}
                         </div>
                       );
-                    })}
+                      const SecTitle=(cat)=>{
+                        const c=VARIANT_CATS.find(x=>x.id===cat);
+                        return c?<div style={{fontSize:"0.65rem",fontWeight:700,color:c.color,marginTop:"8px",marginBottom:"3px",
+                          borderBottom:`1px solid ${c.color}30`,paddingBottom:"2px",letterSpacing:"0.4px"}}>
+                          {c.label[uiLang]||c.label.ko}</div>:null;
+                      };
+                      const sections=[];
+                      // 부정사
+                      if(v['infinitive']) sections.push(
+                        <div key="inf">
+                          {SecTitle("infinitive")}
+                          <Row cells={[["infinitive","לְ..."]]}/>
+                        </div>
+                      );
+                      // 현재 (4열)
+                      if(v['pres_ms']||v['pres_fs']||v['pres_mp']||v['pres_fp']) sections.push(
+                        <div key="pres">
+                          {SecTitle("present")}
+                          <Row cells={[["pres_ms","אני/אתה/הוא"],["pres_fs","אני/את/היא"],["pres_mp","אנחנו/אתם/הם"],["pres_fp","אנחנו/אתן/הן"]]}/>
+                        </div>
+                      );
+                      // 과거 (3행)
+                      if(v['past_1s']||v['past_2ms']||v['past_3ms']) sections.push(
+                        <div key="past">
+                          {SecTitle("past")}
+                          <Row cells={[["past_1s","אני"],["past_1p","אנחנו"]]}/>
+                          <Row cells={[["past_2ms","אתה"],["past_2fs","את"],["past_2mp","אתם"],["past_2fp","אתן"]]}/>
+                          <Row cells={[["past_3ms","הוא"],["past_3fs","היא"],["past_3mp","הם"],["past_3fp","הן"]]}/>
+                        </div>
+                      );
+                      // 미래 (3행)
+                      if(v['fut_1s']||v['fut_2ms']||v['fut_3ms']) sections.push(
+                        <div key="fut">
+                          {SecTitle("future")}
+                          <Row cells={[["fut_1s","אני"],["fut_1p","אנחנו"]]}/>
+                          <Row cells={[["fut_2ms","אתה"],["fut_2fs","את"],["fut_2mp","אתם"],["fut_2fp","אתן"]]}/>
+                          <Row cells={[["fut_3ms","הוא"],["fut_3fs","היא"],["fut_3mp","הם"],["fut_3fp","הן"]]}/>
+                        </div>
+                      );
+                      // 명령 (4열)
+                      if(v['imp_2ms']||v['imp_2fs']) sections.push(
+                        <div key="imp">
+                          {SecTitle("imperative")}
+                          <Row cells={[["imp_2ms","אתה"],["imp_2fs","את"],["imp_2mp","אתם"],["imp_2fp","אתן"]]}/>
+                        </div>
+                      );
+                      // 성별/복수/소유격 — 기존 방식
+                      ["gender","plural","poss"].forEach(catId=>{
+                        const cat=VARIANT_CATS.find(c=>c.id===catId);
+                        if(!cat) return;
+                        const available=cat.types.filter(t=>v[t]);
+                        if(!available.length) return;
+                        sections.push(
+                          <div key={catId}>
+                            {SecTitle(catId)}
+                            <Row cells={available.map(t=>{
+                              const vt=VARIANT_TYPES.find(x=>x.id===t);
+                              const lbl=vt?.label[uiLang]||vt?.label.ko||t;
+                              const m=lbl.match(/^(.*?)\s*\(([^)]+)\)$/);
+                              return [t, m?m[2]:lbl];
+                            })}/>
+                          </div>
+                        );
+                      });
+                      return sections;
+                    })()}
                   </div>
                 </div>
                 {/* 저장 버튼 */}
