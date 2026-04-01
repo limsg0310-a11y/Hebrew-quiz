@@ -2720,7 +2720,7 @@ export default function HebrewQuiz() {
                 grouped[r].push(w);
               });
               const roots = Object.entries(grouped).sort((a,b)=>b[1].length-a[1].length);
-              if(!roots.length) return <div style={S.emptyMsg}>{uiLang==="en"?"No words with root data. Add words from Pealim to auto-save roots.":"어근 정보가 있는 {uiLang==="en"?"No words yet":"단어가 없어요"}. Pealim에서 단어를 추가하면 어근이 자동으로 저장돼요."}</div>;
+              if(!roots.length) return <div style={S.emptyMsg}>{uiLang==="en"?"No words with root data. Add words from Pealim to auto-save roots.":"어근 정보가 있는 단어가 없어요. Pealim에서 단어를 추가하면 어근이 자동으로 저장돼요."}</div>;
               return(
                 <div style={{marginBottom:"14px"}}>
                   {roots.map(([root, ws])=>(
