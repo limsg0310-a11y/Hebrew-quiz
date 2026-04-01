@@ -2456,7 +2456,7 @@ export default function HebrewQuiz() {
                     style={{fontSize:"0.8rem",padding:"4px 10px",borderRadius:"8px",
                       background:wallets.length>0?"rgba(196,160,80,0.15)":"rgba(196,160,80,0.08)",
                       border:"1px solid rgba(196,160,80,0.4)",color:"#c4a050",cursor:"pointer",fontWeight:600}}>
-                    📚 {wallets.length>0?`단어장 ${wallets.length}개`:"+ 단어장 만들기"}
+                    📚 {wallets.length>0?(uiLang==="en"?`Wordbooks ${wallets.length}`:`단어장 ${wallets.length}개`):(uiLang==="en"?"+ New Wordbook":"+ 단어장 만들기")}
                   </button>
                   <button onClick={()=>{const nl=uiLang==="ko"?"en":"ko";setUiLang(nl);try{localStorage.setItem("uiLang",nl);}catch{}}} style={{fontSize:"0.65rem",padding:"3px 8px",borderRadius:"6px",background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.15)",color:"#c4a050",cursor:"pointer",fontWeight:700}}>{uiLang==="ko"?"EN":"KO"}</button>
                   <button onClick={signOutUser} style={{fontSize:"0.65rem",padding:"3px 8px",borderRadius:"6px",background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.15)",color:"#7a7890",cursor:"pointer"}}>{T.logout}</button>
