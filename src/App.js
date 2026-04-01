@@ -881,7 +881,7 @@ export default function HebrewQuiz() {
   const [selectedRoot,setSelectedRoot]     =useState(null);   // 선택된 어근
   const [rootQuizType,setRootQuizType]     =useState("variant"); // "mcq"|"essay"|"variant" // 변형 편집 모달 열린 단어 id
   const [variantDraft,setVariantDraft]       =useState({}); // {type_id: form_string}
-  const [variantPasteMode,setVariantPasteMode]=useState(false); // 붙여넣기 모드
+  const [variantPasteMode,setVariantPasteMode]=useState(false); // false=개별입력, "paste"=붙여넣기, "view"=보기
   const [variantPasteText,setVariantPasteText]=useState(""); // 붙여넣기 텍스트
   const [variantEditType,setVariantEditType] =useState("");
   const [variantEditForm,setVariantEditForm] =useState("");
@@ -925,6 +925,8 @@ export default function HebrewQuiz() {
     const draft = {};
     (word.variants||[]).forEach(v=>{ draft[v.type]=v.form; });
     setVariantDraft(draft);
+    // 변형이 있으면 '보기' 탭으로, 없으면 '편집' 탭으로
+    setVariantPasteMode((word.variants||[]).length>0?"view":false);
     setExpandedVariantWord(word.id);
   };
   const saveVariantDraft=(wordId)=>{
@@ -2282,17 +2284,21 @@ export default function HebrewQuiz() {
               {/* 모드 탭 */}
               <div style={{display:"flex",gap:"6px",marginBottom:"14px"}}>
                 <button onClick={()=>setVariantPasteMode(false)}
-                  style={{...S.optBtn,flex:1,...(!variantPasteMode?S.essayOptActive:{})}}>
-                  ✏️ 개별 입력
+                  style={{...S.optBtn,flex:1,...(variantPasteMode===false?S.essayOptActive:{})}}>
+                  ✏️ {uiLang==="en"?"Edit":"개별 입력"}
                 </button>
-                <button onClick={()=>setVariantPasteMode(true)}
-                  style={{...S.optBtn,flex:1,...(variantPasteMode?{background:"rgba(80,160,120,0.2)",borderColor:"rgba(80,160,120,0.5)",color:"#50c898"}:{})}}>
-                  📋 한번에 붙여넣기
+                <button onClick={()=>setVariantPasteMode("view")}
+                  style={{...S.optBtn,flex:1,...(variantPasteMode==="view"?{background:"rgba(196,160,80,0.2)",borderColor:"rgba(196,160,80,0.5)",color:"#c4a050"}:{})}}>
+                  👁️ {uiLang==="en"?"View":"변형 보기"}
+                </button>
+                <button onClick={()=>setVariantPasteMode("paste")}
+                  style={{...S.optBtn,flex:1,...(variantPasteMode==="paste"?{background:"rgba(80,160,120,0.2)",borderColor:"rgba(80,160,120,0.5)",color:"#50c898"}:{})}}>
+                  📋 {uiLang==="en"?"Paste":"붙여넣기"}
                 </button>
               </div>
 
               {/* 붙여넣기 모드 */}
-              {variantPasteMode&&(
+              {variantPasteMode==="paste"&&(
                 <div>
                   <div style={{background:"rgba(80,160,120,0.08)",border:"1px solid rgba(80,160,120,0.2)",borderRadius:"10px",padding:"12px",marginBottom:"12px",fontSize:"0.78rem",lineHeight:1.8,color:"#5a5870"}}>
                     <div style={{color:"#50c898",fontWeight:600,marginBottom:"6px"}}>{uiLang==="en"?"📋 Paste order (one per line):":"📋 붙여넣기 순서 (줄바꿈으로 구분)"}</div>
@@ -2330,7 +2336,7 @@ export default function HebrewQuiz() {
 
               {/* 카테고리별 입력 폼 */}
               {/* 품사 선택 */}
-              {!variantPasteMode&&(
+              {variantPasteMode===false&&(
                 <div style={{marginBottom:"14px"}}>
                   <div style={{fontSize:"0.72rem",color:"#7a7890",marginBottom:"6px"}}>{uiLang==="en"?"Word type — filters available variant types":"품사 선택 — 해당하는 변형만 표시돼요"}</div>
                   <div style={{display:"flex",gap:"6px",flexWrap:"wrap"}}>
@@ -2352,7 +2358,7 @@ export default function HebrewQuiz() {
                   })()}
                 </div>
               )}
-              {!variantPasteMode&&getAllowedCats(editWord.wordType).map(cat=>(
+              {variantPasteMode===false&&getAllowedCats(editWord.wordType).map(cat=>(
                 <div key={cat.id} style={{marginBottom:"16px"}}>
                   <div style={{fontSize:"0.72rem",fontWeight:700,color:cat.color,textTransform:"uppercase",letterSpacing:"0.8px",marginBottom:"8px",borderBottom:`1px solid ${cat.color}40`,paddingBottom:"4px"}}>
                     {cat.label[uiLang]||cat.label.ko}
@@ -2389,9 +2395,114 @@ export default function HebrewQuiz() {
                   </div>
                 </div>
               ))}
+              {/* 변형 보기 탭 */}
+              {variantPasteMode==="view"&&(()=>{
+                // 현재 저장된 variants (draft 아닌 실제 저장값) + draft 모두 표시
+                const draftEntries = Object.fromEntries(
+                  Object.entries(variantDraft).filter(([,f])=>f.trim())
+                );
+                const savedEntries = Object.fromEntries(
+                  (editWord.variants||[]).map(v=>[v.type,v.form])
+                );
+                // draft 우선, 없으면 saved
+                const v = {...savedEntries, ...draftEntries};
+                if(!Object.keys(v).length) return(
+                  <div style={{textAlign:"center",color:"#5a5870",padding:"30px 0",fontSize:"0.85rem"}}>
+                    {uiLang==="en"?"No variants yet. Switch to Edit tab to add.":"변형 데이터가 없어요. 개별 입력 탭에서 추가해주세요."}
+                  </div>
+                );
+                const VCell=({tid,label})=>{
+                  const form=v[tid];
+                  if(!form) return null;
+                  const fs=form.length>9?"0.78rem":form.length>6?"0.9rem":"1rem";
+                  return(
+                    <div onClick={()=>speakOnDemand(form)} title={form}
+                      style={{display:"flex",flexDirection:"column",alignItems:"center",
+                        padding:"8px 4px",background:"rgba(255,255,255,0.04)",borderRadius:"8px",
+                        gap:"4px",minWidth:0,cursor:"pointer",border:"1px solid rgba(255,255,255,0.06)",
+                        transition:"background 0.1s"}}
+                      onMouseEnter={e=>e.currentTarget.style.background="rgba(196,160,80,0.1)"}
+                      onMouseLeave={e=>e.currentTarget.style.background="rgba(255,255,255,0.04)"}>
+                      <span style={{color:"#7a7890",fontSize:"0.62rem",lineHeight:1.1,textAlign:"center",fontFamily:"Arial",direction:"rtl",whiteSpace:"nowrap"}}>{label}</span>
+                      <span style={{fontFamily:"Arial",direction:"rtl",color:"#f0ece0",fontSize:fs,fontWeight:700}}>{form}</span>
+                      <span style={{fontSize:"0.5rem",color:"rgba(196,160,80,0.45)"}}>🔈</span>
+                    </div>
+                  );
+                };
+                const VRow=({cells})=>{
+                  const visible=cells.filter(([tid])=>v[tid]);
+                  if(!visible.length) return null;
+                  return(
+                    <div style={{display:"grid",gridTemplateColumns:`repeat(${visible.length},1fr)`,gap:"4px",marginBottom:"4px"}}>
+                      {cells.map(([tid,lbl],i)=><VCell key={i} tid={tid} label={lbl}/>)}
+                    </div>
+                  );
+                };
+                const VSecTitle=({catId})=>{
+                  const cat=VARIANT_CATS.find(c=>c.id===catId);
+                  if(!cat) return null;
+                  const hasAny=cat.types.some(t=>v[t]);
+                  if(!hasAny) return null;
+                  return <div style={{fontSize:"0.65rem",fontWeight:700,color:cat.color,
+                    marginTop:"10px",marginBottom:"4px",
+                    borderBottom:`1px solid ${cat.color}30`,paddingBottom:"2px",letterSpacing:"0.4px"}}>
+                    {cat.label[uiLang]||cat.label.ko}
+                  </div>;
+                };
+                return(
+                  <div style={{maxHeight:"400px",overflowY:"auto",paddingRight:"2px"}}>
+                    <div style={{fontSize:"0.72rem",color:"#7a7890",marginBottom:"8px"}}>
+                      {uiLang==="en"?"Tap any cell to play pronunciation":"각 칸을 클릭하면 발음을 들을 수 있어요"}
+                    </div>
+                    {/* 부정사 */}
+                    {v['infinitive']&&<><VSecTitle catId="infinitive"/><VRow cells={[["infinitive","לְ..."]]}/>  </>}
+                    {/* 현재형 */}
+                    {(v['pres_ms']||v['pres_fs']||v['pres_mp']||v['pres_fp'])&&<>
+                      <VSecTitle catId="present"/>
+                      <VRow cells={[["pres_ms","אני/אתה/הוא"],["pres_fs","אני/את/היא"],["pres_mp","אנחנו/אתם/הם"],["pres_fp","אנחנו/אתן/הן"]]}/>
+                    </>}
+                    {/* 과거형 */}
+                    {(v['past_1s']||v['past_2ms']||v['past_3ms'])&&<>
+                      <VSecTitle catId="past"/>
+                      <VRow cells={[["past_1s","אני"],["past_1p","אנחנו"]]}/>
+                      <VRow cells={[["past_2ms","אתה"],["past_2fs","את"],["past_2mp","אתם"],["past_2fp","אתן"]]}/>
+                      <VRow cells={[["past_3ms","הוא"],["past_3fs","היא"],["past_3mp","הם"],["past_3fp","הן"]]}/>
+                    </>}
+                    {/* 미래형 */}
+                    {(v['fut_1s']||v['fut_2ms']||v['fut_3ms'])&&<>
+                      <VSecTitle catId="future"/>
+                      <VRow cells={[["fut_1s","אני"],["fut_1p","אנחנו"]]}/>
+                      <VRow cells={[["fut_2ms","אתה"],["fut_2fs","את"],["fut_2mp","אתם"],["fut_2fp","אתן"]]}/>
+                      <VRow cells={[["fut_3ms","הוא"],["fut_3fs","היא"],["fut_3mp","הם"],["fut_3fp","הן"]]}/>
+                    </>}
+                    {/* 명령형 */}
+                    {(v['imp_2ms']||v['imp_2fs'])&&<>
+                      <VSecTitle catId="imperative"/>
+                      <VRow cells={[["imp_2ms","אתה"],["imp_2fs","את"],["imp_2mp","אתם"],["imp_2fp","אתן"]]}/>
+                    </>}
+                    {/* 성별/복수/소유격 */}
+                    {["gender","plural","poss"].map(catId=>{
+                      const cat=VARIANT_CATS.find(c=>c.id===catId);
+                      if(!cat||!cat.types.some(t=>v[t])) return null;
+                      return(
+                        <div key={catId}>
+                          <VSecTitle catId={catId}/>
+                          <VRow cells={cat.types.filter(t=>v[t]).map(t=>{
+                            const vt=VARIANT_TYPES.find(x=>x.id===t);
+                            const lbl=vt?vt.label[uiLang]||vt.label.ko:t;
+                            const m=lbl.match(/^(.*?)\s*\(([^)]+)\)$/);
+                            return [t, m?m[2]:lbl];
+                          })}/>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
+
               {/* 저장/취소 버튼 */}
               <div style={{display:"flex",gap:"8px",marginTop:"8px",position:"sticky",bottom:0,background:"#1a1828",paddingTop:"12px"}}>
-                {!variantPasteMode&&<button style={{...S.btnMerge,flex:1}} onClick={()=>saveVariantDraft(editWord.id)}>
+                {variantPasteMode===false&&<button style={{...S.btnMerge,flex:1}} onClick={()=>saveVariantDraft(editWord.id)}>
                   ✅ 저장 ({Object.values(variantDraft).filter(v=>v.trim()).length}개 입력됨)
                 </button>}
                 <button style={S.btnCancel2} onClick={()=>{setExpandedVariantWord(null);setVariantPasteMode(false);setVariantPasteText("");}}>{T.cancelBtn}</button>
