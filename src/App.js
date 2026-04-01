@@ -2151,9 +2151,12 @@ export default function HebrewQuiz() {
                         const fontSize=form.length>9?"0.78rem":form.length>6?"0.9rem":"1rem";
                         return(
                           <div style={{display:"flex",flexDirection:"column",alignItems:"center",
-                            padding:"5px 4px",background:"rgba(255,255,255,0.04)",borderRadius:"6px",gap:"3px",minWidth:0}}>
+                            padding:"5px 4px",background:"rgba(255,255,255,0.04)",borderRadius:"6px",gap:"3px",minWidth:0,cursor:"pointer"}}
+                            onClick={()=>speakOnDemand(form)}
+                            title={form}>
                             <span style={{color:"#7a7890",fontSize:"0.65rem",lineHeight:1.1,textAlign:"center",fontFamily:"Arial",direction:"rtl",whiteSpace:"nowrap"}}>{label}</span>
                             <span style={{fontFamily:"Arial",direction:"rtl",color:"#f0ece0",fontSize,fontWeight:700}}>{form}</span>
+                            <span style={{fontSize:"0.55rem",color:"rgba(196,160,80,0.5)"}}>🔈</span>
                           </div>
                         );
                       };
@@ -2268,8 +2271,11 @@ export default function HebrewQuiz() {
               {/* 헤더 */}
               <div style={{marginBottom:"14px"}}>
                 <h3 style={{...S.modalTitle,fontSize:"1.1rem",marginBottom:"4px"}}>{uiLang==="en"?"🔀 Edit Variants":"🔀 변형 편집"}</h3>
-                <div style={{display:"flex",alignItems:"center",gap:"12px"}}>
+                <div style={{display:"flex",alignItems:"center",gap:"12px",flexWrap:"wrap"}}>
                   <div style={{fontFamily:"Arial",direction:"rtl",fontSize:"1.3rem",color:"#c4a050"}}>{editWord.hebrew}</div>
+                  <button onClick={()=>speakOnDemand(editWord.hebrew)}
+                    style={{background:"rgba(196,160,80,0.1)",border:"1px solid rgba(196,160,80,0.3)",
+                      borderRadius:"6px",padding:"3px 8px",cursor:"pointer",fontSize:"0.9rem"}}>🔈</button>
                   <div style={{fontSize:"0.8rem",color:"#7a7890"}}>{editWord.meaning}</div>
                 </div>
               </div>
@@ -2359,9 +2365,14 @@ export default function HebrewQuiz() {
                         <div key={tid} style={{display:"flex",flexDirection:"column",gap:"3px"}}>
                           <label style={{fontSize:"0.68rem",color:"#7a7890",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                             <span>{label}</span>
-                            {variantDraft[tid]&&<button onClick={()=>setVariantDraft(d=>({...d,[tid]:""}))}
-                              style={{fontSize:"0.6rem",padding:"1px 5px",borderRadius:"4px",background:"rgba(200,60,60,0.1)",
-                                border:"1px solid rgba(200,60,60,0.3)",color:"#f07050",cursor:"pointer",lineHeight:1.4}}>{uiLang==="en"?"Delete":"삭제"}</button>}
+                            <div style={{display:"flex",gap:"4px",alignItems:"center"}}>
+                              {variantDraft[tid]&&<button onClick={()=>speakOnDemand(variantDraft[tid])}
+                                style={{fontSize:"0.7rem",padding:"1px 6px",borderRadius:"4px",background:"rgba(196,160,80,0.1)",
+                                  border:"1px solid rgba(196,160,80,0.3)",color:"#c4a050",cursor:"pointer",lineHeight:1.4}}>🔈</button>}
+                              {variantDraft[tid]&&<button onClick={()=>setVariantDraft(d=>({...d,[tid]:""}))}
+                                style={{fontSize:"0.6rem",padding:"1px 5px",borderRadius:"4px",background:"rgba(200,60,60,0.1)",
+                                  border:"1px solid rgba(200,60,60,0.3)",color:"#f07050",cursor:"pointer",lineHeight:1.4}}>{uiLang==="en"?"Delete":"삭제"}</button>}
+                            </div>
                           </label>
                           <input
                             value={variantDraft[tid]||""}
@@ -2583,7 +2594,7 @@ export default function HebrewQuiz() {
               {currentBook!=="hebrew"&&(
                 <div style={{marginBottom:"8px"}}>
                   <button style={{...S.btnIO("#c4a050","rgba(196,160,80,0.15)","rgba(196,160,80,0.4)"),width:"100%"}} onClick={()=>setShowWordSearchModal(true)}>
-                {uiLang==="en"?(currentBook==="english"?"🔎 Find English by meaning":"🔎 Find Korean by meaning"):(currentBook==="english"?"🔎 한국어/히브리어로 영어 찾기":"🔎 영어/히브리어로 한국어 찾기")}
+                    uiLang==="en"?(currentBook==="english"?"🔎 Find English by meaning":"🔎 Find Korean by meaning"):(currentBook==="english"?"🔎 한국어/히브리어로 영어 찾기":"🔎 영어/히브리어로 한국어 찾기")
                   </button>
                 </div>
               )}
@@ -3115,7 +3126,7 @@ export default function HebrewQuiz() {
                   onChange={e=>{ const v=Math.max(1,Math.min(essayPoolSize,Number(e.target.value)||1)); setEssayCountSave(v); }}
                   style={{width:"52px",padding:"4px 6px",background:"rgba(255,255,255,0.08)",border:"1px solid rgba(100,80,200,0.4)",borderRadius:"6px",color:"#c0b0ff",fontSize:"0.9rem",fontWeight:700,textAlign:"center",outline:"none"}}/>
               </div>
-              <button style={{...S.btnEssayStart,...(!essayPoolSize?S.btnDisabled:{})}} onClick={startEssay} disabled={!essayPoolSize}>✍️ Start! ({essayCount===9999?essayPoolSize:Math.min(essayCount,essayPoolSize)} {uiLang==="en"?"questions":"문제"})</button>
+              <button style={{...S.btnEssayStart,...(!essayPoolSize?S.btnDisabled:{})}} onClick={startEssay} disabled={!essayPoolSize}>✍️ 서술형 시작! ({essayCount===9999?essayPoolSize:Math.min(essayCount,essayPoolSize)} {uiLang==="en"?"questions":"문제"})</button>
               </div>}
             </div>
             {/* 변형 퀴즈 — 히브리어 단어장만 */}
