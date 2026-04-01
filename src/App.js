@@ -1770,7 +1770,7 @@ export default function HebrewQuiz() {
                 <div style={{display:"flex",gap:"8px",marginBottom:"12px",alignItems:"center"}}>
                   <input value={walletName} onChange={e=>setWalletName(e.target.value)}
                     onKeyDown={e=>e.key==="Enter"&&createWallet()}
-                    style={{...S.input,flex:1,padding:"8px 12px"}} placeholder="{uiLang==="en"?"Wordbook name...":"단어장 이름 입력..."}"/>
+                    style={{...S.input,flex:1,padding:"8px 12px"}} placeholder={uiLang==="en"?"Wordbook name...":"단어장 이름 입력..."}/>
                   {/* 색상 선택 */}
                   <div style={{display:"flex",gap:"4px"}}>
                     {["#c4a050","#50c898","#9060f0","#f07050","#60a0e0","#e06080"].map(c=>(
