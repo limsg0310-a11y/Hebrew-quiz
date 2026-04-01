@@ -593,10 +593,25 @@ export default function HebrewQuiz() {
           const alreadySynced = localStorage.getItem(syncKey);
 
           if(snap.exists()){
-            const cloud = snap.data().words;
+            const snapData = snap.data();
+            const cloud = snapData.words;
+            // wallets 클라우드에서 로드
+            const cloudWallets = snapData.wallets;
+            if(cloudWallets && cloudWallets.length){
+              const localWallets = (() => { try{ const s=localStorage.getItem("wordWallets"); return s?JSON.parse(s):[]; }catch{return [];} })();
+              if(!localWallets.length){
+                setWallets(cloudWallets);
+                try{localStorage.setItem("wordWallets",JSON.stringify(cloudWallets));}catch{}
+              } else {
+                // 로컬과 클라우드 wallets 병합 (id 기준 dedup)
+                const merged = [...cloudWallets];
+                localWallets.forEach(lw=>{ if(!merged.find(cw=>cw.id===lw.id)) merged.push(lw); });
+                setWallets(merged);
+                try{localStorage.setItem("wordWallets",JSON.stringify(merged));}catch{}
+              }
+            }
             if(cloud&&cloud.length){
               if(hasLocal && !alreadySynced){
-                // 로컬과 클라우드 내용이 같으면 모달 없이 클라우드 로드
                 const localSet = new Set(localWords.map(w=>w.hebrew));
                 const cloudSet = new Set(cloud.map(w=>w.hebrew));
                 const isSame = localWords.length === cloud.length &&
@@ -605,12 +620,10 @@ export default function HebrewQuiz() {
                   setWordsRaw(cloud); saveWords(cloud);
                   localStorage.setItem(syncKey,"1");
                 } else {
-                  // 다를 때만 선택 모달
                   setPendingCloudWords(cloud);
                   setShowMergeModal(true);
                 }
               } else {
-                // 이미 동기화했거나 로컬 단어 없음 → 클라우드 로드
                 setWordsRaw(cloud); saveWords(cloud);
                 if(!alreadySynced) showToast("☁️ 클라우드 단어장을 불러왔어요!");
                 localStorage.setItem(syncKey,"1");
@@ -668,10 +681,15 @@ export default function HebrewQuiz() {
   const signOutUser = async()=>{
     await signOut(fbAuth); showToast("로그아웃 됐어요.");
   };
-  const syncToCloud = async(wordsToSync)=>{
+  const syncToCloud = async(wordsToSync, walletsToSync)=>{
     if(!user) return;
     setSyncing(true);
-    try{ await setDoc(doc(fbDb,"users",user.uid),{words:wordsToSync,updatedAt:new Date().toISOString()}); }
+    try{
+      const data = {words:wordsToSync, updatedAt:new Date().toISOString()};
+      if(walletsToSync !== undefined) data.wallets = walletsToSync;
+      else if(wallets && wallets.length) data.wallets = wallets;
+      await setDoc(doc(fbDb,"users",user.uid), data);
+    }
     catch(e){ console.error("sync error",e); }
     finally{ setSyncing(false); }
   };
@@ -759,7 +777,15 @@ export default function HebrewQuiz() {
   const [walletName,setWalletName]=useState("");
   const [walletColor,setWalletColor]=useState("#c4a050");
   const [walletView,setWalletView]=useState(null); // 보고 있는 지갑 id
-  const saveWallets=(w)=>{ setWallets(w); try{localStorage.setItem("wordWallets",JSON.stringify(w));}catch{}; };
+  const saveWallets=(w)=>{
+    setWallets(w);
+    try{localStorage.setItem("wordWallets",JSON.stringify(w));}catch{}
+    // 클라우드에도 동기화
+    if(user){
+      setDoc(doc(fbDb,"users",user.uid),{wallets:w,walletsUpdatedAt:new Date().toISOString()},{merge:true})
+        .catch(e=>console.error("wallet sync error",e));
+    }
+  };
   const createWallet=()=>{
     if(!walletName.trim()) return;
     const nw=[{id:Date.now(),name:walletName.trim(),color:walletColor,wordIds:[]}, ...wallets];
@@ -2548,7 +2574,7 @@ export default function HebrewQuiz() {
               <div style={{...S.ioSub,margin:"10px 0 8px"}}>{T.telegramTip}</div>
               <div style={{display:"flex",gap:"6px",marginBottom:"8px",alignItems:"center"}}>
                 <span style={{fontSize:"0.72rem",color:"#7a7890"}}>{T.cardStyle}</span>
-                {[["menu",{T.menuStyle}],["inline",{T.inlineStyle}]].map(([v,l])=>(
+                {[["menu",T.menuStyle],["inline",T.inlineStyle]].map(([v,l])=>(
                   <button key={v} onClick={()=>setCardStyleSave(v)}
                     style={{padding:"3px 10px",borderRadius:"6px",fontSize:"0.72rem",cursor:"pointer",border:"1px solid",
                       background:cardStyle===v?"rgba(196,160,80,0.2)":"rgba(255,255,255,0.04)",
