@@ -450,7 +450,7 @@ function SpeakBtn({text,onSpeak,size="md",muted=false}) {
     try{await onSpeak(text);}catch{}
     setTimeout(()=>setPlaying(false),1200);
   };
-  return <button onClick={handleClick} title={muted?(uiLang==="en"?"Muted":"음소거 중"):(uiLang==="en"?"Pronounce":"발음 듣기")} style={{background:muted?"rgba(100,100,100,0.1)":playing?"rgba(196,160,80,0.3)":"rgba(196,160,80,0.1)",border:muted?"1px solid rgba(150,150,150,0.2)":"1px solid rgba(196,160,80,0.35)",borderRadius:"8px",cursor:muted?"default":"pointer",padding:size==="lg"?"10px 16px":"6px 10px",fontSize:size==="lg"?"1.2rem":"0.95rem",lineHeight:1,flexShrink:0,opacity:muted?0.4:1}}>{muted?"🔇":playing?"🔊":"🔈"}</button>;
+  return <button onClick={handleClick} title={muted?"Muted / 음소거":"Pronounce / 발음"} style={{background:muted?"rgba(100,100,100,0.1)":playing?"rgba(196,160,80,0.3)":"rgba(196,160,80,0.1)",border:muted?"1px solid rgba(150,150,150,0.2)":"1px solid rgba(196,160,80,0.35)",borderRadius:"8px",cursor:muted?"default":"pointer",padding:size==="lg"?"10px 16px":"6px 10px",fontSize:size==="lg"?"1.2rem":"0.95rem",lineHeight:1,flexShrink:0,opacity:muted?0.4:1}}>{muted?"🔇":playing?"🔊":"🔈"}</button>;
 }
 
 // SpeakBtn — 단어 카드 전용 (메뉴 안에서 횟수 선택)
@@ -518,7 +518,7 @@ function RepeatSpeakBtn({text,onSpeak,muted=false,size="lg"}) {
             background:repeatMode===m?"rgba(196,160,80,0.3)":"rgba(255,255,255,0.05)",
             borderColor:repeatMode===m?"rgba(196,160,80,0.6)":"rgba(255,255,255,0.1)",
             color:repeatMode===m?"#c4a050":"#5a5870",opacity:playing&&repeatMode!==m?0.4:1}}>
-          {m}{uiLang==="en"?"x":"회"}
+          {m}x
         </button>
       ))}
       <button onClick={playing?handleStop:handleSpeak}
