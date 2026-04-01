@@ -1677,24 +1677,31 @@ export default function HebrewQuiz() {
       {walletPickWord&&(
         <div style={{...S.modalOverlay,zIndex:9999}} onClick={()=>setWalletPickWord(null)}>
           <div style={{...S.modal,maxWidth:"320px",padding:"16px"}} onClick={e=>e.stopPropagation()}>
-            <h3 style={{...S.modalTitle,marginBottom:"12px"}}>📚 단어장 선택</h3>
+            <h3 style={{...S.modalTitle,marginBottom:"4px"}}>📚 {uiLang==="en"?"Add to Wordbook":"단어장 선택"}</h3>
+            <p style={{fontSize:"0.72rem",color:"#7a7890",marginBottom:"12px"}}>{uiLang==="en"?"Select one or more":"여러 단어장에 동시에 추가할 수 있어요"}</p>
             <div style={{display:"flex",flexDirection:"column",gap:"6px"}}>
               {wallets.map(wl=>{
                 const inWallet=wl.wordIds.includes(walletPickWord);
                 return(
-                  <button key={wl.id} onClick={()=>{toggleWordInWallet(wl.id,walletPickWord);setWalletPickWord(null);}}
+                  <button key={wl.id} onClick={()=>toggleWordInWallet(wl.id,walletPickWord)}
                     style={{display:"flex",alignItems:"center",gap:"10px",padding:"10px 14px",borderRadius:"10px",
-                      background:inWallet?"rgba(196,160,80,0.15)":"rgba(255,255,255,0.04)",
-                      border:`1px solid ${inWallet?"rgba(196,160,80,0.4)":wl.color+"30"}`,cursor:"pointer",textAlign:"left"}}>
-                    <div style={{width:"12px",height:"12px",borderRadius:"50%",background:wl.color,flexShrink:0}}/>
-                    <span style={{color:"#e8e6f0",flex:1}}>{wl.name}</span>
-                    <span style={{fontSize:"0.75rem",color:"#5a5870"}}>{words.filter(w=>wl.wordIds.includes(w.id)).length}개</span>
-                    {inWallet&&<span style={{fontSize:"0.72rem",color:"#c4a050"}}>✓ 담김</span>}
+                      background:inWallet?wl.color+"20":"rgba(255,255,255,0.04)",
+                      border:`1px solid ${inWallet?wl.color+"60":wl.color+"25"}`,cursor:"pointer",textAlign:"left"}}>
+                    <div style={{width:"16px",height:"16px",borderRadius:"4px",flexShrink:0,
+                      background:inWallet?wl.color:"transparent",
+                      border:`2px solid ${inWallet?wl.color:"rgba(255,255,255,0.2)"}`,
+                      display:"flex",alignItems:"center",justifyContent:"center"}}>
+                      {inWallet&&<span style={{color:"#1a1820",fontSize:"0.65rem",fontWeight:700}}>✓</span>}
+                    </div>
+                    <span style={{color:"#e8e6f0",flex:1,fontWeight:inWallet?600:400}}>{wl.name}</span>
+                    <span style={{fontSize:"0.72rem",color:"#5a5870"}}>{words.filter(w=>wl.wordIds.includes(w.id)).length}</span>
                   </button>
                 );
               })}
             </div>
-            <button style={{...S.btnCancel2,width:"100%",marginTop:"10px"}} onClick={()=>setWalletPickWord(null)}>취소</button>
+            <button style={{...S.btnMerge,width:"100%",marginTop:"12px"}} onClick={()=>setWalletPickWord(null)}>
+              {uiLang==="en"?"Done":"완료"}
+            </button>
           </div>
         </div>
       )}
@@ -2530,16 +2537,7 @@ export default function HebrewQuiz() {
                   <div style={{marginBottom:"6px"}}>
                     <div style={{fontSize:"0.72rem",color:"#7a7890",marginBottom:"5px"}}>{T.addToWordbook}</div>
                     <div style={{display:"flex",gap:"5px",flexWrap:"wrap"}}>
-                      {/* 기본 단어장 */}
-                      <button onClick={()=>setNewWordExcludeDefault(v=>!v)}
-                        title="히브리어/영어/한국어 탭에서 보이는 전체 단어 목록"
-                        style={{padding:"4px 10px",borderRadius:"7px",fontSize:"0.75rem",cursor:"pointer",border:"1px solid",
-                          background:!newWordExcludeDefault?"rgba(196,160,80,0.2)":"rgba(255,255,255,0.04)",
-                          borderColor:!newWordExcludeDefault?"rgba(196,160,80,0.5)":"rgba(255,255,255,0.1)",
-                          color:!newWordExcludeDefault?"#c4a050":"#5a5870",display:"flex",alignItems:"center",gap:"5px"}}>
-                        <span style={{width:"8px",height:"8px",borderRadius:"50%",background:"#c4a050",display:"inline-block",flexShrink:0}}/>
-                        {T.defaultWordbook}{!newWordExcludeDefault?" ✓":""}
-                      </button>
+
                       {/* 커스텀 단어장들 */}
                       {wallets.map(wl=>{
                         const sel=newWordWallets.has(wl.id);
@@ -2555,9 +2553,7 @@ export default function HebrewQuiz() {
                         );
                       })}
                     </div>
-                    {newWordExcludeDefault&&newWordWallets.size===0&&(
-                      <div style={{fontSize:"0.68rem",color:"#f07050",marginTop:"4px"}}>⚠️ 커스텀 단어장을 하나 이상 선택해야 해요</div>
-                    )}
+                    
                   </div>
                 )}
                 <div style={{display:"flex",gap:"8px"}}>
@@ -2867,25 +2863,57 @@ export default function HebrewQuiz() {
                     <div style={{position:"relative",display:"inline-block"}}>
                       <button style={{...S.scrollBtn,background:"rgba(196,160,80,0.15)",borderColor:"rgba(196,160,80,0.4)",color:"#c4a050",fontSize:"0.75rem"}}
                         onClick={()=>setBulkWalletOpen(v=>!v)}>
-                        📚 {selectedIds.size}개 → 단어장 ▾
+                        📚 {selectedIds.size}{uiLang==="en"?""+"개"} → {uiLang==="en"?"Wordbook ▾":"단어장 ▾"}
                       </button>
                       {bulkWalletOpen&&(
                         <div style={{position:"absolute",top:"100%",left:0,zIndex:50,marginTop:"4px",
                           background:"rgba(26,24,40,0.98)",border:"1px solid rgba(255,255,255,0.15)",
-                          borderRadius:"10px",padding:"8px",minWidth:"150px",boxShadow:"0 4px 20px rgba(0,0,0,0.5)"}}>
-                          {wallets.map(wl=>(
-                            <button key={wl.id} onClick={()=>{
-                              saveWallets(wallets.map(x=>x.id===wl.id
-                                ?{...x,wordIds:[...new Set([...x.wordIds,...selectedIds])]}:x));
-                              setBulkWalletOpen(false);
-                              showToast(`✅ ${selectedIds.size}개 → ${wl.name} 추가!`);
-                            }} style={{display:"flex",alignItems:"center",gap:"8px",padding:"7px 10px",width:"100%",
-                              background:"rgba(255,255,255,0.03)",border:"none",borderRadius:"6px",cursor:"pointer",
-                              color:"#e8e6f0",fontSize:"0.82rem",marginBottom:"3px"}}>
-                              <span style={{width:"10px",height:"10px",borderRadius:"50%",background:wl.color,flexShrink:0}}/>
-                              {wl.name}
-                            </button>
-                          ))}
+                          borderRadius:"10px",padding:"10px",minWidth:"180px",boxShadow:"0 4px 20px rgba(0,0,0,0.5)"}}>
+                          <div style={{fontSize:"0.68rem",color:"#7a7890",marginBottom:"6px",padding:"0 2px"}}>
+                            {uiLang==="en"?"Select wordbooks (multi-select)":"복수 선택 가능"}
+                          </div>
+                          {(()=>{
+                            const [bulkSel,setBulkSel]=[bulkWalletOpen===true?new Set():bulkWalletOpen,
+                              v=>setBulkWalletOpen(v)];
+                            // bulkWalletOpen이 true이면 초기화, Set이면 그대로
+                            const sel = bulkWalletOpen instanceof Set ? bulkWalletOpen : new Set();
+                            return(<>
+                              {wallets.map(wl=>{
+                                const checked=sel.has(wl.id);
+                                return(
+                                  <button key={wl.id} onClick={()=>{
+                                    const ns=new Set(sel); checked?ns.delete(wl.id):ns.add(wl.id);
+                                    setBulkWalletOpen(ns);
+                                  }} style={{display:"flex",alignItems:"center",gap:"8px",padding:"7px 10px",width:"100%",
+                                    background:checked?wl.color+"15":"rgba(255,255,255,0.03)",
+                                    border:"none",borderRadius:"6px",cursor:"pointer",
+                                    color:checked?wl.color:"#e8e6f0",fontSize:"0.82rem",marginBottom:"3px"}}>
+                                    <div style={{width:"14px",height:"14px",borderRadius:"3px",flexShrink:0,
+                                      background:checked?wl.color:"transparent",
+                                      border:`2px solid ${checked?wl.color:"rgba(255,255,255,0.25)"}`,
+                                      display:"flex",alignItems:"center",justifyContent:"center"}}>
+                                      {checked&&<span style={{color:"#1a1820",fontSize:"0.6rem",fontWeight:700}}>✓</span>}
+                                    </div>
+                                    <span style={{width:"8px",height:"8px",borderRadius:"50%",background:wl.color,flexShrink:0}}/>
+                                    {wl.name}
+                                  </button>
+                                );
+                              })}
+                              {sel.size>0&&(
+                                <button onClick={()=>{
+                                  saveWallets(wallets.map(wl=>sel.has(wl.id)
+                                    ?{...wl,wordIds:[...new Set([...wl.wordIds,...selectedIds])]}:wl));
+                                  setBulkWalletOpen(false);
+                                  setSelectedIds(new Set()); // ✅ 체크 해제
+                                  showToast(`✅ ${selectedIds.size}개 → ${[...sel].map(id=>wallets.find(w=>w.id===id)?.name).join(", ")} 추가!`);
+                                }} style={{width:"100%",marginTop:"6px",padding:"7px",borderRadius:"7px",
+                                  background:"linear-gradient(135deg,#c4a050,#e8c875)",border:"none",
+                                  color:"#1a1820",fontWeight:700,cursor:"pointer",fontSize:"0.82rem"}}>
+                                  ✅ {uiLang==="en"?`Add to ${sel.size} wordbook(s)`:`${sel.size}개 단어장에 추가`}
+                                </button>
+                              )}
+                            </>);
+                          })()}
                         </div>
                       )}
                     </div>
