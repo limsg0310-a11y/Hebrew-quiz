@@ -970,7 +970,7 @@ export default function HebrewQuiz() {
         const res=await fetch(`/api/Reverso?mode=word_search&q=${encodeURIComponent(searchQ)}`);
         const data=await res.json();
         if(data.error){setWordSearchError(data.error);return;}
-        if(!data.results?.length){setWordSearchError(`"${q}"${hasKorean?` → "${searchQ}"`:""} 검색 결과가 없어요.`);return;}
+        if(!data.results?.length){setWordSearchError(`"${q}"${hasKorean?` → "${searchQ}"`:""} {uiLang==="en"?"No results":"검색 결과가 없어요"}.`);return;}
         setWordSearchResults(data.results);
 
       } else if(currentBook==="english"){
@@ -1024,7 +1024,7 @@ export default function HebrewQuiz() {
       const res=await fetch(`/api/Reverso?mode=root_search&root=${encodeURIComponent(rootSearchInput.trim())}`);
       const data=await res.json();
       if(data.error){setRootSearchError(data.error);return;}
-      if(!data.results?.length){setRootSearchError("검색 결과가 없어요. 어근을 확인해주세요.");return;}
+      if(!data.results?.length){setRootSearchError("{uiLang==="en"?"No results":"검색 결과가 없어요"}. 어근을 확인해주세요.");return;}
       setRootSearchResults(data.results);
       setRootGroupName(rootSearchInput.trim());
     }catch(e){setRootSearchError("오류: "+e.message);}
@@ -1199,7 +1199,7 @@ export default function HebrewQuiz() {
   };
   const refreshAllVariants=async()=>{
     const verbWords=words.filter(w=>w.wordType==="verb"||(w.variants||[]).length>0);
-    if(!verbWords.length){ showToast("동사 단어가 없어요.","err"); return; }
+    if(!verbWords.length){ showToast("동사 {uiLang==="en"?"No words yet":"단어가 없어요"}.","err"); return; }
     setRefreshingVariants(true);
     setRefreshLog([]);
     const log=[];
@@ -1309,7 +1309,7 @@ export default function HebrewQuiz() {
   const startVariantQuiz=()=>{
     const selectedTypes=new Set(VARIANT_CATS.filter(c=>variantCats.includes(c.id)).flatMap(c=>c.types));
     const pool=getPool(variantFilter).filter(w=>(w.variants||[]).some(v=>selectedTypes.has(v.type)));
-    if(!pool.length){showToast("선택한 변형 유형의 단어가 없어요.","err");return;}
+    if(!pool.length){showToast("선택한 변형 유형의 {uiLang==="en"?"No words yet":"단어가 없어요"}.","err");return;}
     // 모든 가능한 변형 form 목록 (객관식 보기용)
     const allForms=[...new Set(pool.flatMap(w=>(w.variants||[]).filter(v=>selectedTypes.has(v.type)).map(v=>v.form)))];
     const pairs=[];
@@ -1372,9 +1372,9 @@ export default function HebrewQuiz() {
 
   const exportWords=()=>{ const data={version:1,exportedAt:new Date().toISOString(),words}; const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"}); const url=URL.createObjectURL(blob); const a=document.createElement("a"); a.href=url; a.download=`hebrew-vocab-${new Date().toISOString().slice(0,10)}.json`; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url); showToast(`✅ ${words.length}개 단어를 내보냈어요!`); };
   const copyToClipboard=async()=>{ const text=JSON.stringify({version:1,exportedAt:new Date().toISOString(),words},null,2); try{await navigator.clipboard.writeText(text); showToast("📋 클립보드에 복사됐어요!");}catch{const ta=document.createElement("textarea"); ta.value=text; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); document.body.removeChild(ta); showToast("📋 클립보드에 복사됐어요!");} };
-  const importFromText=()=>{ try{ const parsed=JSON.parse(pasteText); const raw=Array.isArray(parsed)?parsed:(parsed.words||[]); const imported=raw.map(w=>({id:Date.now()+Math.random(),hebrew:(w.hebrew||"").trim(),meaning:(w.meaning||"").trim(),status:["learning","mastered","hard"].includes(w.status)?w.status:"learning",streak:w.streak||0,wrongCount:w.wrongCount||0})).filter(w=>w.hebrew&&w.meaning); if(!imported.length){showToast("불러올 단어가 없어요.","err");return;} setImportPreview({words:imported,fileName:"클립보드에서 붙여넣기"}); setShowPasteModal(false); setPasteText(""); }catch{showToast("올바른 형식이 아니에요.","err");} };
-  const importFromBatchText=()=>{ const raw=batchTextRef.current?batchTextRef.current.value:""; const parsed=parseTextFormat(raw); if(!parsed.length){showToast("인식된 단어가 없어요. שלום=평화 형식으로 입력해주세요.","err");return;} setImportPreview({words:parsed.map(w=>({...w,id:Date.now()+Math.random(),status:"learning",streak:0,wrongCount:0})),fileName:`텍스트 형식 (${parsed.length}개)`}); setShowBatchModal(false); if(batchTextRef.current) batchTextRef.current.value=""; };
-  const handleFileChange=(e)=>{ const file=e.target.files[0]; if(!file) return; const reader=new FileReader(); reader.onload=(ev)=>{ try{ const parsed=JSON.parse(ev.target.result); const raw=Array.isArray(parsed)?parsed:(parsed.words||[]); const imported=raw.map(w=>({id:Date.now()+Math.random(),hebrew:(w.hebrew||"").trim(),meaning:(w.meaning||"").trim(),status:["learning","mastered","hard"].includes(w.status)?w.status:"learning",streak:w.streak||0,wrongCount:w.wrongCount||0})).filter(w=>w.hebrew&&w.meaning); if(!imported.length){showToast("불러올 단어가 없어요.","err");return;} setImportPreview({words:imported,fileName:file.name}); }catch{showToast("파일을 읽을 수 없어요.","err");} }; reader.readAsText(file); e.target.value=""; };
+  const importFromText=()=>{ try{ const parsed=JSON.parse(pasteText); const raw=Array.isArray(parsed)?parsed:(parsed.words||[]); const imported=raw.map(w=>({id:Date.now()+Math.random(),hebrew:(w.hebrew||"").trim(),meaning:(w.meaning||"").trim(),status:["learning","mastered","hard"].includes(w.status)?w.status:"learning",streak:w.streak||0,wrongCount:w.wrongCount||0})).filter(w=>w.hebrew&&w.meaning); if(!imported.length){showToast("불러올 {uiLang==="en"?"No words yet":"단어가 없어요"}.","err");return;} setImportPreview({words:imported,fileName:"클립보드에서 붙여넣기"}); setShowPasteModal(false); setPasteText(""); }catch{showToast("올바른 형식이 아니에요.","err");} };
+  const importFromBatchText=()=>{ const raw=batchTextRef.current?batchTextRef.current.value:""; const parsed=parseTextFormat(raw); if(!parsed.length){showToast("인식된 {uiLang==="en"?"No words yet":"단어가 없어요"}. שלום=평화 형식으로 입력해주세요.","err");return;} setImportPreview({words:parsed.map(w=>({...w,id:Date.now()+Math.random(),status:"learning",streak:0,wrongCount:0})),fileName:`텍스트 형식 (${parsed.length}개)`}); setShowBatchModal(false); if(batchTextRef.current) batchTextRef.current.value=""; };
+  const handleFileChange=(e)=>{ const file=e.target.files[0]; if(!file) return; const reader=new FileReader(); reader.onload=(ev)=>{ try{ const parsed=JSON.parse(ev.target.result); const raw=Array.isArray(parsed)?parsed:(parsed.words||[]); const imported=raw.map(w=>({id:Date.now()+Math.random(),hebrew:(w.hebrew||"").trim(),meaning:(w.meaning||"").trim(),status:["learning","mastered","hard"].includes(w.status)?w.status:"learning",streak:w.streak||0,wrongCount:w.wrongCount||0})).filter(w=>w.hebrew&&w.meaning); if(!imported.length){showToast("불러올 {uiLang==="en"?"No words yet":"단어가 없어요"}.","err");return;} setImportPreview({words:imported,fileName:file.name}); }catch{showToast("파일을 읽을 수 없어요.","err");} }; reader.readAsText(file); e.target.value=""; };
   // ── 히브리어 동사변형 엑셀 양식 파싱 ──
   const parseVerbFormExcel=(rows)=>{
     // 양식 구조: 헤더 행들 + 데이터 행들 (빈 행 = 데이터 행)
@@ -1473,7 +1473,7 @@ export default function HebrewQuiz() {
           .filter(r => r[0] && r[1])
           .map(r => ({ hebrew: String(r[0]).trim(), meaning: String(r[1]).trim() }))
           .filter(w => w.hebrew && w.meaning);
-        if (!parsed.length) { showToast("인식된 단어가 없어요. A열: 히브리어, B열: 뜻 형식인지 확인해주세요.", "err"); return; }
+        if (!parsed.length) { showToast("인식된 {uiLang==="en"?"No words yet":"단어가 없어요"}. A열: 히브리어, B열: 뜻 형식인지 확인해주세요.", "err"); return; }
         setImportPreview({ words: parsed.map(w=>({...w,id:Date.now()+Math.random(),status:"learning",streak:0,wrongCount:0})), fileName:`${file.name}` });
       } catch { showToast("엑셀 파일을 읽을 수 없어요.", "err"); }
     } else {
@@ -1481,7 +1481,7 @@ export default function HebrewQuiz() {
       const reader = new FileReader();
       reader.onload = (ev) => {
         const parsed = parseCSV(ev.target.result);
-        if (!parsed.length) { showToast("인식된 단어가 없어요. 첫째 열: 히브리어, 둘째 열: 뜻 형식인지 확인해주세요.", "err"); return; }
+        if (!parsed.length) { showToast("인식된 {uiLang==="en"?"No words yet":"단어가 없어요"}. 첫째 열: 히브리어, 둘째 열: 뜻 형식인지 확인해주세요.", "err"); return; }
         setImportPreview({ words: parsed.map(w=>({...w,id:Date.now()+Math.random(),status:"learning",streak:0,wrongCount:0})), fileName:`${file.name}` });
       };
       reader.readAsText(file, "UTF-8");
@@ -1663,11 +1663,11 @@ export default function HebrewQuiz() {
       <div style={S.bgDeco1}/><div style={S.bgDeco2}/>
       {toast&&<div style={{...S.toast,...(toast.type==="err"?S.toastErr:{})}}>{toast.msg}</div>}
 
-      <Modal show={showPasteModal} onClose={()=>setShowPasteModal(false)} title="📋 텍스트로 불러오기">
-        <p style={S.modalSub}>📋 복사로 저장한 JSON 텍스트를 붙여넣어주세요</p>
+      <Modal show={showPasteModal} onClose={()=>setShowPasteModal(false)} title={uiLang==="en"?"📋 Import from Text":"📋 텍스트로 불러오기"}>
+        <p style={S.modalSub}>{uiLang==="en"?"Paste JSON text copied from the app":"📋 복사로 저장한 JSON 텍스트를 붙여넣어주세요"}</p>
         <textarea style={S.modalTA} placeholder='{"version":1,"words":[...]}' value={pasteText} onChange={e=>setPasteText(e.target.value)}/>
         <div className="modal-btn-row" style={S.modalBtnRow}>
-          <button style={S.btnMerge} onClick={importFromText}>✅ 불러오기</button>
+          <button style={S.btnMerge} onClick={importFromText}>{uiLang==="en"?"✅ Import":"✅ 불러오기"}</button>
           <button style={S.btnCancel2} onClick={()=>{setShowPasteModal(false);setPasteText("");}}>{T.cancelBtn}</button>
         </div>
       </Modal>
@@ -1710,7 +1710,7 @@ export default function HebrewQuiz() {
       {showWalletModal&&(
         <div style={S.modalOverlay} onClick={()=>setShowWalletModal(false)}>
           <div style={{...S.modal,maxWidth:"480px",maxHeight:"80vh",display:"flex",flexDirection:"column"}} onClick={e=>e.stopPropagation()}>
-            <h3 style={S.modalTitle}>📚 커스텀 단어장</h3>
+            <h3 style={S.modalTitle}>{uiLang==="en"?"📚 Wordbooks":"📚 커스텀 단어장"}</h3>
             <p style={S.modalSub}>{uiLang==="en"?"Organize your words into custom wordbooks and quiz by wordbook.":"단어를 직접 분류해서 저장하세요. 단어장별로 단어를 모아보고 퀴즈도 볼 수 있어요."}</p>
 
             {/* 지갑 보기 모드 */}
@@ -2720,7 +2720,7 @@ export default function HebrewQuiz() {
                 grouped[r].push(w);
               });
               const roots = Object.entries(grouped).sort((a,b)=>b[1].length-a[1].length);
-              if(!roots.length) return <div style={S.emptyMsg}>{uiLang==="en"?"No words with root data. Add words from Pealim to auto-save roots.":"어근 정보가 있는 단어가 없어요. Pealim에서 단어를 추가하면 어근이 자동으로 저장돼요."}</div>;
+              if(!roots.length) return <div style={S.emptyMsg}>{uiLang==="en"?"No words with root data. Add words from Pealim to auto-save roots.":"어근 정보가 있는 {uiLang==="en"?"No words yet":"단어가 없어요"}. Pealim에서 단어를 추가하면 어근이 자동으로 저장돼요."}</div>;
               return(
                 <div style={{marginBottom:"14px"}}>
                   {roots.map(([root, ws])=>(
@@ -2779,7 +2779,7 @@ export default function HebrewQuiz() {
                           return(
                             <div key={w.id} style={{display:"flex",alignItems:"center",gap:"6px",padding:"6px 10px",background:"rgba(255,255,255,0.04)",borderRadius:"9px",border:`1px solid ${st.border}`}}>
                               <span style={{fontFamily:"Arial",direction:"rtl",color:"#c4a050",fontSize:"1rem"}}>{w.hebrew}</span>
-                              <span style={{color:"#7a7890",fontSize:"0.78rem"}}>{w.meaning||<span style={{color:"#3a3848",fontStyle:"italic"}}>뜻 없음</span>}</span>
+                              <span style={{color:"#7a7890",fontSize:"0.78rem"}}>{w.meaning||<span style={{color:"#3a3848",fontStyle:"italic"}}>{uiLang==="en"?"No meaning":"뜻 없음"}</span>}</span>
                               <span style={{fontSize:"0.7rem"}}>{st.emoji}</span>
                               {(w.variants||[]).length>0&&<span style={{fontSize:"0.65rem",color:"#50c898",background:"rgba(80,160,120,0.1)",padding:"1px 5px",borderRadius:"4px"}}>변형 {w.variants.length}개</span>}
                               <button onClick={()=>startEdit(w)} style={{...S.btnEdit,padding:"2px 5px",fontSize:"0.75rem"}}>✏️</button>
@@ -2821,7 +2821,7 @@ export default function HebrewQuiz() {
                   background:`${wl.color}12`,border:`1px solid ${wl.color}30`,
                   fontSize:"0.75rem",color:wl.color,display:"flex",alignItems:"center",gap:"6px"}}>
                   <span style={{width:"8px",height:"8px",borderRadius:"50%",background:wl.color,flexShrink:0,display:"inline-block"}}/>
-                  <span><b>{wl.name}</b> 단어장 보기 중 — 🗑️ 삭제 시 이 단어장에서만 제거돼요 (단어는 유지)</span>
+                  <span><b>{wl.name}</b> {uiLang==="en"?"Viewing wordbook — Delete removes from this list only":"단어장 보기 중 — 삭제 시 이 단어장에서만 제거돼요 (단어는 유지)"}</span>
                 </div>
               ):null;
             })()}
@@ -2905,7 +2905,7 @@ export default function HebrewQuiz() {
                                     ?{...wl,wordIds:[...new Set([...wl.wordIds,...selectedIds])]}:wl));
                                   setBulkWalletOpen(false);
                                   setSelectedIds(new Set()); // ✅ 체크 해제
-                                  showToast(`✅ ${selectedIds.size}개 → ${[...sel].map(id=>wallets.find(w=>w.id===id)?.name).join(", ")} 추가!`);
+                                  showToast(`✅ ${selectedIds.size}${uiLang==="en"?" words":" 개"} → ${[...sel].map(id=>wallets.find(w=>w.id===id)?.name).join(", ")} 추가!`);
                                 }} style={{width:"100%",marginTop:"6px",padding:"7px",borderRadius:"7px",
                                   background:"linear-gradient(135deg,#c4a050,#e8c875)",border:"none",
                                   color:"#1a1820",fontWeight:700,cursor:"pointer",fontSize:"0.82rem"}}>
@@ -2928,7 +2928,7 @@ export default function HebrewQuiz() {
             </div>
 
             <div style={S.wordList}>
-              {filteredWords.length===0&&<div style={S.emptyMsg}>{searchQuery?(uiLang==="en"?"No results":"검색 결과가 없어요"):(uiLang==="en"?"No words yet":"단어가 없어요")}</div>}
+              {filteredWords.length===0&&<div style={S.emptyMsg}>{searchQuery?(uiLang==="en"?"No results":"{uiLang==="en"?"No results":"검색 결과가 없어요"}"):(uiLang==="en"?"No words yet":"{uiLang==="en"?"No words yet":"단어가 없어요"}")}</div>}
               {filteredWords.map((w,i)=>{ const st=STATUS_CONFIG[w.status]; return(
                 <div key={w.id} style={{...S.wordItem,borderColor:selectedIds.has(w.id)?"rgba(200,60,60,0.5)":st.border,background:selectedIds.has(w.id)?"rgba(200,60,60,0.08)":undefined}}>
                   <input type="checkbox" checked={selectedIds.has(w.id)}
@@ -2939,7 +2939,7 @@ export default function HebrewQuiz() {
                   <div style={{flex:1,minWidth:0}}>
                     <span style={S.wordHeb}>{w.hebrew}</span>
                     <div style={{display:"flex",alignItems:"center",gap:"5px",flexWrap:"wrap",marginTop:"2px"}}>
-                      <span style={S.wordMean}>{w.meaning||<span style={{color:"#3a3848",fontStyle:"italic"}}>뜻 없음</span>}</span>
+                      <span style={S.wordMean}>{w.meaning||<span style={{color:"#3a3848",fontStyle:"italic"}}>{uiLang==="en"?"No meaning":"뜻 없음"}</span>}</span>
                       {w.wordType&&(()=>{ const wt=WORD_TYPES.find(t=>t.id===w.wordType); return wt?<span style={{fontSize:"0.6rem",background:"rgba(196,160,80,0.12)",border:"1px solid rgba(196,160,80,0.2)",borderRadius:"4px",padding:"1px 4px",color:"#c4a050"}}>{wt.emoji}</span>:null; })()}
                       {w.root&&<span style={{fontSize:"0.6rem",background:"rgba(80,160,120,0.12)",border:"1px solid rgba(80,160,120,0.25)",borderRadius:"4px",padding:"1px 5px",color:"#50c898",fontFamily:"Arial",direction:"rtl"}}>{w.root}</span>}
                     </div>
@@ -2953,9 +2953,9 @@ export default function HebrewQuiz() {
                         <button onClick={()=>startEdit(w)} style={{...S.btnEdit,fontSize:"0.75rem",opacity:0.6}}>✏️</button>
                         {w.variants?.length>0&&<button onClick={()=>openVariantModal(w)} style={{...S.btnEdit,color:"#9060f0",fontSize:"0.72rem",opacity:0.8}}>🔀{w.variants.length}</button>}
                         <button onClick={()=>{
-  const msg=walletFilter?"이 단어장에서만 제거":"단어 삭제";
+  const msg=walletFilter?(uiLang==="en"?"Remove from wordbook":"이 단어장에서만 제거"):(uiLang==="en"?"Delete word":"단어 삭제");
   if(window.confirm(msg+"할까요?")) deleteWord(w.id);
-}} style={{...S.btnEdit,color:"#f07070",fontSize:"0.72rem",opacity:0.6}}>{walletFilter?"제거":"🗑️"}</button>
+}} style={{...S.btnEdit,color:"#f07070",fontSize:"0.72rem",opacity:0.6}}>{walletFilter?(uiLang==="en"?"Remove":"제거"):"🗑️"}</button>
                       </div>
                     )}
                   </div>
@@ -3006,7 +3006,7 @@ export default function HebrewQuiz() {
                                     onChange={e=>setRn(Math.max(1,Math.min(20,Number(e.target.value)||1)))}
                                     style={{width:"36px",padding:"3px 4px",borderRadius:"5px",background:"rgba(255,255,255,0.06)",
                                       border:"1px solid rgba(255,255,255,0.15)",color:"#c4a050",fontSize:"0.75rem",textAlign:"center",outline:"none"}}/>
-                                  <span style={{fontSize:"0.62rem",color:"#5a5870"}}>회</span>
+                                  <span style={{fontSize:"0.62rem",color:"#5a5870"}}>{uiLang==="en"?"x":"회"}</span>
                                 </div>
                               );
                             })()}
@@ -3019,10 +3019,10 @@ export default function HebrewQuiz() {
                                 📚 {wallets.filter(wl=>wl.wordIds.includes(w.id)).length>0?"✓":""}
                               </button>}
                               <button onClick={()=>{
-                                const msg=walletFilter?"이 단어장에서만 제거할까요? (단어 자체는 유지됩니다)":"단어를 완전히 삭제할까요?";
+                                const msg=walletFilter?(uiLang==="en"?"Remove from this wordbook? (word is kept)":"이 단어장에서만 제거할까요? (단어 자체는 유지됩니다)"):(uiLang==="en"?"Permanently delete this word?":"단어를 완전히 삭제할까요?");
                                 if(window.confirm(msg)) deleteWord(w.id);
                               }} style={{...S.btnEdit,flex:1,padding:"4px",background:"rgba(200,60,60,0.08)",borderRadius:"6px",border:"1px solid rgba(200,60,60,0.2)",color:"#f07070",fontSize:"0.78rem"}}>
-                                {walletFilter?"제거":"🗑️"}
+                                {walletFilter?(uiLang==="en"?"Remove":"제거"):"🗑️"}
                               </button>
                             </div>
                           </div>
@@ -3038,11 +3038,11 @@ export default function HebrewQuiz() {
             {/* 페이지네이션 */}
             {pageSize!==9999&&totalPages>1&&(
               <div style={{display:"flex",justifyContent:"center",gap:"6px",marginBottom:"14px",flexWrap:"wrap"}}>
-                <button style={{...S.scrollBtn,...(page===0?{opacity:0.3,cursor:"not-allowed"}:{})}} onClick={()=>page>0&&setPage(p=>p-1)} disabled={page===0}>← 이전</button>
+                <button style={{...S.scrollBtn,...(page===0?{opacity:0.3,cursor:"not-allowed"}:{})}} onClick={()=>page>0&&setPage(p=>p-1)} disabled={page===0}>{uiLang==="en"?"← Prev":"← 이전"}</button>
                 {Array.from({length:totalPages},(_,i)=>(
                   <button key={i} style={{...S.scrollBtn,...(page===i?{background:"rgba(196,160,80,0.3)",borderColor:"rgba(196,160,80,0.6)",color:"#c4a050"}:{})}} onClick={()=>setPage(i)}>{i+1}</button>
                 ))}
-                <button style={{...S.scrollBtn,...(page===totalPages-1?{opacity:0.3,cursor:"not-allowed"}:{})}} onClick={()=>page<totalPages-1&&setPage(p=>p+1)} disabled={page===totalPages-1}>다음 →</button>
+                <button style={{...S.scrollBtn,...(page===totalPages-1?{opacity:0.3,cursor:"not-allowed"}:{})}} onClick={()=>page<totalPages-1&&setPage(p=>p+1)} disabled={page===totalPages-1}>{uiLang==="en"?"Next →":"다음 →"}</button>
               </div>
             )}
 
@@ -3104,7 +3104,7 @@ export default function HebrewQuiz() {
                   <button key={val} style={{...S.optBtn,...(essayType===val?S.essayOptActive:{})}} onClick={()=>setEssayType(val)}>{label}</button>
                 ))}
               </div>
-              <p style={S.settingLabel}>단어 범위</p>
+              <p style={S.settingLabel}>{T.wordRange}</p>
               <div style={S.optionRow}>{[[QUIZ_FILTERS.ALL,T.allRange(words.length)],[QUIZ_FILTERS.EXCLUDE_MASTERED,T.excludeMastered(words.filter(w=>w.status!=="mastered").length)],[QUIZ_FILTERS.HARD_ONLY,T.hardOnly(hardCount)]].map(([val,label])=><button key={val} style={{...S.optBtn,...(essayFilter===val?S.essayOptActive:{})}} onClick={()=>setEssayFilterSave(val)}>{label}</button>)}</div>
               <p style={S.settingLabel}>{T.questionCount}</p>
               <div style={S.optionRow}>{countOptions.map(({label,value})=>{ const d=value!==9999&&value>essayPoolSize; return<button key={value} style={{...S.optBtn,...(essayCount===value?S.essayOptActive:{}),...(d?{opacity:0.3,cursor:"not-allowed"}:{})}} onClick={()=>!d&&setEssayCountSave(value)} disabled={d}>{label}</button>; })}</div>
@@ -3121,14 +3121,14 @@ export default function HebrewQuiz() {
             {/* 변형 퀴즈 — 히브리어 단어장만 */}
             {currentBook==="hebrew"&&<div style={{...S.card,border:"1px solid rgba(80,160,120,0.3)"}}>
               <SectionHeader sectionKey="quiz_variant" title={T.variantQuizTitle} color="#50c898"
-                badge={variantPoolSize>0?`${variantPoolSize}개 가능`:T.variantUnavailable}/>
+                badge={variantPoolSize>0?uiLang==="en"?`${variantPoolSize} available`:`${variantPoolSize}개 가능`:T.variantUnavailable}/>
               {openSections.quiz_variant&&<div style={{marginTop:"12px"}}>
-              <p style={{fontSize:"0.82rem",color:"#7a7890",marginBottom:"8px"}}>변형 유형과 단어 범위를 선택하고 퀴즈를 시작해요. 변형 추가는 위 📥 단어 가져오기 섹션을 이용하세요.</p>
+              <p style={{fontSize:"0.82rem",color:"#7a7890",marginBottom:"8px"}}>{uiLang==="en"?"Select variant types and word range, then start the quiz.":"변형 유형과 단어 범위를 선택하고 퀴즈를 시작해요."}</p>
 
               <input ref={verbFormFileRef} type="file" accept=".xlsx,.xls" style={{display:"none"}} onChange={handleVerbFormExcel}/>
               <input ref={variantFileRef} type="file" accept=".xlsx,.xls" style={{display:"none"}} onChange={handleVariantExcel}/>
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"6px"}}>
-                <p style={{...S.settingLabel,margin:0}}>변형 유형 선택</p>
+                <p style={{...S.settingLabel,margin:0}}>{T.variantTypeSelect}</p>
                 <button onClick={()=>setVariantCatsSave(variantCats.length===VARIANT_CATS.length?[]:VARIANT_CATS.map(c=>c.id))}
                   style={{...S.scrollBtn,padding:"3px 10px",fontSize:"0.72rem"}}>
                   {variantCats.length===VARIANT_CATS.length?T.allDeselect:T.allSelectAll}
@@ -3143,7 +3143,7 @@ export default function HebrewQuiz() {
                   </button>
                 ))}
               </div>
-              <p style={S.settingLabel}>단어 범위 <span style={{color:"#5a5870",fontWeight:400,fontSize:"0.8rem"}}>(변형 있는 단어만 표시)</span></p>
+              <p style={S.settingLabel}>{T.wordRange} <span style={{color:"#5a5870",fontWeight:400,fontSize:"0.8rem"}}>{T.wordRangeNote}</span></p>
               {(()=>{
                 // 선택된 변형 유형에 해당하는 단어만 카운트
                 const selectedTypes=new Set(VARIANT_CATS.filter(c=>variantCats.includes(c.id)).flatMap(c=>c.types));
@@ -3156,10 +3156,10 @@ export default function HebrewQuiz() {
                 return(
                   <div style={{display:"flex",gap:"5px",flexWrap:"wrap"}}>
                     {[
-                      [QUIZ_FILTERS.ALL, `전체 (${vAll})`],
-                      [QUIZ_FILTERS.LEARNING_ONLY, `📖 학습중 (${vLearning})`],
-                      [QUIZ_FILTERS.HARD_ONLY, `🔥 어려움 (${vHard})`],
-                      [QUIZ_FILTERS.EXCLUDE_MASTERED, `암기 제외 (${vExclude})`],
+                      [QUIZ_FILTERS.ALL, uiLang==="en"?`All (${vAll})`:`전체 (${vAll})`],
+                      [QUIZ_FILTERS.LEARNING_ONLY, uiLang==="en"?`📖 Learning (${vLearning})`:`📖 학습중 (${vLearning})`],
+                      [QUIZ_FILTERS.HARD_ONLY, uiLang==="en"?`🔥 Hard (${vHard})`:`🔥 어려움 (${vHard})`],
+                      [QUIZ_FILTERS.EXCLUDE_MASTERED, uiLang==="en"?`Excl. Mastered (${vExclude})`:`암기 제외 (${vExclude})`],
                     ].map(([val,label])=>(
                       <button key={val} style={{...S.optBtn,...(variantFilter===val?{background:"rgba(80,160,120,0.2)",borderColor:"rgba(80,160,120,0.5)",color:"#50c898"}:{})}}
                         onClick={()=>setVariantFilterSave(val)}>{label}</button>
@@ -3167,7 +3167,7 @@ export default function HebrewQuiz() {
                   </div>
                 );
               })()}
-              <p style={S.settingLabel}>{T.questionCount} <span style={{color:"#5a5870",fontWeight:400,textTransform:"none"}}>(가능: {variantPoolSize}개)</span></p>
+              <p style={S.settingLabel}>{T.questionCount} <span style={{color:"#5a5870",fontWeight:400,textTransform:"none"}}>{uiLang==="en"?`(max: ${variantPoolSize})`:`(가능: ${variantPoolSize}개)`}</span></p>
               <div style={S.sliderWrap}>
                 <span style={S.sliderLabel}>{T.directInput}</span>
                 <input type="range" min={1} max={Math.max(1,variantPoolSize)} value={Math.min(variantCount===9999?variantPoolSize:variantCount,Math.max(1,variantPoolSize))} onChange={e=>setVariantCount(Number(e.target.value))} style={{...S.slider,accentColor:"#50c898"}}/>
@@ -3177,10 +3177,10 @@ export default function HebrewQuiz() {
               </div>
               <button style={{...S.btnStart,background:"linear-gradient(135deg,#50c898,#70e8b8)",color:"#0f1a14",...(!variantPoolSize||!variantCats.length?S.btnDisabled:{})}}
                 onClick={startVariantQuiz} disabled={!variantPoolSize||!variantCats.length}>
-                🔀 변형 퀴즈 시작! ({variantCount===9999?variantPoolSize:Math.min(variantCount,variantPoolSize)}문제)
+                {uiLang==="en"?`🔀 Start Variant Quiz! (${variantCount===9999?variantPoolSize:Math.min(variantCount,variantPoolSize)})`:`🔀 변형 퀴즈 시작! (${variantCount===9999?variantPoolSize:Math.min(variantCount,variantPoolSize)}문제)`}
               </button>
               <div style={{display:"flex",gap:"6px",marginTop:"8px"}}>
-                {[["essay","✍️ 서술형"],["mcq","🎯 객관식"]].map(([t,label])=>(
+                {[["essay",uiLang==="en"?"✍️ Written":"✍️ 서술형"],["mcq",uiLang==="en"?"🎯 Multiple Choice":"🎯 객관식"]].map(([t,label])=>(
                   <button key={t} onClick={()=>setVariantQuizType(t)}
                     style={{...S.optBtn,flex:1,...(variantQuizType===t?{background:"rgba(80,160,120,0.2)",borderColor:"rgba(80,160,120,0.5)",color:"#50c898"}:{})}}>
                     {label}
@@ -3196,7 +3196,7 @@ export default function HebrewQuiz() {
         {mode===MODES.QUIZ&&q&&(
           <div key={animKey}>
             <div style={S.progressBar}><div style={{...S.progressFill,width:`${progress}%`}}/></div>
-            <div style={S.progressLabel}><span>{current+1} / {questions.length}</span><span style={S.scoreLabel}>점수: {score} / {current+(confirmed?1:0)}</span></div>
+            <div style={S.progressLabel}><span>{current+1} / {questions.length}</span><span style={S.scoreLabel}>{uiLang==="en"?"Score":"점수"}: {score} / {current+(confirmed?1:0)}</span></div>
             <div style={S.questionCard}>
               <div style={S.questionTag}>{q.questionType===QUIZ_TYPES.HEB_TO_MEAN?T.questionTagAtoB(bookInfo):T.questionTagBtoA(bookInfo)}</div>
               <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:"12px"}}>
@@ -3298,8 +3298,8 @@ export default function HebrewQuiz() {
                 {last?.result==="exact"
                   ?<div style={{...S.feedbackCorrect,flexWrap:"wrap",marginBottom:"6px"}}>✅ 정답! <SpeakBtn text={eq.hebrewWord} onSpeak={speakOnDemand} muted={muted}/></div>
                   :last?.result==="partial"
-                  ?<div style={{...S.feedbackCorrect,background:"rgba(196,160,80,0.15)",borderColor:"rgba(196,160,80,0.3)",color:"#e8c875",flexWrap:"wrap",marginBottom:"6px"}}>부분 정답! 정답: <b>{eq.answer}</b> <SpeakBtn text={eq.hebrewWord} onSpeak={speakOnDemand} muted={muted}/></div>
-                  :<div style={{...S.feedbackWrong,flexWrap:"wrap",marginBottom:"6px"}}>❌ 오답 — 정답: <b>{eq.answer}</b> <SpeakBtn text={eq.hebrewWord} onSpeak={speakOnDemand} muted={muted}/></div>
+                  ?<div style={{...S.feedbackCorrect,background:"rgba(196,160,80,0.15)",borderColor:"rgba(196,160,80,0.3)",color:"#e8c875",flexWrap:"wrap",marginBottom:"6px"}}>{uiLang==="en"?"Partial! Answer:":"부분 정답! 정답:"} <b>{eq.answer}</b> <SpeakBtn text={eq.hebrewWord} onSpeak={speakOnDemand} muted={muted}/></div>
+                  :<div style={{...S.feedbackWrong,flexWrap:"wrap",marginBottom:"6px"}}>{uiLang==="en"?"❌ Wrong — Answer:":"❌오답—정답:"} <b>{eq.answer}</b> <SpeakBtn text={eq.hebrewWord} onSpeak={speakOnDemand} muted={muted}/></div>
                 }
                 {w&&<div style={{display:"flex",gap:"6px",justifyContent:"center",flexWrap:"wrap",marginBottom:"8px"}}>
                   {w.status!=="hard"&&<button onClick={()=>setManualStatus(eq.wordId,"hard")}
@@ -3338,7 +3338,7 @@ export default function HebrewQuiz() {
               <div style={{...S.progressBar,background:"rgba(80,160,120,0.15)"}}><div style={{...S.progressFill,width:`${prog}%`,background:"linear-gradient(90deg,#50c898,#70e8b8)"}}/></div>
               <div style={S.progressLabel}>
                 <span>🔀 {variantCur+1} / {variantQuestions.length}</span>
-                <span style={{color:"#50c898",fontWeight:600}}>정답 {variantResults.filter(r=>r.correct).length} / {variantCur+(variantConfirmed?1:0)}</span>
+                <span style={{color:"#50c898",fontWeight:600}}>{uiLang==="en"?"Score":uiLang==="en"?"Exact":"정답"} {variantResults.filter(r=>r.correct).length} / {variantCur+(variantConfirmed?1:0)}</span>
               </div>
               <div style={{...S.questionCard,border:"1px solid rgba(80,160,120,0.3)"}}>
                 {/* 문제 유형 태그 */}
@@ -3359,14 +3359,14 @@ export default function HebrewQuiz() {
                     ref={variantInputRef}
                     style={{...S.input,fontSize:"1.3rem",fontFamily:"Arial",direction:"rtl",marginBottom:"12px",
                       ...(variantConfirmed?{borderColor:lastResult?.correct?"rgba(60,180,100,0.6)":"rgba(200,60,60,0.6)"}:{})}}
-                    placeholder="변형을 히브리어로 입력..."
+                    placeholder={uiLang==="en"?"Enter Hebrew variant...":"변형을 히브리어로 입력..."}
                     value={variantInput} onChange={e=>!variantConfirmed&&setVariantInput(e.target.value)}
                     onKeyDown={e=>{if(e.key==="Enter"){if(!variantConfirmed)handleVariantConfirm();else handleVariantNext();}}}
                     readOnly={variantConfirmed} lang="he" spellCheck={false} autoCorrect="off"/>
                   {variantConfirmed&&(
                     <div style={{marginBottom:"10px",display:"flex",alignItems:"center",justifyContent:"center",gap:"8px"}}>
                       {lastResult?.correct
-                        ?<div style={{...S.feedbackCorrect,padding:"8px 16px"}}>✅ 정답!</div>
+                        ?<div style={{...S.feedbackCorrect,padding:"8px 16px"}}>{uiLang==="en"?"✅ Correct!":"✅ 정답!"}</div>
                         :<div style={{...S.feedbackWrong,padding:"8px 16px",display:"flex",alignItems:"center",gap:"8px"}}>
                           ❌ 정답: <b style={{fontFamily:"Arial",direction:"rtl",fontSize:"1.2rem"}}>{vq.answer}</b>
                           <SpeakBtn text={vq.answer} onSpeak={speakOnDemand} muted={muted}/>
@@ -3400,7 +3400,7 @@ export default function HebrewQuiz() {
                   {variantConfirmed&&(
                     <div style={{marginBottom:"10px",display:"flex",alignItems:"center",justifyContent:"center",gap:"8px"}}>
                       {lastResult?.correct
-                        ?<div style={{...S.feedbackCorrect,padding:"8px 16px"}}>✅ 정답!</div>
+                        ?<div style={{...S.feedbackCorrect,padding:"8px 16px"}}>{uiLang==="en"?"✅ Correct!":"✅ 정답!"}</div>
                         :<div style={{...S.feedbackWrong,padding:"8px 16px",display:"flex",alignItems:"center",gap:"8px"}}>
                           ❌ 정답: <b style={{fontFamily:"Arial",direction:"rtl",fontSize:"1.2rem"}}>{vq.answer}</b>
                           <SpeakBtn text={vq.answer} onSpeak={speakOnDemand} muted={muted}/>
@@ -3443,11 +3443,11 @@ export default function HebrewQuiz() {
               <span style={{...S.resultScore,color:"#50c898"}}>{variantResults.filter(r=>r.correct).length}</span>
               <span style={S.resultTotal}>/{variantQuestions.length}</span>
             </div>
-            <p style={{fontSize:"0.8rem",color:"#50c898",fontWeight:600,marginBottom:"4px"}}>🔀 변형 퀴즈 결과</p>
-            <p style={S.resultMsg}>{variantResults.filter(r=>r.correct).length===variantQuestions.length?"🎉 완벽해요!":variantResults.filter(r=>r.correct).length>=variantQuestions.length*0.7?"👏 잘했어요!":"📖 틀린 변형을 복습해봐요!"}</p>
-            <p style={S.resultPct}>정답률: {Math.round(variantResults.filter(r=>r.correct).length/variantQuestions.length*100)}%</p>
+            <p style={{fontSize:"0.8rem",color:"#50c898",fontWeight:600,marginBottom:"4px"}}>{uiLang==="en"?"🔀 Variant Quiz Results":"🔀 변형 퀴즈 결과"}</p>
+            <p style={S.resultMsg}>{variantResults.filter(r=>r.correct).length===variantQuestions.length?(uiLang==="en"?"🎉 Perfect!":"🎉 완벽해요!"):variantResults.filter(r=>r.correct).length>=variantQuestions.length*0.7?"👏 잘했어요!":"📖 틀린 변형을 복습해봐요!"}</p>
+            <p style={S.resultPct}>{uiLang==="en"?"Score":"정답률"}: {Math.round(variantResults.filter(r=>r.correct).length/variantQuestions.length*100)}%</p>
             <div style={S.wrongList}>
-              <h3 style={{...S.wrongTitle,color:"#50c898"}}>📋 전체 결과</h3>
+              <h3 style={{...S.wrongTitle,color:"#50c898"}}>{uiLang==="en"?"📋 All Results":"📋 전체 결과"}</h3>
               {variantResults.map((r,i)=>{
                 const vt=VARIANT_TYPES.find(t=>t.id===r.variantType);
                 return(
@@ -3467,8 +3467,8 @@ export default function HebrewQuiz() {
               })}
             </div>
             <div className="result-btn-row" style={S.resultBtnRow}>
-              <button style={{...S.btnStart,flex:1,background:"linear-gradient(135deg,#50c898,#70e8b8)",color:"#0f1a14"}} onClick={startVariantQuiz}>🔄 다시 풀기</button>
-              <button style={{...S.btnQuit,flex:1}} onClick={()=>setMode(MODES.LIST)}>📚 단어장으로</button>
+              <button style={{...S.btnStart,flex:1,background:"linear-gradient(135deg,#50c898,#70e8b8)",color:"#0f1a14"}} onClick={startVariantQuiz}>{uiLang==="en"?"🔄 Try Again":"🔄 다시 풀기"}</button>
+              <button style={{...S.btnQuit,flex:1}} onClick={()=>setMode(MODES.LIST)}>{uiLang==="en"?"📚 Wordlist":"📚 단어장으로"}</button>
             </div>
           </div>
         )}
@@ -3477,11 +3477,11 @@ export default function HebrewQuiz() {
         {mode===MODES.RESULT&&(
           <div style={S.resultWrap}>
             <div style={S.resultCircle}><span style={S.resultScore}>{score}</span><span style={S.resultTotal}>/{questions.length}</span></div>
-            <p style={S.resultMsg}>{score===questions.length?"🎉 완벽해요!":score>=questions.length*0.7?"👏 잘했어요!":score>=questions.length*0.5?"💪 조금 더 연습해봐요!":"📖 틀린 단어를 복습해봐요!"}</p>
-            <p style={S.resultPct}>정답률: {Math.round(score/questions.length*100)}%</p>
-            <div style={S.resultStats}>{[["mastered","✅ 암기완료","#60c880"],["hard","🔥 어려움","#f07050"],["learning","📖 학습중","#9090b0"]].map(([st,label,color])=><div key={st} style={{...S.resultStatItem,color}}><span style={S.resultStatNum}>{words.filter(w=>w.status===st).length}</span><span style={S.resultStatLabel}>{label}</span></div>)}</div>
+            <p style={S.resultMsg}>{score===questions.length?(uiLang==="en"?"🎉 Perfect!":"🎉 완벽해요!"):score>=questions.length*0.7?(uiLang==="en"?"👏 Great!":"👏 잘했어요!"):score>=questions.length*0.5?"💪 조금 더 연습해봐요!":"📖 틀린 단어를 복습해봐요!"}</p>
+            <p style={S.resultPct}>{uiLang==="en"?"Score":"정답률"}: {Math.round(score/questions.length*100)}%</p>
+            <div style={S.resultStats}>{[["mastered",uiLang==="en"?"✅ Mastered":"✅ 암기완료","#60c880"],["hard",uiLang==="en"?"🔥 Hard":"🔥 어려움","#f07050"],["learning",uiLang==="en"?"📖 Learning":"📖 학습중","#9090b0"]].map(([st,label,color])=><div key={st} style={{...S.resultStatItem,color}}><span style={S.resultStatNum}>{words.filter(w=>w.status===st).length}</span><span style={S.resultStatLabel}>{label}</span></div>)}</div>
             {wrongWords.length>0&&<div style={S.wrongList}><h3 style={S.wrongTitle}>❌ 틀린 단어</h3>{wrongWords.map((q,i)=>{const w=words.find(x=>x.id===q.wordId);return w?<div key={i} style={S.wrongItem}><span style={{fontFamily:"Arial,sans-serif",fontSize:"1.1rem",direction:"rtl",color:"#c4a050",whiteSpace:"nowrap"}}>{w.hebrew}</span><SpeakBtn text={w.hebrew} onSpeak={speakOnDemand} muted={muted}/><span style={{color:"#a0a0b0",margin:"0 4px"}}>→</span><span style={{fontSize:"0.9rem"}}>{w.meaning}</span></div>:null;})}</div>}
-            <div className="result-btn-row" style={S.resultBtnRow}><button style={{...S.btnStart,flex:1}} onClick={startQuiz}>🔄 다시 풀기</button><button style={{...S.btnQuit,flex:1}} onClick={()=>setMode(MODES.LIST)}>📚 단어장으로</button></div>
+            <div className="result-btn-row" style={S.resultBtnRow}><button style={{...S.btnStart,flex:1}} onClick={startQuiz}>{uiLang==="en"?"🔄 Try Again":"🔄 다시 풀기"}</button><button style={{...S.btnQuit,flex:1}} onClick={()=>setMode(MODES.LIST)}>{uiLang==="en"?"📚 Wordlist":"📚 단어장으로"}</button></div>
           </div>
         )}
 
@@ -3492,14 +3492,14 @@ export default function HebrewQuiz() {
               <span style={{...S.resultScore,color:"#9060f0"}}>{essayScore+essayPartial}</span>
               <span style={S.resultTotal}>/{essayQuestions.length}</span>
             </div>
-            <p style={S.resultMsg}>{essayScore===essayQuestions.length?"🎉 완벽해요!":(essayScore+essayPartial)>=essayQuestions.length*0.7?"👏 잘했어요!":"📖 틀린 단어를 복습해봐요!"}</p>
+            <p style={S.resultMsg}>{essayScore===essayQuestions.length?(uiLang==="en"?"🎉 Perfect!":"🎉 완벽해요!"):(essayScore+essayPartial)>=essayQuestions.length*0.7?"👏 잘했어요!":"📖 틀린 단어를 복습해봐요!"}</p>
             <div style={{display:"flex",justifyContent:"center",gap:"20px",marginBottom:"20px",flexWrap:"wrap"}}>
               <div style={{textAlign:"center",color:"#60c880"}}><div style={{fontSize:"1.6rem",fontWeight:800}}>{essayScore}</div><div style={{fontSize:"0.72rem",opacity:0.7}}>✅ 완전 정답</div></div>
-              <div style={{textAlign:"center",color:"#e8c875"}}><div style={{fontSize:"1.6rem",fontWeight:800}}>{essayPartial}</div><div style={{fontSize:"0.72rem",opacity:0.7}}>🟡 부분 정답</div></div>
+              <div style={{textAlign:"center",color:"#e8c875"}}><div style={{fontSize:"1.6rem",fontWeight:800}}>{essayPartial}</div><div style={{fontSize:"0.72rem",opacity:0.7}}>{uiLang==="en"?"🟡 Partial":"🟡 부분 정답"}</div></div>
               <div style={{textAlign:"center",color:"#f08080"}}><div style={{fontSize:"1.6rem",fontWeight:800}}>{essayQuestions.length-essayScore-essayPartial}</div><div style={{fontSize:"0.72rem",opacity:0.7}}>❌ 오답</div></div>
             </div>
             <div style={S.wrongList}>
-              <h3 style={{...S.wrongTitle,color:"#c4a050"}}>📋 전체 결과</h3>
+              <h3 style={{...S.wrongTitle,color:"#c4a050"}}>{uiLang==="en"?"📋 All Results":"📋 전체 결과"}</h3>
               {essayResults.map((r,i)=>{
                 const color=r.result==="exact"?"#60c880":r.result==="partial"?"#e8c875":"#f08080";
                 const icon=r.result==="exact"?"✅":r.result==="partial"?"🟡":"❌";
@@ -3509,14 +3509,14 @@ export default function HebrewQuiz() {
                     <SpeakBtn text={r.question} onSpeak={speakOnDemand} muted={muted}/>
                     <span style={{marginLeft:"auto"}}>{icon}</span>
                   </div>
-                  <div style={{fontSize:"0.82rem",color:"#7a7890"}}>내 답: <span style={{color}}>{r.userInput}</span></div>
-                  {r.result!=="exact"&&<div style={{fontSize:"0.82rem",color:"#a0a0c0"}}>정답: <span style={{color:"#60c880"}}>{r.answer}</span></div>}
+                  <div style={{fontSize:"0.82rem",color:"#7a7890"}}>{uiLang==="en"?"Your answer":"내 답"}: <span style={{color}}>{r.userInput}</span></div>
+                  {r.result!=="exact"&&<div style={{fontSize:"0.82rem",color:"#a0a0c0"}}>{uiLang==="en"?"Answer":uiLang==="en"?"Exact":"정답"}: <span style={{color:"#60c880"}}>{r.answer}</span></div>}
                 </div>;
               })}
             </div>
             <div className="result-btn-row" style={S.resultBtnRow}>
-              <button style={{...S.btnEssayStart,flex:1}} onClick={startEssay}>🔄 다시 풀기</button>
-              <button style={{...S.btnQuit,flex:1}} onClick={()=>setMode(MODES.LIST)}>📚 단어장으로</button>
+              <button style={{...S.btnEssayStart,flex:1}} onClick={startEssay}>{uiLang==="en"?"🔄 Try Again":"🔄 다시 풀기"}</button>
+              <button style={{...S.btnQuit,flex:1}} onClick={()=>setMode(MODES.LIST)}>{uiLang==="en"?"📚 Wordlist":"📚 단어장으로"}</button>
             </div>
           </div>
         )}
