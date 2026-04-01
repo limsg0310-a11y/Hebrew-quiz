@@ -970,7 +970,7 @@ export default function HebrewQuiz() {
         const res=await fetch(`/api/Reverso?mode=word_search&q=${encodeURIComponent(searchQ)}`);
         const data=await res.json();
         if(data.error){setWordSearchError(data.error);return;}
-        if(!data.results?.length){setWordSearchError(`"${q}"${hasKorean?` → "${searchQ}"`:""} {uiLang==="en"?"No results":"검색 결과가 없어요"}.`);return;}
+        if(!data.results?.length){setWordSearchError(`"${q}"${hasKorean?` → "${searchQ}"`:""} ${uiLang==="en"?"No results.":"검색 결과가 없어요."}`);return;}
         setWordSearchResults(data.results);
 
       } else if(currentBook==="english"){
@@ -1024,7 +1024,7 @@ export default function HebrewQuiz() {
       const res=await fetch(`/api/Reverso?mode=root_search&root=${encodeURIComponent(rootSearchInput.trim())}`);
       const data=await res.json();
       if(data.error){setRootSearchError(data.error);return;}
-      if(!data.results?.length){setRootSearchError("{uiLang==="en"?"No results":"검색 결과가 없어요"}. 어근을 확인해주세요.");return;}
+      if(!data.results?.length){setRootSearchError((uiLang==="en"?"No results":"검색 결과가 없어요. 어근을 확인해주세요."));return;}
       setRootSearchResults(data.results);
       setRootGroupName(rootSearchInput.trim());
     }catch(e){setRootSearchError("오류: "+e.message);}
@@ -1199,7 +1199,7 @@ export default function HebrewQuiz() {
   };
   const refreshAllVariants=async()=>{
     const verbWords=words.filter(w=>w.wordType==="verb"||(w.variants||[]).length>0);
-    if(!verbWords.length){ showToast("동사 {uiLang==="en"?"No words yet":"단어가 없어요"}.","err"); return; }
+    if(!verbWords.length){ showToast((uiLang==="en"?"No verb words found.":"동사 단어가 없어요."),"err"); return; }
     setRefreshingVariants(true);
     setRefreshLog([]);
     const log=[];
@@ -2928,7 +2928,7 @@ export default function HebrewQuiz() {
             </div>
 
             <div style={S.wordList}>
-              {filteredWords.length===0&&<div style={S.emptyMsg}>{searchQuery?(uiLang==="en"?"No results":"{uiLang==="en"?"No results":"검색 결과가 없어요"}"):(uiLang==="en"?"No words yet":"{uiLang==="en"?"No words yet":"단어가 없어요"}")}</div>}
+              {filteredWords.length===0&&<div style={S.emptyMsg}>{searchQuery?(uiLang==="en"?"No results":"검색 결과가 없어요"):(uiLang==="en"?"No words yet":"단어가 없어요")}</div>}
               {filteredWords.map((w,i)=>{ const st=STATUS_CONFIG[w.status]; return(
                 <div key={w.id} style={{...S.wordItem,borderColor:selectedIds.has(w.id)?"rgba(200,60,60,0.5)":st.border,background:selectedIds.has(w.id)?"rgba(200,60,60,0.08)":undefined}}>
                   <input type="checkbox" checked={selectedIds.has(w.id)}
