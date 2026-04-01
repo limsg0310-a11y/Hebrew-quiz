@@ -2446,7 +2446,7 @@ export default function HebrewQuiz() {
               <div style={{...S.statBadge,color:"#f07050",background:"rgba(200,80,60,0.12)",border:"1px solid rgba(200,80,60,0.3)"}}>🔥 {hardCount}</div>
               <div style={{...S.statBadge,color:"#c4a050",background:"rgba(196,160,80,0.12)",border:"1px solid rgba(196,160,80,0.3)"}}>📖 {learningCount}</div>
             </div>
-            <div style={{fontSize:"0.68rem",color:ttsReady?"#60c880":"#f07050"}}>{ttsReady?"🔊 Google TTS 연결됨":"⚠️ 브라우저 TTS 사용 중"}</div>
+            <div style={{fontSize:"0.68rem",color:ttsReady?"#60c880":"#f07050"}}>{ttsReady?(uiLang==="en"?"🔊 Google TTS connected":"🔊 Google TTS 연결됨"):(uiLang==="en"?"⚠️ Browser TTS":"⚠️ 브라우저 TTS 사용 중")}</div>
             {user
               ? <div style={{display:"flex",alignItems:"center",gap:"6px"}}>
                   <img src={user.photoURL} alt="" style={{width:"22px",height:"22px",borderRadius:"50%"}}/>
@@ -2673,7 +2673,7 @@ export default function HebrewQuiz() {
             <div style={{display:"flex",gap:"8px",marginBottom:"10px",flexWrap:"wrap",alignItems:"center"}}>
               <input
                 style={{...S.input,flex:1,minWidth:"160px",padding:"9px 14px",fontSize:"0.9rem"}}
-                placeholder={currentBook==="hebrew"?"히브리어 또는 뜻으로 검색...":currentBook==="english"?"Search English or Hebrew...":"한국어 또는 히브리어로 검색..."}
+                placeholder={currentBook==="hebrew"?(uiLang==="en"?"Hebrew or meaning...":"히브리어 또는 뜻으로 검색..."):currentBook==="english"?"Search English or Hebrew...":(uiLang==="en"?"Korean or Hebrew...":"한국어 또는 히브리어로 검색...")}
                 value={searchQuery}
                 onChange={e=>{setSearchQuery(e.target.value);setPage(0);}}
               />
