@@ -2118,7 +2118,7 @@ export default function HebrewQuiz() {
                     placeholder="뜻 입력 (한국어/영어) *필수"/>
                   {/* {uiLang==="en"?"Word type (optional)":"품사 선택 (선택사항)"} */}
                   <div style={{marginBottom:"8px"}}>
-                    <div style={{fontSize:"0.72rem",color:"#7a7890",marginBottom:"5px"}}>{uiLang==="en"?"Word type (optional)":"{uiLang==="en"?"Word type (optional)":"품사 선택 (선택사항)"}"}</div>
+                    <div style={{fontSize:"0.72rem",color:"#7a7890",marginBottom:"5px"}}>{uiLang==="en"?"Word type (optional)":"품사 선택 (선택사항)"}</div>
                     <div style={{display:"flex",gap:"5px",flexWrap:"wrap"}}>
                       {/* 선택 안함 버튼 */}
                       <button onClick={()=>setPealimPreview(p=>({...p,wordType:null}))}
