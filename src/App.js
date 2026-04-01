@@ -2863,7 +2863,7 @@ export default function HebrewQuiz() {
                     <div style={{position:"relative",display:"inline-block"}}>
                       <button style={{...S.scrollBtn,background:"rgba(196,160,80,0.15)",borderColor:"rgba(196,160,80,0.4)",color:"#c4a050",fontSize:"0.75rem"}}
                         onClick={()=>setBulkWalletOpen(v=>!v)}>
-                        📚 {selectedIds.size}{uiLang==="en"?""+"개"} → {uiLang==="en"?"Wordbook ▾":"단어장 ▾"}
+                        📚 {selectedIds.size}{uiLang==="en"?"":"개"} → {uiLang==="en"?"Wordbook ▾":"단어장 ▾"}
                       </button>
                       {bulkWalletOpen&&(
                         <div style={{position:"absolute",top:"100%",left:0,zIndex:50,marginTop:"4px",
