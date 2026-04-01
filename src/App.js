@@ -676,10 +676,10 @@ export default function HebrewQuiz() {
 
   const signInGoogle = async()=>{
     try{ await signInWithPopup(fbAuth, new GoogleAuthProvider()); showToast("로그인 성공! 단어장을 불러오는 중..."); }
-    catch(e){ showToast("로그인 실패: "+e.message,"err"); }
+    catch(e){ showToast((uiLang==="en"?"Sign in failed: ":"로그인 실패: ")+e.message,"err"); }
   };
   const signOutUser = async()=>{
-    await signOut(fbAuth); showToast("로그아웃 됐어요.");
+    await signOut(fbAuth); showToast(uiLang==="en"?"Signed out.":"로그아웃 됐어요.");
   };
   const syncToCloud = async(wordsToSync, walletsToSync)=>{
     if(!user) return;
@@ -695,7 +695,7 @@ export default function HebrewQuiz() {
   };
 
   const [currentBook,setCurrentBook]     =useState("hebrew");
-  const [uiLang,setUiLang]               =useState("ko");
+  const [uiLang,setUiLang] = useState(()=>{ try{return localStorage.getItem("uiLang")||"ko";}catch{return "ko";} });
   const T = UI_TEXT[uiLang] || UI_TEXT.ko;
   const bookInfo = BOOKS.find(b=>b.id===currentBook)||BOOKS[0];
   const [words,setWordsRaw]             =useState(()=>loadWords("hebrew"));
@@ -954,7 +954,7 @@ export default function HebrewQuiz() {
   };
 
   const searchWordByMeaning=async()=>{
-    if(!wordSearchInput.trim()){setWordSearchError("검색어를 입력해주세요");return;}
+    if(!wordSearchInput.trim()){setWordSearchError(uiLang==="en"?"Enter a search term":"검색어를 입력해주세요");return;}
     setWordSearchLoading(true); setWordSearchError(""); setWordSearchResults([]); setWordSearchSelected(new Set());
     try{
       const q=wordSearchInput.trim();
@@ -975,7 +975,7 @@ export default function HebrewQuiz() {
 
       } else if(currentBook==="english"){
         // 영어 단어장: 한국어 → 영어 번역 결과를 카드로 표시
-        if(!hasKorean){setWordSearchError("한국어로 입력해주세요 (예: 사과, 사랑)");return;}
+        if(!hasKorean){setWordSearchError(uiLang==="en"?"Please enter Korean (e.g. 사과, 사랑)":"한국어로 입력해주세요 (예: 사과, 사랑)");return;}
         const translated=await translateText(q,"ko","en");
         if(!translated){setWordSearchError("번역 결과가 없어요.");return;}
         setWordSearchResults([{meaning:translated,hebrew:"",pos:"translation",note:`"${q}" 번역 결과`}]);
@@ -993,7 +993,7 @@ export default function HebrewQuiz() {
   };
 
   const addSelectedWordSearchResults=()=>{
-    if(!wordSearchSelected.size){setWordSearchError("단어를 선택해주세요");return;}
+    if(!wordSearchSelected.size){setWordSearchError(uiLang==="en"?"Select a word":"단어를 선택해주세요");return;}
     const toAdd=[...wordSearchSelected].map(i=>wordSearchResults[i]).filter(Boolean);
     const newWords=toAdd.map(r=>{
       // 단어장별 hebrew/meaning 필드 결정
@@ -1018,7 +1018,7 @@ export default function HebrewQuiz() {
   };
 
   const searchByRoot=async()=>{
-    if(!rootSearchInput.trim()){setRootSearchError("어근을 입력해주세요");return;}
+    if(!rootSearchInput.trim()){setRootSearchError(uiLang==="en"?"Enter a root":"어근을 입력해주세요");return;}
     setRootSearchLoading(true); setRootSearchError(""); setRootSearchResults([]); setRootSelected(new Set());
     try{
       const res=await fetch(`/api/Reverso?mode=root_search&root=${encodeURIComponent(rootSearchInput.trim())}`);
@@ -1634,7 +1634,7 @@ export default function HebrewQuiz() {
   const progress=questions.length>0?((current+(confirmed?1:0))/questions.length)*100:0;
   const essayProgress=essayQuestions.length>0?((essayCurrent+(essayConfirmed?1:0))/essayQuestions.length)*100:0;
   const poolSize=getPool().length; const essayPoolSize=getPool(essayFilter).length;
-  const countOptions=[5,10,20,"전체"].map(v=>({label:v==="전체"?"전체":`${v}문제`,value:v==="전체"?9999:v}));
+  const countOptions=[5,10,20,"전체"].map(v=>({label:v==="전체"?(uiLang==="en"?"All":"전체"):`${v}${uiLang==="en"?"":"문제"}`,value:v==="전체"?9999:v}));
   const essayScore=essayResults.filter(r=>r.result==="exact").length;
   const essayPartial=essayResults.filter(r=>r.result==="partial").length;
 
@@ -1668,7 +1668,7 @@ export default function HebrewQuiz() {
         <textarea style={S.modalTA} placeholder='{"version":1,"words":[...]}' value={pasteText} onChange={e=>setPasteText(e.target.value)}/>
         <div className="modal-btn-row" style={S.modalBtnRow}>
           <button style={S.btnMerge} onClick={importFromText}>✅ 불러오기</button>
-          <button style={S.btnCancel2} onClick={()=>{setShowPasteModal(false);setPasteText("");}}>취소</button>
+          <button style={S.btnCancel2} onClick={()=>{setShowPasteModal(false);setPasteText("");}}>{T.cancelBtn}</button>
         </div>
       </Modal>
 
@@ -1711,7 +1711,7 @@ export default function HebrewQuiz() {
         <div style={S.modalOverlay} onClick={()=>setShowWalletModal(false)}>
           <div style={{...S.modal,maxWidth:"480px",maxHeight:"80vh",display:"flex",flexDirection:"column"}} onClick={e=>e.stopPropagation()}>
             <h3 style={S.modalTitle}>📚 커스텀 단어장</h3>
-            <p style={S.modalSub}>단어를 직접 분류해서 저장하세요. 지갑별로 단어를 모아보고 퀴즈도 볼 수 있어요.</p>
+            <p style={S.modalSub}>{uiLang==="en"?"Organize your words into custom wordbooks and quiz by wordbook.":"단어를 직접 분류해서 저장하세요. 단어장별로 단어를 모아보고 퀴즈도 볼 수 있어요."}</p>
 
             {/* 지갑 보기 모드 */}
             {walletView!==null?(()=>{
@@ -1759,7 +1759,7 @@ export default function HebrewQuiz() {
                   ):(
                     <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",color:"#5a5870",gap:"8px"}}>
                       <div style={{fontSize:"2rem"}}>👜</div>
-                      <div style={{fontSize:"0.85rem"}}>단어장에서 📚 버튼을 눌러 단어를 추가하세요</div>
+                      <div style={{fontSize:"0.85rem"}}>{uiLang==="en"?"Tap 📚 in the word list to add words":"단어장에서 📚 버튼을 눌러 단어를 추가하세요"}</div>
                     </div>
                   )}
                 </div>
@@ -1770,7 +1770,7 @@ export default function HebrewQuiz() {
                 <div style={{display:"flex",gap:"8px",marginBottom:"12px",alignItems:"center"}}>
                   <input value={walletName} onChange={e=>setWalletName(e.target.value)}
                     onKeyDown={e=>e.key==="Enter"&&createWallet()}
-                    style={{...S.input,flex:1,padding:"8px 12px"}} placeholder="단어장 이름 입력..."/>
+                    style={{...S.input,flex:1,padding:"8px 12px"}} placeholder="{uiLang==="en"?"Wordbook name...":"단어장 이름 입력..."}"/>
                   {/* 색상 선택 */}
                   <div style={{display:"flex",gap:"4px"}}>
                     {["#c4a050","#50c898","#9060f0","#f07050","#60a0e0","#e06080"].map(c=>(
@@ -1779,7 +1779,7 @@ export default function HebrewQuiz() {
                     ))}
                   </div>
                   <button onClick={createWallet} disabled={!walletName.trim()}
-                    style={{...S.btnAdd,padding:"8px 14px",opacity:walletName.trim()?1:0.5}}>만들기</button>
+                    style={{...S.btnAdd,padding:"8px 14px",opacity:walletName.trim()?1:0.5}}>{uiLang==="en"?"Create":"만들기"}</button>
                 </div>
 
                 {/* 지갑 목록 */}
@@ -1803,7 +1803,7 @@ export default function HebrewQuiz() {
                           <button onClick={()=>setWalletView(wl.id)}
                             style={{padding:"3px 8px",borderRadius:"6px",background:`${wl.color}20`,border:`1px solid ${wl.color}40`,color:wl.color,cursor:"pointer",fontSize:"0.72rem"}}>보기</button>
                           <button onClick={()=>deleteWallet(wl.id)}
-                            style={{padding:"3px 8px",borderRadius:"6px",background:"rgba(200,60,60,0.1)",border:"1px solid rgba(200,60,60,0.3)",color:"#f07050",cursor:"pointer",fontSize:"0.72rem"}}>삭제</button>
+                            style={{padding:"3px 8px",borderRadius:"6px",background:"rgba(200,60,60,0.1)",border:"1px solid rgba(200,60,60,0.3)",color:"#f07050",cursor:"pointer",fontSize:"0.72rem"}}>{uiLang==="en"?"Delete":"삭제"}</button>
                         </div>
                       );
                     })}
@@ -1820,7 +1820,7 @@ export default function HebrewQuiz() {
             )}
 
             <div style={{marginTop:"12px"}}>
-              <button style={S.btnCancel2} onClick={()=>{setShowWalletModal(false);setWalletView(null);}}>닫기</button>
+              <button style={S.btnCancel2} onClick={()=>{setShowWalletModal(false);setWalletView(null);}}>{uiLang==="en"?"Close":"닫기"}</button>
             </div>
           </div>
         </div>
@@ -1859,7 +1859,7 @@ export default function HebrewQuiz() {
                   <div style={{display:"flex",gap:"6px"}}>
                     <button onClick={()=>setWordSearchSelected(s=>s.size===wordSearchResults.length?new Set():new Set(wordSearchResults.map((_,i)=>i)))}
                       style={{...S.scrollBtn,fontSize:"0.72rem",padding:"3px 8px"}}>
-                      {wordSearchSelected.size===wordSearchResults.length?"전체 해제":"전체 선택"}
+                      {wordSearchSelected.size===wordSearchResults.length?"Deselect All":"Select All"}
                     </button>
                     {wordSearchSelected.size>0&&<button onClick={addSelectedWordSearchResults}
                       style={{padding:"5px 12px",borderRadius:"8px",background:"linear-gradient(135deg,#c4a050,#e8c875)",border:"none",color:"#1a1820",fontWeight:700,cursor:"pointer",fontSize:"0.8rem"}}>
@@ -1908,7 +1908,7 @@ export default function HebrewQuiz() {
               </div>
             )}
             <div style={{marginTop:"14px"}}>
-              <button style={S.btnCancel2} onClick={()=>{setShowWordSearchModal(false);setWordSearchResults([]);setWordSearchInput("");setWordSearchError("");}}>닫기</button>
+              <button style={S.btnCancel2} onClick={()=>{setShowWordSearchModal(false);setWordSearchResults([]);setWordSearchInput("");setWordSearchError("");}}>{uiLang==="en"?"Close":"닫기"}</button>
             </div>
           </div>
         </div>
@@ -1919,7 +1919,7 @@ export default function HebrewQuiz() {
         <div style={S.modalOverlay} onClick={()=>setShowRootModal(false)}>
           <div style={{...S.modal,maxWidth:"480px"}} onClick={e=>e.stopPropagation()}>
             <h3 style={S.modalTitle}>{T.rootSearch}</h3>
-            <p style={S.modalSub}>히브리어 어근을 입력하면 파생된 동사·명사·형용사를 모두 가져와요. 예: ד-ב-ר, כ-ת-ב</p>
+            <p style={S.modalSub}>{uiLang==="en"?"Enter a Hebrew root to find all derived verbs, nouns and adjectives. e.g. ד-ב-ר, כ-ת-ב":"히브리어 어근을 입력하면 파생된 동사·명사·형용사를 모두 가져와요. 예: ד-ב-ר, כ-ת-ב"}</p>
 
             {/* 어근 입력 */}
             <div style={{display:"flex",gap:"8px",marginBottom:"10px"}}>
@@ -1944,7 +1944,7 @@ export default function HebrewQuiz() {
                     <span style={{fontSize:"0.78rem",color:"#7a7890"}}>{rootSearchResults.length}개 결과</span>
                     <button onClick={()=>setRootSelected(s=>s.size===rootSearchResults.length?new Set():new Set(rootSearchResults.map((_,i)=>i)))}
                       style={{...S.scrollBtn,fontSize:"0.72rem",padding:"3px 8px"}}>
-                      {rootSelected.size===rootSearchResults.length?"전체 해제":"전체 선택"}
+                      {rootSelected.size===rootSearchResults.length?"Deselect All":"Select All"}
                     </button>
                   </div>
                   {rootSelected.size>0&&(
@@ -1993,7 +1993,7 @@ export default function HebrewQuiz() {
             )}
 
             <div style={{marginTop:"14px"}}>
-              <button style={S.btnCancel2} onClick={()=>{setShowRootModal(false);setRootSearchResults([]);setRootSearchInput("");setRootSearchError("");}}>닫기</button>
+              <button style={S.btnCancel2} onClick={()=>{setShowRootModal(false);setRootSearchResults([]);setRootSearchInput("");setRootSearchError("");}}>{uiLang==="en"?"Close":"닫기"}</button>
             </div>
           </div>
         </div>
@@ -2003,7 +2003,7 @@ export default function HebrewQuiz() {
         <div style={S.modalOverlay}>
           <div style={{...S.modal,maxWidth:"500px",maxHeight:"88vh",overflowY:"auto"}}>
             <h3 style={S.modalTitle}>🔍 Reverso 동사 변형 불러오기</h3>
-            <p style={S.modalSub}>히브리어 동사 원형(to부정사)을 입력하면 변형표를 자동으로 가져와요. 예: לָשִׁיר, לְדַבֵּר, לֶאֱכֹל</p>
+            <p style={S.modalSub}>{uiLang==="en"?"Enter a Hebrew verb infinitive to auto-import conjugation tables. e.g. לָשִׁיר, לְדַבֵּר, לֶאֱכֹל":"히브리어 동사 원형(to부정사)을 입력하면 변형표를 자동으로 가져와요. 예: לָשִׁיר, לְדַבֵּר, לֶאֱכֹל"}</p>
 
             {/* 어근 입력 */}
             <div style={{display:"flex",gap:"8px",marginBottom:"12px"}}>
@@ -2046,7 +2046,7 @@ export default function HebrewQuiz() {
                     <span style={{fontSize:"0.78rem",color:"#7a7890"}}>{pealimResults.length}개 결과</span>
                     <button onClick={()=>setPealimSelected(s=>s.size===pealimResults.length?new Set():new Set(pealimResults.map((_,i)=>i)))}
                       style={{...S.scrollBtn,fontSize:"0.72rem",padding:"3px 8px"}}>
-                      {pealimSelected.size===pealimResults.length?"전체 해제":"전체 선택"}
+                      {pealimSelected.size===pealimResults.length?"Deselect All":"Select All"}
                     </button>
                   </div>
                   {pealimSelected.size>0&&(
@@ -2086,7 +2086,7 @@ export default function HebrewQuiz() {
                         {/* 뜻 (있으면 표시) */}
                         <span style={{fontSize:"0.8rem",color:"#7a7890",flex:1}}>{r.meaning||r.url.replace("https://www.pealim.com","")}</span>
                         {/* 이미 추가됨 */}
-                        {alreadyAdded&&<span style={{fontSize:"0.68rem",color:"#c4a050",flexShrink:0}}>✓ 추가됨</span>}
+                        {alreadyAdded&&<span style={{fontSize:"0.68rem",color:"#c4a050",flexShrink:0}}>{uiLang==="en"?"✓ Added":"✓ 추가됨"}</span>}
                         {/* 변형만 보기 버튼 */}
                         {!alreadyAdded&&<button onClick={e=>{e.stopPropagation();fetchPealimConjugation(r.url,pealimRoot);}}
                           style={{padding:"4px 8px",borderRadius:"6px",background:"rgba(80,160,120,0.15)",border:"1px solid rgba(80,160,120,0.3)",color:"#50c898",cursor:"pointer",fontSize:"0.68rem",flexShrink:0}}
@@ -2116,9 +2116,9 @@ export default function HebrewQuiz() {
                     onChange={e=>setPealimPreview(p=>({...p,meaning:e.target.value}))}
                     style={{...S.input,padding:"7px 12px",fontSize:"0.9rem",marginBottom:"10px"}}
                     placeholder="뜻 입력 (한국어/영어) *필수"/>
-                  {/* 품사 선택 (선택사항) */}
+                  {/* {uiLang==="en"?"Word type (optional)":"품사 선택 (선택사항)"} */}
                   <div style={{marginBottom:"8px"}}>
-                    <div style={{fontSize:"0.72rem",color:"#7a7890",marginBottom:"5px"}}>품사 선택 <span style={{color:"#5a5870"}}>(선택사항)</span></div>
+                    <div style={{fontSize:"0.72rem",color:"#7a7890",marginBottom:"5px"}}>{uiLang==="en"?"Word type (optional)":"{uiLang==="en"?"Word type (optional)":"품사 선택 (선택사항)"}"}</div>
                     <div style={{display:"flex",gap:"5px",flexWrap:"wrap"}}>
                       {/* 선택 안함 버튼 */}
                       <button onClick={()=>setPealimPreview(p=>({...p,wordType:null}))}
@@ -2235,12 +2235,12 @@ export default function HebrewQuiz() {
                   style={{...S.btnMerge,width:"100%",background:"linear-gradient(135deg,#50c898,#70e8b8)",color:"#0f1a14",padding:"13px",fontSize:"1rem"}}>
                   ✅ 단어장에 추가
                 </button>
-                <button onClick={()=>setPealimPreview(null)} style={{...S.btnCancel2,width:"100%",marginTop:"8px",textAlign:"center"}}>← 다시 검색</button>
+                <button onClick={()=>setPealimPreview(null)} style={{...S.btnCancel2,width:"100%",marginTop:"8px",textAlign:"center"}}>{uiLang==="en"?"← Back":"← 다시 검색"}</button>
               </div>
             )}
 
             <div style={{display:"flex",gap:"8px",marginTop:"14px"}}>
-              <button style={S.btnCancel2} onClick={()=>{setShowPealimModal(false);setPealimRoot("");setPealimResults([]);setPealimPreview(null);setPealimError("");}}>닫기</button>
+              <button style={S.btnCancel2} onClick={()=>{setShowPealimModal(false);setPealimRoot("");setPealimResults([]);setPealimPreview(null);setPealimError("");}}>{uiLang==="en"?"Close":"닫기"}</button>
             </div>
           </div>
         </div>
@@ -2253,8 +2253,8 @@ export default function HebrewQuiz() {
         </div>
         <textarea ref={batchTextRef} style={{...S.modalTA, fontFamily:"Arial,sans-serif", unicodeBidi:"plaintext"}} lang="he" placeholder={"שָׁלוֹם=평화\nתּוֹדָה=감사합니다"} defaultValue="" spellCheck={false} autoCorrect="off" autoCapitalize="off"/>
         <div className="modal-btn-row" style={S.modalBtnRow}>
-          <button style={S.btnMerge} onClick={importFromBatchText}>✅ 단어 추가</button>
-          <button style={S.btnCancel2} onClick={()=>{setShowBatchModal(false); if(batchTextRef.current) batchTextRef.current.value="";}}>취소</button>
+          <button style={S.btnMerge} onClick={importFromBatchText}>{uiLang==="en"?"✅ Add Words":"✅ 단어 추가"}</button>
+          <button style={S.btnCancel2} onClick={()=>{setShowBatchModal(false); if(batchTextRef.current) batchTextRef.current.value="";}}>{T.cancelBtn}</button>
         </div>
       </Modal>
 
@@ -2326,7 +2326,7 @@ export default function HebrewQuiz() {
               {/* 품사 선택 */}
               {!variantPasteMode&&(
                 <div style={{marginBottom:"14px"}}>
-                  <div style={{fontSize:"0.72rem",color:"#7a7890",marginBottom:"6px"}}>품사 선택 — 해당하는 변형만 표시돼요</div>
+                  <div style={{fontSize:"0.72rem",color:"#7a7890",marginBottom:"6px"}}>{uiLang==="en"?"Word type — filters available variant types":"품사 선택 — 해당하는 변형만 표시돼요"}</div>
                   <div style={{display:"flex",gap:"6px",flexWrap:"wrap"}}>
                     <button onClick={()=>setWords(ws=>ws.map(w=>w.id===editWord.id?{...w,wordType:null}:w))}
                       style={{...S.optBtn,padding:"5px 10px",fontSize:"0.78rem",...(!editWord.wordType?{background:"rgba(255,255,255,0.1)",borderColor:"rgba(255,255,255,0.3)",color:"#e8e6f0"}:{})}}>
@@ -2361,7 +2361,7 @@ export default function HebrewQuiz() {
                             <span>{label}</span>
                             {variantDraft[tid]&&<button onClick={()=>setVariantDraft(d=>({...d,[tid]:""}))}
                               style={{fontSize:"0.6rem",padding:"1px 5px",borderRadius:"4px",background:"rgba(200,60,60,0.1)",
-                                border:"1px solid rgba(200,60,60,0.3)",color:"#f07050",cursor:"pointer",lineHeight:1.4}}>삭제</button>}
+                                border:"1px solid rgba(200,60,60,0.3)",color:"#f07050",cursor:"pointer",lineHeight:1.4}}>{uiLang==="en"?"Delete":"삭제"}</button>}
                           </label>
                           <input
                             value={variantDraft[tid]||""}
@@ -2383,7 +2383,7 @@ export default function HebrewQuiz() {
                 {!variantPasteMode&&<button style={{...S.btnMerge,flex:1}} onClick={()=>saveVariantDraft(editWord.id)}>
                   ✅ 저장 ({Object.values(variantDraft).filter(v=>v.trim()).length}개 입력됨)
                 </button>}
-                <button style={S.btnCancel2} onClick={()=>{setExpandedVariantWord(null);setVariantPasteMode(false);setVariantPasteText("");}}>취소</button>
+                <button style={S.btnCancel2} onClick={()=>{setExpandedVariantWord(null);setVariantPasteMode(false);setVariantPasteText("");}}>{T.cancelBtn}</button>
               </div>
             </div>
           </div>
@@ -2394,8 +2394,8 @@ export default function HebrewQuiz() {
       {showMergeModal&&pendingCloudWords&&(
         <div style={S.modalOverlay}>
           <div style={S.modal}>
-            <h3 style={S.modalTitle}>☁️ 단어장 동기화</h3>
-            <p style={S.modalSub}>기기에 저장된 단어와 클라우드 단어가 모두 있어요. 어떻게 할까요?</p>
+            <h3 style={S.modalTitle}>{uiLang==="en"?"☁️ Sync Wordbook":"☁️ 단어장 동기화"}</h3>
+            <p style={S.modalSub}>{uiLang==="en"?"Both local and cloud words exist. What would you like to do?":"기기에 저장된 단어와 클라우드 단어가 모두 있어요. 어떻게 할까요?"}</p>
             <div style={{display:"flex",flexDirection:"column",gap:"8px",marginBottom:"4px"}}>
               <button style={{...S.btnMerge,padding:"12px"}} onClick={()=>handleMerge("merge")}>
                 🔀 합치기 — 두 단어장을 합쳐요 ({(() => { const local=loadWords(); const set=new Set(pendingCloudWords.map(w=>w.hebrew)); return pendingCloudWords.length + local.filter(w=>!set.has(w.hebrew)).length; })()}개)
@@ -2427,9 +2427,9 @@ export default function HebrewQuiz() {
             {importPreview.words.length>5&&<p style={{color:"#5a5870",fontSize:"0.8rem",margin:"6px 0 0"}}>...외 {importPreview.words.length-5}개</p>}
           </div>
           <div className="modal-btn-row" style={S.modalBtnRow}>
-            <button style={S.btnMerge} onClick={()=>confirmImport(true)}>➕ 현재에 추가</button>
+            <button style={S.btnMerge} onClick={()=>confirmImport(true)}>{uiLang==="en"?"➕ Merge":"➕ 현재에 추가"}</button>
             <button style={S.btnReplace} onClick={()=>confirmImport(false)}>🔄 전체 교체</button>
-            <button style={S.btnCancel2} onClick={()=>setImportPreview(null)}>취소</button>
+            <button style={S.btnCancel2} onClick={()=>setImportPreview(null)}>{T.cancelBtn}</button>
           </div>
         </div></div>
       )}
@@ -2458,7 +2458,7 @@ export default function HebrewQuiz() {
                       border:"1px solid rgba(196,160,80,0.4)",color:"#c4a050",cursor:"pointer",fontWeight:600}}>
                     📚 {wallets.length>0?`단어장 ${wallets.length}개`:"+ 단어장 만들기"}
                   </button>
-                  <button onClick={()=>setUiLang(l=>l==="ko"?"en":"ko")} style={{fontSize:"0.65rem",padding:"3px 8px",borderRadius:"6px",background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.15)",color:"#c4a050",cursor:"pointer",fontWeight:700}}>{uiLang==="ko"?"EN":"KO"}</button>
+                  <button onClick={()=>{const nl=uiLang==="ko"?"en":"ko";setUiLang(nl);try{localStorage.setItem("uiLang",nl);}catch{}}} style={{fontSize:"0.65rem",padding:"3px 8px",borderRadius:"6px",background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.15)",color:"#c4a050",cursor:"pointer",fontWeight:700}}>{uiLang==="ko"?"EN":"KO"}</button>
                   <button onClick={signOutUser} style={{fontSize:"0.65rem",padding:"3px 8px",borderRadius:"6px",background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.15)",color:"#7a7890",cursor:"pointer"}}>{T.logout}</button>
                 </div>
               : <div style={{display:"flex",gap:"6px",alignItems:"center"}}>
@@ -2467,7 +2467,7 @@ export default function HebrewQuiz() {
                     📚{wallets.length>0?` (${wallets.length})`:""}
                   </button>
                   <button onClick={signInGoogle} style={{fontSize:"0.72rem",padding:"5px 10px",borderRadius:"8px",background:"linear-gradient(135deg,#c4a050,#e8c875)",border:"none",color:"#1a1820",fontWeight:700,cursor:"pointer"}}>{T.login}</button>
-                  <button onClick={()=>setUiLang(l=>l==="ko"?"en":"ko")} style={{fontSize:"0.65rem",padding:"3px 8px",borderRadius:"6px",background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.15)",color:"#c4a050",cursor:"pointer",fontWeight:700}}>{uiLang==="ko"?"EN":"KO"}</button>
+                  <button onClick={()=>{const nl=uiLang==="ko"?"en":"ko";setUiLang(nl);try{localStorage.setItem("uiLang",nl);}catch{}}} style={{fontSize:"0.65rem",padding:"3px 8px",borderRadius:"6px",background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.15)",color:"#c4a050",cursor:"pointer",fontWeight:700}}>{uiLang==="ko"?"EN":"KO"}</button>
                 </div>
             }
           </div>
@@ -2529,7 +2529,7 @@ export default function HebrewQuiz() {
                         {wt.emoji} {wt.label[uiLang]||wt.label.ko}
                       </button>
                     ))}
-                    <span style={{fontSize:"0.72rem",color:"#5a5870",alignSelf:"center"}}>품사 선택 (선택사항)</span>
+                    <span style={{fontSize:"0.72rem",color:"#5a5870",alignSelf:"center"}}>{uiLang==="en"?"Word type (optional)":"품사 선택 (선택사항)"}</span>
                   </div>
                 )}
                 {/* 커스텀 단어장 선택 */}
@@ -2720,7 +2720,7 @@ export default function HebrewQuiz() {
                 grouped[r].push(w);
               });
               const roots = Object.entries(grouped).sort((a,b)=>b[1].length-a[1].length);
-              if(!roots.length) return <div style={S.emptyMsg}>어근 정보가 있는 단어가 없어요. Pealim에서 단어를 추가하면 어근이 자동으로 저장돼요.</div>;
+              if(!roots.length) return <div style={S.emptyMsg}>{uiLang==="en"?"No words with root data. Add words from Pealim to auto-save roots.":"어근 정보가 있는 단어가 없어요. Pealim에서 단어를 추가하면 어근이 자동으로 저장돼요."}</div>;
               return(
                 <div style={{marginBottom:"14px"}}>
                   {roots.map(([root, ws])=>(
@@ -2804,7 +2804,7 @@ export default function HebrewQuiz() {
               <div style={{display:"flex",alignItems:"center",gap:"8px",padding:"8px 12px",borderRadius:"8px",
                 marginBottom:"8px",background:"rgba(196,160,80,0.06)",border:"1px solid rgba(196,160,80,0.15)"}}>
                 <span style={{fontSize:"0.78rem",color:"#7a7890",flex:1}}>
-                  📚 오른쪽 상단 <b style={{color:"#c4a050"}}>단어장 만들기</b> 버튼으로 나만의 단어장을 만들 수 있어요
+                  {uiLang==="en"?"📚 Use the wordbook button (top right) to create custom wordbooks":"📚 오른쪽 상단 단어장 만들기 버튼으로 나만의 단어장을 만들 수 있어요"}
                 </span>
                 <button onClick={()=>setShowWalletModal(true)}
                   style={{padding:"4px 10px",borderRadius:"7px",background:"rgba(196,160,80,0.2)",
@@ -2999,7 +2999,7 @@ export default function HebrewQuiz() {
                               const [rn,setRn]=[w._repeatN||1,n=>setWords(ws=>ws.map(x=>x.id===w.id?{...x,_repeatN:n}:x))];
                               return(
                                 <div style={{display:"flex",gap:"4px",alignItems:"center"}}>
-                                  <span style={{fontSize:"0.65rem",color:"#5a5870",flexShrink:0}}>발음</span>
+                                  <span style={{fontSize:"0.65rem",color:"#5a5870",flexShrink:0}}>{uiLang==="en"?"Play":"발음"}</span>
                                   <SpeakOnceBtn text={w.hebrew} onSpeak={speakOnDemand} muted={muted} repeatN={rn}/>
                                   <input type="number" min={1} max={20} value={rn}
                                     onClick={e=>e.stopPropagation()}
@@ -3012,7 +3012,7 @@ export default function HebrewQuiz() {
                             })()}
                             {/* 편집 버튼들 */}
                             <div style={{display:"flex",gap:"4px",borderTop:"1px solid rgba(255,255,255,0.07)",paddingTop:"5px"}}>
-                              <button onClick={()=>{startEdit(w);setExpandedVariantWord(null);}} style={{...S.btnEdit,flex:1,padding:"4px",background:"rgba(255,255,255,0.04)",borderRadius:"6px",border:"1px solid rgba(255,255,255,0.08)",fontSize:"0.78rem"}}>✏️ 편집</button>
+                              <button onClick={()=>{startEdit(w);setExpandedVariantWord(null);}} style={{...S.btnEdit,flex:1,padding:"4px",background:"rgba(255,255,255,0.04)",borderRadius:"6px",border:"1px solid rgba(255,255,255,0.08)",fontSize:"0.78rem"}}>{uiLang==="en"?"✏️ Edit":"✏️ 편집"}</button>
                               <button onClick={()=>{setExpandedVariantWord(expandedVariantWord===`menu_${w.id}`?w.id:w.id);openVariantModal(w);}} style={{...S.btnEdit,flex:1,padding:"4px",background:"rgba(100,80,200,0.08)",borderRadius:"6px",border:"1px solid rgba(100,80,200,0.2)",color:"#9060f0",fontSize:"0.78rem"}}>🔀 변형{w.variants?.length?` ${w.variants.length}`:""}</button>
                               {wallets.length>0&&<button onClick={e=>{e.stopPropagation();setWalletPickWord(w.id);}}
                                 style={{...S.btnEdit,flex:1,padding:"4px",background:"rgba(196,160,80,0.08)",borderRadius:"6px",border:"1px solid rgba(196,160,80,0.25)",color:"#c4a050",fontSize:"0.78rem"}}>
@@ -3098,7 +3098,7 @@ export default function HebrewQuiz() {
                 badge={essayPoolSize>0?`${essayPoolSize}개 가능`:uiLang==="en"?"No words":"단어 없음"}/>
               {openSections.quiz_essay&&<div style={{marginTop:"12px"}}>
               <p style={{fontSize:"0.82rem",color:"#7a7890",marginBottom:"12px"}}>{T.essaySub}</p>
-              <p style={S.settingLabel}>문제 방향</p>
+              <p style={S.settingLabel}>{T.direction}</p>
               <div style={S.optionRow}>
                 {[["heb_to_mean",T.dirAtoB_e(bookInfo)],["mean_to_heb",T.dirBtoA_e(bookInfo)],["mixed",T.mixed]].map(([val,label])=>(
                   <button key={val} style={{...S.optBtn,...(essayType===val?S.essayOptActive:{})}} onClick={()=>setEssayType(val)}>{label}</button>
