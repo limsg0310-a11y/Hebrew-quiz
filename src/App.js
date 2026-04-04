@@ -2763,14 +2763,6 @@ export default function HebrewQuiz() {
                   <div style={{padding:"10px 12px",borderRadius:"10px",background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.08)"}}>
                     <div style={{fontSize:"0.72rem",color:"#7a7890",marginBottom:"6px"}}>{T.addToWordbook}</div>
                     <div style={{display:"flex",gap:"5px",flexWrap:"wrap"}}>
-                      <button onClick={()=>setImportExcludeDefault(v=>!v)}
-                        style={{padding:"4px 10px",borderRadius:"7px",fontSize:"0.75rem",cursor:"pointer",border:"1px solid",
-                          background:!importExcludeDefault?"rgba(196,160,80,0.2)":"rgba(255,255,255,0.04)",
-                          borderColor:!importExcludeDefault?"rgba(196,160,80,0.5)":"rgba(255,255,255,0.1)",
-                          color:!importExcludeDefault?"#c4a050":"#5a5870",display:"flex",alignItems:"center",gap:"5px"}}>
-                        <span style={{width:"8px",height:"8px",borderRadius:"50%",background:"#c4a050",display:"inline-block",flexShrink:0}}/>
-                        {uiLang==="en"?"Default (All)":"기본 단어장"}{!importExcludeDefault?" ✓":""}
-                      </button>
                       {wallets.map(wl=>{
                         const sel=importTargetWallets.has(wl.id);
                         return(
