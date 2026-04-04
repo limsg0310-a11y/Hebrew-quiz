@@ -2730,7 +2730,6 @@ export default function HebrewQuiz() {
                   <button style={S.btnIO("#c4a050","rgba(196,160,80,0.15)","rgba(196,160,80,0.4)")} onClick={()=>setShowWordSearchModal(true)}>{T.importSearch}</button>
                   <button style={S.btnIO("#50c898","rgba(80,160,120,0.15)","rgba(80,160,120,0.4)")} onClick={()=>setShowPealimModal(true)}>{T.reversoImport}</button>
                   <button style={S.btnIO("#c4a050","rgba(196,160,80,0.15)","rgba(196,160,80,0.4)")} onClick={()=>setShowRootModal(true)}>{T.rootSearch}</button>
-                  <button style={S.btnIO("#9060f0","rgba(100,80,200,0.15)","rgba(100,80,200,0.4)")} onClick={()=>variantFileRef.current.click()}>{T.variantExcel}</button>
                   <button style={S.btnIO("#50c898","rgba(80,160,120,0.15)","rgba(80,160,120,0.4)")} onClick={()=>verbFormFileRef.current?.click()}>{T.verbForm}</button>
                   <button onClick={downloadTemplate} style={S.btnIO("#c4a050","rgba(196,160,80,0.1)","rgba(196,160,80,0.3)")}>{T.formDownload}</button>
                   <button onClick={refreshAllVariants} disabled={refreshingVariants}
@@ -3248,7 +3247,6 @@ export default function HebrewQuiz() {
               <p style={{fontSize:"0.82rem",color:"#7a7890",marginBottom:"8px"}}>{uiLang==="en"?"Select variant types and word range, then start the quiz.":"변형 유형과 단어 범위를 선택하고 퀴즈를 시작해요."}</p>
 
               <input ref={verbFormFileRef} type="file" accept=".xlsx,.xls" style={{display:"none"}} onChange={handleVerbFormExcel}/>
-              <input ref={variantFileRef} type="file" accept=".xlsx,.xls" style={{display:"none"}} onChange={handleVariantExcel}/>
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"6px"}}>
                 <p style={{...S.settingLabel,margin:0}}>{T.variantTypeSelect}</p>
                 <button onClick={()=>setVariantCatsSave(variantCats.length===VARIANT_CATS.length?[]:VARIANT_CATS.map(c=>c.id))}
