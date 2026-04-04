@@ -2705,7 +2705,7 @@ export default function HebrewQuiz() {
               {currentBook!=="hebrew"&&(
                 <div style={{marginBottom:"8px"}}>
                   <button style={{...S.btnIO("#c4a050","rgba(196,160,80,0.15)","rgba(196,160,80,0.4)"),width:"100%"}} onClick={()=>setShowWordSearchModal(true)}>
-                    uiLang==="en"?(currentBook==="english"?"🔎 Find English by meaning":"🔎 Find Korean by meaning"):(currentBook==="english"?"🔎 한국어/히브리어로 영어 찾기":"🔎 영어/히브리어로 한국어 찾기")
+                    {uiLang==="en"?(currentBook==="english"?"🔎 Find English by meaning":"🔎 Find Korean by meaning"):(currentBook==="english"?"🔎 한국어/히브리어로 영어 찾기":"🔎 영어/히브리어로 한국어 찾기")}
                   </button>
                 </div>
               )}
