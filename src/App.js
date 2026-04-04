@@ -1224,7 +1224,7 @@ export default function HebrewQuiz() {
                 <option value="wrong_desc">❌ 오답 많은 것 먼저</option>
               </select>
               <div style={{display:"flex",gap:"3px",background:"rgba(255,255,255,0.06)",borderRadius:"10px",padding:"3px"}}>
-                {[10,20,9999].map(n=>(<button key={n} onClick={()=>{setPageSizeSave(n);setPage(0);}} style={{padding:"6px 10px",borderRadius:"8px",fontSize:"0.78rem",cursor:"pointer",border:"none",background:pageSize===n?"rgba(255,255,255,0.12)":"transparent",color:pageSize===n?"#fff":"#5a5870",fontWeight:pageSize===n?600:400}}>{n===9999?"전체":`${n}개`}</button>))}
+                {[10,20,9999].map(n=>(<button key={n} onClick={()=>{setPageSize(n);setPage(0);}} style={{padding:"6px 10px",borderRadius:"8px",fontSize:"0.78rem",c    ursor:"pointer",border:"none",background:pageSize===n?"rgba(255,255,255,0.12)":"transparent",color:pageSize===n?"#fff":"#5a5870",fontWeight:pageSize===n?600:400}}>{n===9999?"전체":`${n}개`}</button>))}
               </div>
             </div>
 
