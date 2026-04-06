@@ -516,11 +516,11 @@ export default function HebrewQuiz() {
   const handleVariantNext=()=>{if(variantCur+1>=variantQuestions.length){setMode(MODES.VARIANT_RESULT);return;}setVariantCur(c=>c+1);setVariantInput("");setVariantConfirmed(false);setVariantSelected(null);if(variantQuizType==="essay"&&variantInputRef.current)variantInputRef.current.focus();};
   const handleEssayConfirm=()=>{const q=essayQuestions[essayCurrent];const inputVal=q.questionType==="mean_to_heb"?essayHebrewRef.current?.value||"":essayInput;if(!inputVal.trim())return;const cv=q.questionType==="mean_to_heb"?stripNikkud(inputVal):inputVal;const ca=q.questionType==="mean_to_heb"?stripNikkud(q.answer):q.answer;const result=checkEssayAnswer(cv,ca);updateWordStats(q.wordId,result!=="wrong");setEssayResults(r=>[...r,{...q,userInput:inputVal,result}]);setEssayConfirmed(true);speak(q.hebrewWord||q.question);};
   const handleEssayNext=()=>{if(essayCurrent+1>=essayQuestions.length){setMode(MODES.ESSAY_RESULT);return;}setEssayCurrent(c=>c+1);setEssayInput("");setEssayConfirmed(false);setAnimKey(k=>k+1);if(essayHebrewRef.current)essayHebrewRef.current.value="";};
-  const handleConfirm=()=>{if(!selected)return;const correct=selected===questions[current].answer;if(correct)setScore(s=>s+1);else setWrongWords(w=>[...w,questions[current]]);updateWordStats(questions[current].wordId,correct);setConfirmed(true);}; // eslint-disable-line
+  const handleConfirm=()=>{if(!selected)return;const correct=selected===questions[current].answer;if(correct)setScore(s=>s+1);else setWrongWords(w=>[...w,questions[current]]);updateWordStats(questions[current].wordId,correct);setConfirmed(true);};
   const handleNext=()=>{if(current+1>=questions.length){setMode(MODES.RESULT);return;}setCurrent(c=>c+1);setSelected(null);setConfirmed(false);setAnimKey(k=>k+1);};
 
   const spokenKey=useRef(-1);
-  useEffect(()=>{if(mode!==MODES.QUIZ||soundMode!=="auto")return;const q=questions[current];if(!q||q.questionType!==QUIZ_TYPES.HEB_TO_MEAN)return;if(spokenKey.current===animKey)return;spokenKey.current=animKey;const t=setTimeout(()=>speak(q.question),500);return()=>clearTimeout(t);},[current,animKey,mode,soundMode]); // eslint-disable-line
+  useEffect(()=>{if(mode!==MODES.QUIZ||soundMode!=="auto")return;const q=questions[current];if(!q||q.questionType!==QUIZ_TYPES.HEB_TO_MEAN)return;if(spokenKey.current===animKey)return;spokenKey.current=animKey;const t=setTimeout(()=>speak(q.question),500);return()=>clearTimeout(t);},[current,animKey,mode,soundMode]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(()=>{if(mode===MODES.ESSAY&&essayInputRef.current)essayInputRef.current.focus();},[essayCurrent,mode]);
 
   const q=questions[current];const eq=essayQuestions[essayCurrent];
@@ -867,7 +867,6 @@ export default function HebrewQuiz() {
             {/* Quiz type cards */}
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"8px",marginBottom:"20px"}}>
               {[{key:"mcq",icon:"🎯",color:TA,title:T.mcqTitle,desc:uiLang==="en"?"4 choices":"객관식 4지선다",cnt:`${poolSize}${uiLang==="en"?" words":" 개"}`},{key:"essay",icon:"✍️",color:TP,title:T.essayTitle,desc:uiLang==="en"?"Type answers":"직접 입력",cnt:`${essayPoolSize}${uiLang==="en"?" words":" 개"}`},{key:"variant",icon:"📐",color:TG,title:T.variantQuizTitle,desc:uiLang==="en"?"Conjugations":"변형/활용",cnt:`${variantPoolSize}${uiLang==="en"?" forms":" 개"}`}].map(qt=>{
-                const active=activeTab==="quiz";
                 return<button key={qt.key} onClick={()=>document.getElementById(`quiz-${qt.key}`)?.scrollIntoView({behavior:"smooth"})} style={{background:TS,border:`1px solid ${TL}`,borderRadius:"2px",padding:"14px 10px",cursor:"pointer",textAlign:"left",transition:"border-color 0.15s"}}>
                   <div style={{fontSize:"1.3rem",marginBottom:"6px"}}>{qt.icon}</div>
                   <div style={{fontSize:"0.75rem",fontWeight:700,color:qt.color,marginBottom:"2px",letterSpacing:"0.3px"}}>{qt.title}</div>
