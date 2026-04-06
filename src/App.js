@@ -263,6 +263,12 @@ function RepeatSpeakBtn({text,onSpeak,muted=false}){
 }
 
 // ── Main App ──────────────────────────────────────────────────
+// ── Style helpers ─────────────────────────────────────────────
+const SL={margin:"0 0 6px",fontSize:"0.58rem",color:TD,textTransform:"uppercase",letterSpacing:"1.5px",fontWeight:600};
+const OR={display:"flex",gap:"5px",marginBottom:"12px",flexWrap:"wrap"};
+const Mo={overlay:{position:"fixed",inset:0,background:"rgba(0,0,0,0.88)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:900,padding:"16px"},box:{background:TS,border:`1px solid rgba(255,255,255,0.07)`,borderRadius:"2px",padding:"22px",maxWidth:"440px",width:"100%",boxShadow:"0 24px 60px rgba(0,0,0,0.7)"},title:{margin:"0 0 6px",color:TT,fontSize:"0.92rem",fontWeight:600},sub:{margin:"0 0 10px",color:TD,fontSize:"0.78rem"},ta:{width:"100%",height:"145px",background:"rgba(255,255,255,0.03)",border:`1px solid ${TL}`,borderRadius:"2px",color:TT,padding:"10px",fontSize:"0.78rem",resize:"vertical",outline:"none",fontFamily:"monospace",marginBottom:"10px"},row:{display:"flex",gap:"6px"}};
+const Bt={primary:{padding:"9px 17px",borderRadius:"2px",background:TA,border:"none",color:"#fff",fontWeight:600,cursor:"pointer",fontSize:"0.8rem"},ghost:{padding:"8px 13px",borderRadius:"2px",background:"transparent",border:`1px solid ${TL}`,color:TM,cursor:"pointer",fontSize:"0.8rem"},green:{padding:"9px 17px",borderRadius:"2px",background:TG,border:"none",color:"#071a0e",fontWeight:600,cursor:"pointer",fontSize:"0.8rem"},essay:{padding:"9px 17px",borderRadius:"2px",background:TP,border:"none",color:"#fff",fontWeight:600,cursor:"pointer",fontSize:"0.8rem"},input:{width:"100%",padding:"10px 13px",background:"rgba(255,255,255,0.04)",border:`1px solid ${TL}`,borderRadius:"2px",color:TT,fontSize:"0.92rem",outline:"none",fontFamily:"inherit"},opt:{padding:"7px 11px",borderRadius:"2px",border:`1px solid ${TL}`,background:"transparent",color:TM,cursor:"pointer",fontSize:"0.72rem"},optActive:{background:"rgba(232,74,95,0.1)",borderColor:"rgba(232,74,95,0.45)",color:TA},essayOptActive:{background:"rgba(167,139,250,0.1)",borderColor:"rgba(167,139,250,0.4)",color:TP}};
+
 export default function App() {
   const envKey=process.env.REACT_APP_GOOGLE_TTS_KEY||"";
   const [apiKey]=useState(envKey);
@@ -1012,9 +1018,3 @@ export default function App() {
     </div>
   );
 }
-
-// ── Style helpers ─────────────────────────────────────────────
-const SL={margin:"0 0 6px",fontSize:"0.58rem",color:TD,textTransform:"uppercase",letterSpacing:"1.5px",fontWeight:600};
-const OR={display:"flex",gap:"5px",marginBottom:"12px",flexWrap:"wrap"};
-const Mo={overlay:{position:"fixed",inset:0,background:"rgba(0,0,0,0.88)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:900,padding:"16px"},box:{background:TS,border:`1px solid rgba(255,255,255,0.07)`,borderRadius:"2px",padding:"22px",maxWidth:"440px",width:"100%",boxShadow:"0 24px 60px rgba(0,0,0,0.7)"},title:{margin:"0 0 6px",color:TT,fontSize:"0.92rem",fontWeight:600},sub:{margin:"0 0 10px",color:TD,fontSize:"0.78rem"},ta:{width:"100%",height:"145px",background:"rgba(255,255,255,0.03)",border:`1px solid ${TL}`,borderRadius:"2px",color:TT,padding:"10px",fontSize:"0.78rem",resize:"vertical",outline:"none",fontFamily:"monospace",marginBottom:"10px"},row:{display:"flex",gap:"6px"}};
-const Bt={primary:{padding:"9px 17px",borderRadius:"2px",background:TA,border:"none",color:"#fff",fontWeight:600,cursor:"pointer",fontSize:"0.8rem"},ghost:{padding:"8px 13px",borderRadius:"2px",background:"transparent",border:`1px solid ${TL}`,color:TM,cursor:"pointer",fontSize:"0.8rem"},green:{padding:"9px 17px",borderRadius:"2px",background:TG,border:"none",color:"#071a0e",fontWeight:600,cursor:"pointer",fontSize:"0.8rem"},essay:{padding:"9px 17px",borderRadius:"2px",background:TP,border:"none",color:"#fff",fontWeight:600,cursor:"pointer",fontSize:"0.8rem"},input:{width:"100%",padding:"10px 13px",background:"rgba(255,255,255,0.04)",border:`1px solid ${TL}`,borderRadius:"2px",color:TT,fontSize:"0.92rem",outline:"none",fontFamily:"inherit"},opt:{padding:"7px 11px",borderRadius:"2px",border:`1px solid ${TL}`,background:"transparent",color:TM,cursor:"pointer",fontSize:"0.72rem"},optActive:{background:"rgba(232,74,95,0.1)",borderColor:"rgba(232,74,95,0.45)",color:TA},essayOptActive:{background:"rgba(167,139,250,0.1)",borderColor:"rgba(167,139,250,0.4)",color:TP}};
