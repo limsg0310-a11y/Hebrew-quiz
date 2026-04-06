@@ -318,7 +318,7 @@ export default function HebrewQuiz() {
   const [walletColor,setWalletColor]=useState(TA);
   const [walletDetailId,setWalletDetailId]=useState(null);
   const saveWallets=(w)=>{setWallets(w);try{localStorage.setItem("wordWallets",JSON.stringify(w));}catch{} if(user){setDoc(doc(fbDb,"users",user.uid),{wallets:w,walletsUpdatedAt:new Date().toISOString()},{merge:true}).catch(()=>{});}};
-  const createWallet=()=>{if(!walletName.trim())return;saveWallets([{id:Date.now(),name:walletName.trim(),color:walletColor,wordIds:[],...wallets},...wallets]);setWalletName("");setWalletColor(TA);};
+  const createWallet=()=>{if(!walletName.trim())return;saveWallets([{id:Date.now(),name:walletName.trim(),color:walletColor,wordIds:[]},...wallets,...wallets]);setWalletName("");setWalletColor(TA);};
   const deleteWallet=(id)=>saveWallets(wallets.filter(w=>w.id!==id));
   const toggleWordInWallet=(wid,wordId)=>saveWallets(wallets.map(w=>w.id===wid?{...w,wordIds:w.wordIds.includes(wordId)?w.wordIds.filter(i=>i!==wordId):[...w.wordIds,wordId]}:w));
   const getWalletWords=(wid)=>{const w=wallets.find(x=>x.id===wid);return w?words.filter(wd=>w.wordIds.includes(wd.id)):[];};
