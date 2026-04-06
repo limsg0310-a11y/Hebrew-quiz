@@ -263,7 +263,7 @@ function RepeatSpeakBtn({text,onSpeak,muted=false}){
 }
 
 // ── Main App ──────────────────────────────────────────────────
-export default function HebrewQuiz() {
+export default function App() {
   const envKey=process.env.REACT_APP_GOOGLE_TTS_KEY||"";
   const [apiKey]=useState(envKey);
   const ttsReady=!!envKey;
