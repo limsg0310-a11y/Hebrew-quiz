@@ -206,7 +206,7 @@ function shuffle(a){return[...a].sort(()=>Math.random()-0.5);}
 function loadWords(book){try{const k=book&&book!=="hebrew"?getLSKey(book):LS_KEY;const s=localStorage.getItem(k);if(s)return JSON.parse(s);}catch{}return book&&book!=="hebrew"?[]:DEFAULT_WORDS;}
 function saveWords(words,book){try{const k=book&&book!=="hebrew"?getLSKey(book):LS_KEY;localStorage.setItem(k,JSON.stringify(words));}catch{}}
 
-function checkEssayAnswer(u,c){const n=s=>s.trim().toLowerCase().replace(/[\/-,.·]/g," ").replace(/\s+/g," ").trim();const uu=n(u),cc=n(c);if(uu===cc) return"exact";const cw=cc.split(" ").filter(w=>w.length>1),uw=uu.split(" ").filter(w=>w.length>1);const m=cw.filter(w=>uw.some(x=>x.includes(w)||w.includes(x)));if(m.length>=Math.ceil(cw.length*0.6)) return"partial";return"wrong";}
+function checkEssayAnswer(u,c){const n=s=>s.trim().toLowerCase().replace(/[\/\-,.·]/g," ").replace(/\s+/g," ").trim();const uu=n(u),cc=n(c);if(uu===cc) return"exact";const cw=cc.split(" ").filter(w=>w.length>1),uw=uu.split(" ").filter(w=>w.length>1);const m=cw.filter(w=>uw.some(x=>x.includes(w)||w.includes(x)));if(m.length>=Math.ceil(cw.length*0.6)) return"partial";return"wrong";}
 
 function generateQuestion(word,allWords,type){
   let t=type===QUIZ_TYPES.MIXED?(word.meaning&&Math.random()>0.5?QUIZ_TYPES.MEAN_TO_HEB:QUIZ_TYPES.HEB_TO_MEAN):type;
@@ -318,7 +318,7 @@ export default function HebrewQuiz() {
   const [walletColor,setWalletColor]=useState(TA);
   const [walletDetailId,setWalletDetailId]=useState(null);
   const saveWallets=(w)=>{setWallets(w);try{localStorage.setItem("wordWallets",JSON.stringify(w));}catch{} if(user){setDoc(doc(fbDb,"users",user.uid),{wallets:w,walletsUpdatedAt:new Date().toISOString()},{merge:true}).catch(()=>{});}};
-  const createWallet=()=>{if(!walletName.trim())return;saveWallets([{id:Date.now(),name:walletName.trim(),color:walletColor,wordIds:[]},...wallets,...wallets]);setWalletName("");setWalletColor(TA);};
+  const createWallet=()=>{if(!walletName.trim())return;saveWallets([{id:Date.now(),name:walletName.trim(),color:walletColor,wordIds:[]},...wallets]);setWalletName("");setWalletColor(TA);};
   const deleteWallet=(id)=>saveWallets(wallets.filter(w=>w.id!==id));
   const toggleWordInWallet=(wid,wordId)=>saveWallets(wallets.map(w=>w.id===wid?{...w,wordIds:w.wordIds.includes(wordId)?w.wordIds.filter(i=>i!==wordId):[...w.wordIds,wordId]}:w));
   const getWalletWords=(wid)=>{const w=wallets.find(x=>x.id===wid);return w?words.filter(wd=>w.wordIds.includes(wd.id)):[];};
