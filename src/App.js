@@ -260,7 +260,7 @@ function RepeatSpeakBtn({text,onSpeak,muted=false}){
   return(<div style={{display:"flex",alignItems:"center",gap:"4px"}}>
     {[1,5,10].map(m=><button key={m} onClick={e=>{e.stopPropagation();if(!p)setRm(m);}} style={{padding:"4px 7px",borderRadius:"2px",border:"1px solid",fontSize:"0.62rem",fontWeight:700,cursor:p?"not-allowed":"pointer",background:rm===m?"rgba(232,74,95,0.18)":"rgba(255,255,255,0.03)",borderColor:rm===m?"rgba(232,74,95,0.5)":TL,color:rm===m?TA:TD}}>{m}×</button>)}
     <button onClick={p?hst:hs} style={{background:muted?"transparent":p?"rgba(232,74,95,0.12)":"rgba(255,255,255,0.04)",border:"1px solid "+(muted?"transparent":p?"rgba(232,74,95,0.4)":TL),borderRadius:"2px",cursor:muted?"default":"pointer",padding:"9px 15px",fontSize:"0.92rem",lineHeight:1,opacity:muted?0.22:1,color:p?TA:TM}}>{muted?"○":p?"■ "+cnt+"/"+rm:"▷"}</button>
-  </div>;
+  </div>);
 }
 
 // ── Main App ──────────────────────────────────────────────────
