@@ -1,32 +1,79 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
-// 2단계에서 PWA 플러그인 추가 예정
-// import { VitePWA } from 'vite-plugin-pwa'
+import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
   plugins: [
     react(),
-    // VitePWA({ ... })  ← 2단계에서 추가
+    VitePWA({
+      registerType: 'autoUpdate',
+      includeAssets: ['favicon.ico', 'icons/*.png'],
+      manifest: {
+        name: '밀론 — 히브리어 단어장',
+        short_name: '밀론',
+        description: '히브리어 단어 암기, 퀴즈, 학습 분석',
+        theme_color: '#17161C',
+        background_color: '#17161C',
+        display: 'standalone',
+        orientation: 'portrait',
+        start_url: '/',
+        lang: 'ko',
+        icons: [
+          {
+            src: '/icons/icon-192.png',
+            sizes: '192x192',
+            type: 'image/png',
+            purpose: 'any maskable',
+          },
+          {
+            src: '/icons/icon-512.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'any maskable',
+          },
+        ],
+      },
+      workbox: {
+        // 캐시할 파일 패턴
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        // 오프라인 시 fallback
+        navigateFallback: '/index.html',
+        // 큰 파일도 캐시 (현재 App.js가 큼 — 3단계에서 개선)
+        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
+        runtimeCaching: [
+          {
+            // Firebase API 요청 캐시 (네트워크 우선)
+            urlPattern: /^https:\/\/firestore\.googleapis\.com/,
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'firebase-cache',
+              expiration: { maxEntries: 50, maxAgeSeconds: 60 * 60 * 24 },
+            },
+          },
+          {
+            // Google Fonts 캐시
+            urlPattern: /^https:\/\/fonts\.googleapis\.com/,
+            handler: 'StaleWhileRevalidate',
+            options: { cacheName: 'google-fonts' },
+          },
+        ],
+      },
+    }),
   ],
   esbuild: {
-    // .js 파일 안에 JSX 문법이 있어도 처리 (CRA와 달리 Vite는 기본적으로 .jsx만 처리)
     loader: 'jsx',
     include: /src\/.*\.js$/,
     exclude: [],
   },
   optimizeDeps: {
     esbuildOptions: {
-      loader: {
-        '.js': 'jsx',
-      },
+      loader: { '.js': 'jsx' },
     },
   },
   build: {
     outDir: 'dist',
-    // 청크 크기 경고 기준 (현재는 모노리스라 크게 나옴 — 3단계에서 개선)
     chunkSizeWarningLimit: 2000,
   },
-  // Vercel api/ 폴더는 Vite가 건드리지 않음 — 그대로 작동
   server: {
     port: 3000,
   },
