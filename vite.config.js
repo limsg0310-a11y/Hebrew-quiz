@@ -9,8 +9,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', '*.png'],
       manifest: {
-        name: '밀론 — 히브리어 단어장',
-        short_name: '밀론',
+        name: 'Milon : 히브리어 단어장',
+        short_name: 'Milon',
         description: '히브리어 단어 암기, 퀴즈, 학습 분석',
         theme_color: '#17161C',
         background_color: '#17161C',
