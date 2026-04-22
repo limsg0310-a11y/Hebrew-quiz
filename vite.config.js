@@ -7,7 +7,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'icons/*.png'],
+      includeAssets: ['favicon.ico', '*.png'],
       manifest: {
         name: '밀론 — 히브리어 단어장',
         short_name: '밀론',
@@ -20,13 +20,13 @@ export default defineConfig({
         lang: 'ko',
         icons: [
           {
-            src: '/icons/icon-192.png',
+            src: '/icon-192.png',
             sizes: '192x192',
             type: 'image/png',
             purpose: 'any maskable',
           },
           {
-            src: '/icons/icon-512.png',
+            src: '/icon-512.png',
             sizes: '512x512',
             type: 'image/png',
             purpose: 'any maskable',
