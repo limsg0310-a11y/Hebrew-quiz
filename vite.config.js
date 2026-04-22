@@ -8,6 +8,19 @@ export default defineConfig({
     react(),
     // VitePWA({ ... })  ← 2단계에서 추가
   ],
+  esbuild: {
+    // .js 파일 안에 JSX 문법이 있어도 처리 (CRA와 달리 Vite는 기본적으로 .jsx만 처리)
+    loader: 'jsx',
+    include: /src\/.*\.js$/,
+    exclude: [],
+  },
+  optimizeDeps: {
+    esbuildOptions: {
+      loader: {
+        '.js': 'jsx',
+      },
+    },
+  },
   build: {
     outDir: 'dist',
     // 청크 크기 경고 기준 (현재는 모노리스라 크게 나옴 — 3단계에서 개선)
