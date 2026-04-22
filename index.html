@@ -3,20 +3,35 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+
+  <!-- SEO -->
+  <title>Milon : 히브리어 단어장</title>
+  <meta name="description" content="히브리어 단어를 암기하고 퀴즈로 실력을 확인하세요. 학습 분석, AI 질문, 오프라인 지원까지 제공하는 히브리어 단어장 앱입니다." />
+  <meta name="keywords" content="히브리어, 히브리어 단어장, Hebrew, 히브리어 공부, 성경 히브리어" />
+  <meta name="robots" content="index, follow" />
+  <link rel="canonical" href="https://hebrew-quiz.vercel.app/" />
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Milon : 히브리어 단어장" />
+  <meta property="og:description" content="히브리어 단어 암기, 퀴즈, 학습 분석을 한 곳에서" />
+  <meta property="og:image" content="/icon-512.png" />
+
+  <!-- PWA -->
   <meta name="theme-color" content="#17161C" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Milon" />
   <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-  <meta name="description" content="히브리어 단어장 — 암기·퀴즈·학습분석" />
   <link rel="manifest" href="/manifest.json" />
   <link rel="icon" href="/favicon.ico" />
-  <title>Milon : 히브리어 단어장</title>
+
+  <!-- 폰트 preload -->
+  <link rel="preload" href="/NanumSquare.ttf" as="font" type="font/truetype" crossorigin />
 </head>
 <body>
   <noscript>JavaScript가 필요합니다.</noscript>
   <div id="root"></div>
-  <!-- Vite가 빌드 시 자동으로 script 태그 삽입 -->
   <script type="module" src="/src/index.js"></script>
 </body>
 </html>
