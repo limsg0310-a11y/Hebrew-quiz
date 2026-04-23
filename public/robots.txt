@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://hebrew-quiz.vercel.app/sitemap.xml
+Sitemap: https://hebrew-quiz-ohr.vercel.app/sitemap.xml
